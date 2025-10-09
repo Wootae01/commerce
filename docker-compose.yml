@@ -1,0 +1,32 @@
+services:
+  db: # 서비스 이름 (compose 내부 식별자)
+    image: mysql:8.0
+    container_name: db-commerce
+    environment:
+      MYSQL_DATABASE: commerce
+      MYSQL_USER: commerce_user
+      MYSQL_PASSWORD: commerce1234
+      MYSQL_ROOT_PASSWORD: commerce1234
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+    networks:
+      - monitoring
+    healthcheck:
+      test: [ "CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "commerce_user", "--password=commerce1234" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s  # 컨테이너 시작 후 30초 동안은 실패를 무시
+    deploy:
+      resources:
+        limits:
+          cpus: "2"  # 최대 2개의 코어 할당
+          memory: 2GB   # 최대 2GB 메모리 할당
+
+networks:
+  monitoring:
+volumes:
+  mysql_data:
+  grafana_data:
