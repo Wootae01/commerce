@@ -2,11 +2,15 @@ package com.commerce.domain;
 
 import com.commerce.domain.enums.PaymentType;
 import jakarta.persistence.*;
+import lombok.Getter;
+import lombok.Setter;
 
 import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "orders")
+@Getter
+@Setter
 public class Orders {
 
     @Id
