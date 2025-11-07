@@ -1,4 +1,7 @@
 spring:
+  config:
+    import: optional:file:.env[.properties]
+
   datasource:
     username: commerce
     password: commerce1234
@@ -15,3 +18,4 @@ spring:
         format_sql: true
         show_sql: true
         dialect: org.hibernate.dialect.MySQL8Dialect
+
