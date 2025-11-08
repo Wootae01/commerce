@@ -2,13 +2,15 @@ package com.commerce.config;
 
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 
-import com.commerce.oauth2.CustomClientRegistrationRepo;
+import com.commerce.auth.CustomClientRegistrationRepo;
 import com.commerce.service.CustomOauth2UserService;
+import com.commerce.service.CustomUserDetailService;
 
 import lombok.RequiredArgsConstructor;
 
@@ -19,6 +21,11 @@ public class SecurityConfig {
 
 	private final CustomOauth2UserService customOauth2UserService;
 	private final CustomClientRegistrationRepo clientRegistrationRepo;
+	private final CustomUserDetailService customUserDetailService;
+	@Bean
+	public PasswordEncoder passwordEncoder() {
+		return new BCryptPasswordEncoder();
+	}
 
 	@Bean
 	public SecurityFilterChain filterChain(HttpSecurity http) throws Exception{
@@ -27,11 +34,19 @@ public class SecurityConfig {
 			.csrf((csrf) -> csrf.disable());
 
 		http
-			.formLogin((login) -> login.disable());
-
-		http
 			.httpBasic((basic) -> basic.disable());
 
+		// 관리자 로그인
+		http
+			.formLogin(form -> form
+				.loginPage("/admin/login")
+				.loginProcessingUrl("/admin/login")
+				.failureUrl("/admin/login?error")
+				.defaultSuccessUrl("/", true)
+				.permitAll())
+			.userDetailsService(customUserDetailService);
+
+		// sns 로그인
 		http
 			.oauth2Login((oauth2) -> oauth2
 				.loginPage("/login")
@@ -39,8 +54,10 @@ public class SecurityConfig {
 				.userInfoEndpoint(userInfoEndpointConfig ->
 					userInfoEndpointConfig.userService(customOauth2UserService)));
 
+		// 접근 설정
 		http
 			.authorizeHttpRequests((auth) -> auth
+				.requestMatchers("/admin/**").hasRole("ADMIN")
 				.requestMatchers("/", "/oauth2/**", "/login/**", "/home")
 				.permitAll()
 				.anyRequest().authenticated());

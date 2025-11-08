@@ -1,5 +1,6 @@
 package com.commerce.service;
 
+import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.oauth2.client.userinfo.DefaultOAuth2UserService;
 import org.springframework.security.oauth2.client.userinfo.OAuth2UserRequest;
 import org.springframework.security.oauth2.core.OAuth2AuthenticationException;
@@ -41,7 +42,8 @@ public class CustomOauth2UserService extends DefaultOAuth2UserService {
 		RoleType role = null;
 		String username = oauth2Response.getProvider() + " " + oauth2Response.getProviderId();
 
-		User existUser = userRepository.findByUsername(username);
+		User existUser = userRepository.findByUsername(username)
+			.orElseThrow(() -> new UsernameNotFoundException("사용자를 찾을 수 없습니다."));
 
 		if (existUser == null) {
 			User user = new User();
