@@ -8,7 +8,7 @@ import lombok.Setter;
 @Table(name = "order_product")
 @Getter
 @Setter
-public class OrderProduct {
+public class OrderProduct extends BaseEntity{
 
     @Id
     @Column(name = "order_product_id")

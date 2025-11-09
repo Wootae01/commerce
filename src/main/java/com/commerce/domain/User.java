@@ -10,7 +10,7 @@ import org.springframework.context.annotation.Primary;
 @Entity
 @Getter
 @Setter
-public class User {
+public class User extends BaseEntity{
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)

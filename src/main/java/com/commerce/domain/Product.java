@@ -7,7 +7,7 @@ import lombok.Setter;
 @Entity
 @Getter
 @Setter
-public class Product {
+public class Product extends BaseEntity{
 
     @Id
     @Column(name = "product_id")
@@ -17,6 +17,6 @@ public class Product {
     private int price;
     private String name;
     private int stock;
-    private int img_url;
+    private int imgUrl;
     private String description;
 }

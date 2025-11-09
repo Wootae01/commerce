@@ -17,7 +17,6 @@ public class ProductController {
 
     private final ProductService productService;
 
-
     // 상품 상세 검색
     @GetMapping("/{id}")
     public String getProductDetail(@PathVariable Long id, Model model) {
@@ -25,28 +24,5 @@ public class ProductController {
         model.addAttribute("product", product);
         return "product-detail";
     }
-
-    // 상품 등록
-    @PostMapping("/create")
-    public String create(Product product) {
-        productService.save(product);
-        return "redirect:/";
-    }
-
-    // 상품 수정
-    @PostMapping("/update")
-    public String update(Long id, Product updatedProduct) {
-        productService.update(id, updatedProduct);
-        return "redirect:/";
-    }
-
-    // 상품 삭제
-    @PostMapping("/delete")
-    public String delete(Long id) {
-        productService.delete(id);
-        return "redirect:/";
-    }
-
-
 
 }
