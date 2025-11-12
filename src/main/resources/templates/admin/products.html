@@ -26,7 +26,7 @@
             <button class="btn btn-outline-primary">검색</button>
         </form>
         <a href="/admin/products/new" class="btn btn-success">
-            <i class="fa-solid fa-plus"></i> 상품 등록
+            상품 등록
         </a>
     </div>
 
@@ -49,7 +49,7 @@
                 <tr th:each="product : ${products}">
                     <td th:text="${product.id}"></td>
                     <td>
-                        <img th:src="@{${product.imgUrl}}" alt="상품 이미지"
+                        <img th:src="@{${product.mainImageUrl}}" alt="상품 대표 이미지"
                              style="width:60px; height:60px; object-fit:cover;" class="rounded">
                     </td>
                     <td th:text="${product.name}"></td>
