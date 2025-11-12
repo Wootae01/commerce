@@ -58,9 +58,17 @@ public class SecurityConfig {
 		http
 			.authorizeHttpRequests((auth) -> auth
 				.requestMatchers("/admin/**").hasRole("ADMIN")
-				.requestMatchers("/", "/oauth2/**", "/login/**", "/home")
+				.requestMatchers("/", "/oauth2/**", "/login/**", "/home", "/uploads/**")
 				.permitAll()
 				.anyRequest().authenticated());
+
+		// 로그 아웃
+		http
+			.logout(logout -> logout
+				.logoutUrl("/logout")
+				.logoutSuccessUrl("/")
+				.invalidateHttpSession(true)
+				.deleteCookies("JSESSIONID"));
 
 
 		return http.build();

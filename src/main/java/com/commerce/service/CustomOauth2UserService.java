@@ -1,6 +1,7 @@
 package com.commerce.service;
 
-import org.springframework.security.core.userdetails.UsernameNotFoundException;
+import java.util.Optional;
+
 import org.springframework.security.oauth2.client.userinfo.DefaultOAuth2UserService;
 import org.springframework.security.oauth2.client.userinfo.OAuth2UserRequest;
 import org.springframework.security.oauth2.core.OAuth2AuthenticationException;
@@ -42,10 +43,9 @@ public class CustomOauth2UserService extends DefaultOAuth2UserService {
 		RoleType role = null;
 		String username = oauth2Response.getProvider() + " " + oauth2Response.getProviderId();
 
-		User existUser = userRepository.findByUsername(username)
-			.orElseThrow(() -> new UsernameNotFoundException("사용자를 찾을 수 없습니다."));
+		Optional<User> existUser = userRepository.findByUsername(username);
 
-		if (existUser == null) {
+		if (existUser.isEmpty()) {
 			User user = new User();
 			user.setUsername(username);
 			user.setRole(RoleType.ROLE_USER);
@@ -54,11 +54,12 @@ public class CustomOauth2UserService extends DefaultOAuth2UserService {
 			user.setEmail(oauth2Response.getEmail());
 			userRepository.save(user);
 		} else {
-			existUser.setUsername(username);
-			existUser.setPhone(oauth2Response.getPhone());
-			existUser.setEmail(oauth2Response.getEmail());
-			role = existUser.getRole();
-			userRepository.save(existUser);
+			User user = existUser.get();
+			user.setUsername(username);
+			user.setPhone(oauth2Response.getPhone());
+			user.setEmail(oauth2Response.getEmail());
+			role = user.getRole();
+			userRepository.save(user);
 		}
 
 
