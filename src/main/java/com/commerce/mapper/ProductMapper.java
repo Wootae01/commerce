@@ -9,6 +9,7 @@ import org.springframework.stereotype.Component;
 import com.commerce.domain.Image;
 import com.commerce.domain.Product;
 import com.commerce.dto.AdminProductListDTO;
+import com.commerce.dto.ProductHomeDTO;
 import com.commerce.dto.ImageResponseDTO;
 import com.commerce.dto.ProductDTO;
 import com.commerce.dto.ProductResponseDTO;
@@ -69,12 +70,7 @@ public class ProductMapper {
 		dto.setPrice(product.getPrice());
 		dto.setStock(product.getStock());
 		dto.setCreatedAt(product.getCreatedAt());
-		dto.setMainImageUrl(
-			product.getImages().stream()
-				.filter(Image::isMain)
-				.findFirst()
-				.map(image -> baseUrl + image.getStoreFileName())
-				.orElse(baseUrl + "default.png"));
+		dto.setMainImageUrl(getMainImageUrl(product));
 		dto.setImages(
 			product.getImages().stream()
 				.filter(image -> image.isMain() == false)
@@ -82,5 +78,26 @@ public class ProductMapper {
 				.toList()
 		);
 		return dto;
+	}
+
+	public List<ProductHomeDTO> toHomeProductDTO(List<Product> products) {
+		List<ProductHomeDTO> result = new ArrayList<>();
+		for (Product product : products) {
+			result.add(toHomeProductDTO(product));
+		}
+		return result;
+	}
+	public ProductHomeDTO toHomeProductDTO(Product product) {
+		return new ProductHomeDTO(
+			product.getId(), getMainImageUrl(product), product.getName(), product.getPrice()
+		);
+	}
+
+	private String getMainImageUrl(Product product) {
+		 return product.getImages().stream()
+			.filter(Image::isMain)
+			.findFirst()
+			.map(image -> baseUrl + image.getStoreFileName())
+			.orElse(baseUrl + "default.png");
 	}
 }
