@@ -27,49 +27,48 @@ public class SecurityConfig {
 		return new BCryptPasswordEncoder();
 	}
 
+	// (1) 관리자용 보안 설정
 	@Bean
-	public SecurityFilterChain filterChain(HttpSecurity http) throws Exception{
-
+	public SecurityFilterChain adminSecurity(HttpSecurity http) throws Exception {
 		http
-			.csrf((csrf) -> csrf.disable());
-
-		http
-			.httpBasic((basic) -> basic.disable());
-
-		// 관리자 로그인
-		http
+			.securityMatcher("/admin/**") // admin 경로만 적용
+			.csrf(csrf -> csrf.disable())
+			.httpBasic(basic -> basic.disable())
 			.formLogin(form -> form
 				.loginPage("/admin/login")
 				.loginProcessingUrl("/admin/login")
-				.failureUrl("/admin/login?error")
-				.defaultSuccessUrl("/", true)
+				.defaultSuccessUrl("/admin/dashboard", true)
 				.permitAll())
-			.userDetailsService(customUserDetailService);
+			.userDetailsService(customUserDetailService)
+			.authorizeHttpRequests(auth -> auth
+				.requestMatchers("/admin/login", "/admin/login/**").permitAll()
+				.anyRequest().hasRole("ADMIN"))
+			.exceptionHandling(exception -> exception
+				.accessDeniedHandler((req, res, ex) -> res.sendRedirect("/admin/login")));
 
-		// sns 로그인
+		return http.build();
+	}
+
+	// (2) 일반 사용자용 보안 설정
+	@Bean
+	public SecurityFilterChain userSecurity(HttpSecurity http) throws Exception {
 		http
-			.oauth2Login((oauth2) -> oauth2
+			.csrf(csrf -> csrf.disable())
+			.httpBasic(basic -> basic.disable())
+
+			.oauth2Login(oauth2 -> oauth2
 				.loginPage("/login")
 				.clientRegistrationRepository(clientRegistrationRepo.clientRegistrationRepository())
-				.userInfoEndpoint(userInfoEndpointConfig ->
-					userInfoEndpointConfig.userService(customOauth2UserService)));
+				.userInfoEndpoint(userInfo -> userInfo.userService(customOauth2UserService)))
 
-		// 접근 설정
-		http
-			.authorizeHttpRequests((auth) -> auth
-				.requestMatchers("/admin/**").hasRole("ADMIN")
-				.requestMatchers("/", "/oauth2/**", "/login/**", "/home", "/uploads/**")
-				.permitAll()
-				.anyRequest().authenticated());
-
-		// 로그 아웃
-		http
+			.authorizeHttpRequests(auth -> auth
+				.requestMatchers("/", "/home", "/login/**", "/oauth2/**", "/uploads/**", "/products/*", "/error/**").permitAll()
+				.anyRequest().authenticated())
 			.logout(logout -> logout
 				.logoutUrl("/logout")
 				.logoutSuccessUrl("/")
 				.invalidateHttpSession(true)
 				.deleteCookies("JSESSIONID"));
-
 
 		return http.build();
 	}

@@ -9,6 +9,7 @@ import org.springframework.stereotype.Component;
 import com.commerce.domain.Image;
 import com.commerce.domain.Product;
 import com.commerce.dto.AdminProductListDTO;
+import com.commerce.dto.ProductDetailDTO;
 import com.commerce.dto.ProductHomeDTO;
 import com.commerce.dto.ImageResponseDTO;
 import com.commerce.dto.ProductDTO;
@@ -91,6 +92,21 @@ public class ProductMapper {
 		return new ProductHomeDTO(
 			product.getId(), getMainImageUrl(product), product.getName(), product.getPrice()
 		);
+	}
+
+	public ProductDetailDTO toProductDetailDTO(Product product) {
+		String mainImageUrl = getMainImageUrl(product);
+		List<String> images = getSubImagesUrl(product);
+
+		return new ProductDetailDTO(
+			product.getId(), product.getPrice(), product.getName(), mainImageUrl, images, product.getDescription());
+	}
+
+	private List<String> getSubImagesUrl(Product product) {
+		return product.getImages().stream()
+			.filter(image -> image.isMain() == false)
+			.map(image -> baseUrl + image.getStoreFileName())
+			.toList();
 	}
 
 	private String getMainImageUrl(Product product) {
