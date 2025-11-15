@@ -6,7 +6,7 @@ import lombok.Setter;
 
 @Entity
 @Getter
-@Setter
+
 public class CartProduct extends BaseEntity{
 
     @Id
@@ -18,6 +18,36 @@ public class CartProduct extends BaseEntity{
     @ManyToOne(fetch = FetchType.LAZY)
     private Cart cart;
 
+    @JoinColumn(name = "product_id")
+    @ManyToOne(fetch = FetchType.LAZY)
+    private Product product;
+
     private int quantity;
-    private int price;
+    private boolean isChecked;
+
+    public CartProduct() {
+    }
+
+    public CartProduct(Cart cart, Product product, int quantity, boolean isChecked) {
+        this.cart = cart;
+        this.product = product;
+        this.quantity = quantity;
+        this.isChecked = isChecked;
+    }
+
+    public void addQuantity() {
+        this.quantity += 1;
+    }
+
+    public void setQuantity(int quantity) {
+        this.quantity = quantity;
+    }
+
+    public void setIsChecked(boolean isChecked) {
+        this.isChecked = isChecked;
+    }
+
+    protected void setCart(Cart cart) {
+        this.cart = cart;
+    }
 }

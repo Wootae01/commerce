@@ -25,7 +25,10 @@
                 <h4 th:text="${#numbers.formatInteger(product.price, 3, 'COMMA') + '원'}" class="fw-bold text-danger mb-3">가격</h4>
 
                 <div class="mt-4">
-                    <button class="btn btn-success me-2">장바구니 담기</button>
+                    <form th:action="@{'/cart/add/' + ${product.id}}" method="post" class="d-inline">
+                        <input type="hidden" name="quantity" value="1">
+                        <button type="submit" class="btn btn-success me-2">장바구니 담기</button>
+                    </form>
                     <button class="btn btn-primary">바로 구매</button>
                 </div>
             </div>

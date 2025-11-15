@@ -55,10 +55,4 @@ public class Product extends BaseEntity{
         images.add(image);
         image.setProduct(this);
     }
-
-    public void addImages(List<Image> images) {
-        for (Image image : images) {
-            addImage(image);
-        }
-    }
 }

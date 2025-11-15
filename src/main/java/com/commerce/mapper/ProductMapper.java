@@ -23,6 +23,7 @@ public class ProductMapper {
 
 	@Value("${file.url-path}")
 	private String baseUrl;
+	private final ProductImageUtil productImageUtil;
 
 	public Product toEntity(ProductDTO dto) {
 		Product product = new Product(dto.getPrice(), dto.getName(), dto.getStock(), dto.getDescription());
@@ -55,11 +56,7 @@ public class ProductMapper {
 		dto.setStock(product.getStock());
 		dto.setCreatedAt(product.getCreatedAt());
 		dto.setMainImageUrl(
-			product.getImages().stream()
-				.filter(Image::isMain)
-				.findFirst()
-				.map(image -> baseUrl + image.getStoreFileName())
-				.orElse(baseUrl + "default.png"));
+			productImageUtil.getMainImageUrl(product));
 
 		return dto;
 	}
@@ -71,7 +68,7 @@ public class ProductMapper {
 		dto.setPrice(product.getPrice());
 		dto.setStock(product.getStock());
 		dto.setCreatedAt(product.getCreatedAt());
-		dto.setMainImageUrl(getMainImageUrl(product));
+		dto.setMainImageUrl(productImageUtil.getMainImageUrl(product));
 		dto.setImages(
 			product.getImages().stream()
 				.filter(image -> image.isMain() == false)
@@ -90,30 +87,15 @@ public class ProductMapper {
 	}
 	public ProductHomeDTO toHomeProductDTO(Product product) {
 		return new ProductHomeDTO(
-			product.getId(), getMainImageUrl(product), product.getName(), product.getPrice()
+			product.getId(), productImageUtil.getMainImageUrl(product), product.getName(), product.getPrice()
 		);
 	}
 
 	public ProductDetailDTO toProductDetailDTO(Product product) {
-		String mainImageUrl = getMainImageUrl(product);
-		List<String> images = getSubImagesUrl(product);
+		String mainImageUrl = productImageUtil.getMainImageUrl(product);
+		List<String> images = productImageUtil.getSubImagesUrl(product);
 
 		return new ProductDetailDTO(
 			product.getId(), product.getPrice(), product.getName(), mainImageUrl, images, product.getDescription());
-	}
-
-	private List<String> getSubImagesUrl(Product product) {
-		return product.getImages().stream()
-			.filter(image -> image.isMain() == false)
-			.map(image -> baseUrl + image.getStoreFileName())
-			.toList();
-	}
-
-	private String getMainImageUrl(Product product) {
-		 return product.getImages().stream()
-			.filter(Image::isMain)
-			.findFirst()
-			.map(image -> baseUrl + image.getStoreFileName())
-			.orElse(baseUrl + "default.png");
 	}
 }
