@@ -32,7 +32,10 @@ public class CartController {
 		List<CartProduct> cartProducts = cart.getCartProducts();
 		List<CartProductDTO> dtos = cartProductMapper.toCartProductDTOs(cartProducts);
 
+		int totalPrice = cartService.getTotalPrice(cart.getId());
+
 		model.addAttribute("cartProducts", dtos);
+		model.addAttribute("totalPrice", totalPrice);
 		return "cart";
 	}
 
@@ -50,6 +53,13 @@ public class CartController {
 
 		return "redirect:/cart";
 	}
+
+	@PostMapping("/select/{cartProductId}")
+	public String updateSelection(@PathVariable Long cartProductId, boolean checked) {
+		cartService.updateSelection(cartProductId, checked);
+		return "redirect:/cart";
+	}
+
 
 	@PostMapping("/delete/{cartProductId}")
 	public String deleteCart(@PathVariable Long cartProductId) {

@@ -6,7 +6,6 @@ import lombok.Setter;
 
 @Entity
 @Getter
-
 public class CartProduct extends BaseEntity{
 
     @Id

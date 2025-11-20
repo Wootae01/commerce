@@ -73,6 +73,14 @@ public class CartService {
 		cartProductRepository.save(cartProduct);
 	}
 
+	public void updateSelection(Long cartProductId, boolean checked) {
+		CartProduct cartProduct = cartProductRepository.findById(cartProductId)
+			.orElseThrow();
+
+		cartProduct.setIsChecked(checked);
+		cartProductRepository.save(cartProduct);
+	}
+
 	public void deleteProduct(Long cartProductId) {
 		CartProduct cartProduct = cartProductRepository.findById(cartProductId)
 			.orElseThrow();
@@ -85,6 +93,7 @@ public class CartService {
 			.orElseThrow();
 
 		return cart.getCartProducts().stream()
+			.filter(CartProduct::isChecked)
 			.mapToInt(cp -> cp.getQuantity() * cp.getProduct().getPrice())
 			.sum();
 	}

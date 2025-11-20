@@ -6,7 +6,6 @@ import java.util.List;
 import org.springframework.stereotype.Component;
 
 import com.commerce.domain.CartProduct;
-import com.commerce.domain.Image;
 import com.commerce.domain.Product;
 import com.commerce.dto.CartProductDTO;
 
@@ -30,6 +29,7 @@ public class CartProductMapper {
 		Product product = cartProduct.getProduct();
 
 		CartProductDTO cartProductDTO = new CartProductDTO();
+		cartProductDTO.setChecked(cartProduct.isChecked());
 		cartProductDTO.setId(cartProduct.getId());
 		cartProductDTO.setName(product.getName());
 		cartProductDTO.setPrice(product.getPrice());
