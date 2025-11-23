@@ -23,27 +23,35 @@ public class CartService {
 	private final CartRepository cartRepository;
 	private final CartProductRepository cartProductRepository;
 	private final ProductRepository productRepository;
-	private final UserRepository userRepository;
 	private final SecurityUtil securityUtil;
 
 	public Cart getCart() {
-		String username = securityUtil.getCurrentUserName();
-		User user = userRepository.findByUsername(username)
-			.orElseThrow(() -> new NoSuchElementException("등록된 사용자가 아닙니다."));
+		User user = securityUtil.getCurrentUser();
 
 		Cart cart = cartRepository.findByUser(user)
-			.orElseThrow(() -> new NoSuchElementException("등록된 상품이 없습니다."));
+			.orElseThrow(() -> new NoSuchElementException("카트가 존재하지 않습니다."));
 
 		return cart;
 	}
 
+	public List<CartProduct> getSelectedProduct() {
+
+		User user = securityUtil.getCurrentUser();
+		Cart cart = cartRepository.findByUser(user)
+				.orElseThrow(() -> new NoSuchElementException("카트가 존재하지 않습니다."));
+
+		List<CartProduct> cartProducts = cart.getCartProducts();
+
+        return cartProducts.stream()
+                .filter(CartProduct::isChecked)
+                .toList();
+	}
 
 	public void addCart(Long productId, int quantity) {
 		Product product = productRepository.findById(productId)
 			.orElseThrow(() -> new NoSuchElementException("해당 상품이 존재하지 않습니다."));
 
-		User user = userRepository.findByUsername(securityUtil.getCurrentUserName())
-			.orElseThrow(() -> new NoSuchElementException("등록된 사용자가 아닙니다."));
+		User user = securityUtil.getCurrentUser();
 
 		Cart cart = cartRepository.findByUser(user)
 			.orElseGet(() -> new Cart(user));
@@ -96,5 +104,12 @@ public class CartService {
 			.filter(CartProduct::isChecked)
 			.mapToInt(cp -> cp.getQuantity() * cp.getProduct().getPrice())
 			.sum();
+	}
+
+	public int getTotalPrice(List<CartProduct> cartProducts) {
+		return cartProducts.stream()
+				.filter(CartProduct::isChecked)
+				.mapToInt(cp -> cp.getQuantity() * cp.getProduct().getPrice())
+				.sum();
 	}
 }

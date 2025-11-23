@@ -6,11 +6,9 @@ import java.util.List;
 import org.hibernate.validator.constraints.Range;
 
 import jakarta.persistence.*;
-import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import lombok.Getter;
-import lombok.Setter;
 
 @Entity
 @Getter

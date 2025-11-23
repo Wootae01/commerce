@@ -17,3 +17,4 @@ public class CustomClientRegistrationRepo {
 		return new InMemoryClientRegistrationRepository(socialClientRegistration.naverClientRegistration());
 	}
 }
+
