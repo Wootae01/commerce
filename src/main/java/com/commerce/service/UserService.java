@@ -16,4 +16,8 @@ public class UserService {
         return userRepository.findByUsername(username)
                 .orElseThrow(() -> new NoSuchElementException("등록된 사용자가 아닙니다."));
     }
+
+    public void save(User user) {
+        userRepository.save(user);
+    }
 }

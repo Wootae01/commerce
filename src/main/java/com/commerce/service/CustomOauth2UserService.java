@@ -46,18 +46,20 @@ public class CustomOauth2UserService extends DefaultOAuth2UserService {
 		Optional<User> existUser = userRepository.findByUsername(username);
 
 		if (existUser.isEmpty()) {
-			User user = new User();
-			user.setUsername(username);
-			user.setRole(RoleType.ROLE_USER);
-			user.setName(oauth2Response.getName());
-			user.setPhone(oauth2Response.getPhone());
-			user.setEmail(oauth2Response.getEmail());
+			role = RoleType.ROLE_USER;
+
+			User user = User.builder()
+					.username(username)
+					.role(role)
+					.name(oauth2Response.getName())
+					.phone(oauth2Response.getPhone())
+					.email(oauth2Response.getEmail())
+					.build();
+
 			userRepository.save(user);
 		} else {
 			User user = existUser.get();
-			user.setUsername(username);
-			user.setPhone(oauth2Response.getPhone());
-			user.setEmail(oauth2Response.getEmail());
+			user.updateOauth2Info(oauth2Response);
 			role = user.getRole();
 			userRepository.save(user);
 		}

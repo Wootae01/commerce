@@ -35,7 +35,7 @@ public class Image {
 	public Image() {}
 
 	@Builder
-	public Image(String uploadFileName, String storeFileName, boolean isMain, int imgOrder) {
+	private Image(String uploadFileName, String storeFileName, boolean isMain, int imgOrder) {
 		this.uploadFileName = uploadFileName;
 		this.storeFileName = storeFileName;
 		this.isMain = isMain;
