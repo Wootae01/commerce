@@ -7,12 +7,15 @@ import com.commerce.dto.CartProductDTO;
 import com.commerce.dto.OrderDTO;
 import com.commerce.mapper.CartProductMapper;
 import com.commerce.service.CartService;
+import com.commerce.service.OrderService;
 import com.commerce.util.SecurityUtil;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 
 import javax.swing.*;
 import java.util.List;
@@ -25,6 +28,7 @@ public class OrderController {
     private final CartService cartService;
     private final CartProductMapper cartProductMapper;
     private final SecurityUtil securityUtil;
+    private final OrderService orderService;
 
     @GetMapping
     public String viewOrder(Model model) {
@@ -50,6 +54,14 @@ public class OrderController {
 
 
         return "order";
+    }
+
+    @PostMapping
+    public String order(OrderDTO dto, @RequestParam("cartProductIds") List<Long> cartProductIds, @RequestParam("payment") String payment) {
+
+        orderService.createOrder(dto, cartProductIds, payment);
+
+        return "redirect:/order-list";
     }
 
     private OrderDTO setBasicUserInfo(User user) {
