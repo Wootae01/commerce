@@ -1,10 +1,85 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="ko" xmlns:th="http://www.thymeleaf.org">
 <head>
     <meta charset="UTF-8">
     <title>주문 내역</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    <!-- Bootstrap -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+
+    <style>
+        .order-card:hover {
+            background-color: #fafafa;
+            transition: 0.2s;
+        }
+
+        .order-status {
+            font-weight: bold;
+            color: #0d6efd;
+        }
+
+        .order-item-img {
+            width: 70px;
+            height: 70px;
+            object-fit: cover;
+            border-radius: 6px;
+        }
+    </style>
 </head>
-<body>
+
+<body class="bg-light">
+<div th:replace="~{fragments/header :: siteHeader}"></div>
+
+<div class="container py-4">
+
+    <h2 class="fw-bold mb-4 text-center">주문 내역</h2>
+
+    <!-- 주문 목록 -->
+    <div class="row g-3">
+
+        <!-- 주문 카드 1개 (반복) -->
+        <div class="col-12">
+            <div class="card order-card shadow-sm p-3">
+
+                <!-- 주문 상단 정보 -->
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <div class="fw-bold">주문번호: <span class="text-muted">202403251234</span></div>
+                        <div class="small text-secondary">주문일자: 2025-11-30</div>
+                    </div>
+
+                    <div class="order-status">배송 준비중</div>
+                </div>
+
+                <hr>
+
+                <!-- 주문 상품 -->
+                <div class="d-flex align-items-center">
+                    <img src="https://via.placeholder.com/70" class="order-item-img me-3">
+
+                    <div class="flex-grow-1">
+                        <div class="fw-semibold">상품명 예시 (Product Name)</div>
+                        <div class="text-muted small">수량: 1개</div>
+                        <div class="fw-bold mt-1 text-danger">₩ 39,000</div>
+                    </div>
+                </div>
+
+                <hr>
+
+                <!-- 총 금액 & 버튼 -->
+                <div class="d-flex justify-content-between align-items-center">
+                    <div class="fw-bold">총 결제금액: <span class="text-danger">₩ 39,000</span></div>
+
+                    <a href="#" class="btn btn-outline-primary btn-sm">주문 상세 보기</a>
+                </div>
+
+            </div>
+        </div>
+        <!-- 주문 카드 끝 -->
+
+    </div>
+</div>
 
 </body>
 </html>
