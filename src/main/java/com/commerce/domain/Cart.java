@@ -5,7 +5,6 @@ import java.util.List;
 
 import jakarta.persistence.*;
 import lombok.Getter;
-import lombok.Setter;
 
 @Entity
 @Getter
@@ -15,7 +14,7 @@ public class Cart extends BaseEntity{
     @Column(name = "cart_id")
     private Long id;
 
-    @JoinColumn(name = "member_id")
+    @JoinColumn(name = "user_id")
     @OneToOne(fetch = FetchType.LAZY)
     private User user;
 

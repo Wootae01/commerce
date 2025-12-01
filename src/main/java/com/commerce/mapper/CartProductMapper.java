@@ -8,6 +8,7 @@ import org.springframework.stereotype.Component;
 import com.commerce.domain.CartProduct;
 import com.commerce.domain.Product;
 import com.commerce.dto.CartProductDTO;
+import com.commerce.util.ProductImageUtil;
 
 import lombok.RequiredArgsConstructor;
 

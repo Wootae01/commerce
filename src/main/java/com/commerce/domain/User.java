@@ -1,5 +1,8 @@
 package com.commerce.domain;
 
+import java.util.ArrayList;
+import java.util.List;
+
 import com.commerce.domain.enums.RoleType;
 import com.commerce.dto.Oauth2Response;
 import com.commerce.dto.UserDTO;
@@ -17,6 +20,9 @@ public class User extends BaseEntity{
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "user_id")
     private Long id;
+
+    @OneToMany(mappedBy = "user", fetch = FetchType.LAZY, orphanRemoval = true, cascade = CascadeType.ALL)
+    private List<Orders> orders = new ArrayList<>();
 
     private String username;
 

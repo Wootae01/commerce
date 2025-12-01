@@ -2,10 +2,13 @@ package com.commerce.controller;
 
 import com.commerce.domain.CartProduct;
 import com.commerce.domain.DeliveryPolicy;
+import com.commerce.domain.Orders;
 import com.commerce.domain.User;
 import com.commerce.dto.CartProductDTO;
-import com.commerce.dto.OrderDTO;
+import com.commerce.dto.OrderCreateRequestDTO;
+import com.commerce.dto.OrderResponseDTO;
 import com.commerce.mapper.CartProductMapper;
+import com.commerce.mapper.OrderMapper;
 import com.commerce.service.CartService;
 import com.commerce.service.OrderService;
 import com.commerce.util.SecurityUtil;
@@ -17,7 +20,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 
-import javax.swing.*;
+import java.util.Comparator;
 import java.util.List;
 
 @Controller
@@ -29,6 +32,7 @@ public class OrderController {
     private final CartProductMapper cartProductMapper;
     private final SecurityUtil securityUtil;
     private final OrderService orderService;
+    private final OrderMapper orderMapper;
 
     @GetMapping
     public String viewOrder(Model model) {
@@ -39,7 +43,7 @@ public class OrderController {
 
         // 2. 사용자 기본 정보 모델에 담기
         User user = securityUtil.getCurrentUser();
-        OrderDTO orderDTO = setBasicUserInfo(user);
+        OrderCreateRequestDTO orderDTO = setBasicUserInfo(user);
         model.addAttribute("orderForm", orderDTO);
 
         // 3. 전체 상품 가격
@@ -57,15 +61,28 @@ public class OrderController {
     }
 
     @PostMapping
-    public String order(OrderDTO dto, @RequestParam("cartProductIds") List<Long> cartProductIds, @RequestParam("payment") String payment) {
+    public String order(OrderCreateRequestDTO dto, @RequestParam("cartProductIds") List<Long> cartProductIds, @RequestParam("payment") String payment) {
 
         orderService.createOrder(dto, cartProductIds, payment);
 
-        return "redirect:/order-list";
+        return "redirect:/order/list";
     }
 
-    private OrderDTO setBasicUserInfo(User user) {
-        OrderDTO orderDTO = new OrderDTO();
+    @GetMapping("/list")
+    public String viewOrderList(Model model) {
+        User user = securityUtil.getCurrentUser();
+
+        List<Orders> orders = user.getOrders();
+        orders.sort(Comparator.comparing(Orders::getCreatedAt).reversed());
+        List<OrderResponseDTO> dtos = orderMapper.toOrderResponseDTO(orders);
+        model.addAttribute("orders", dtos);
+
+        return "order-list";
+    }
+
+
+    private OrderCreateRequestDTO setBasicUserInfo(User user) {
+        OrderCreateRequestDTO orderDTO = new OrderCreateRequestDTO();
         orderDTO.setAddress(user.getAddress());
         orderDTO.setPhone(user.getPhone());
         orderDTO.setName(user.getName());

@@ -1,4 +1,4 @@
-package com.commerce.mapper;
+package com.commerce.util;
 
 import java.util.List;
 

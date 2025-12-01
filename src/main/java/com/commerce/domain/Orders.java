@@ -25,15 +25,17 @@ public class Orders extends BaseEntity{
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    @Column(unique = true, nullable = false)
+    private String orderNumber;
+
     @JoinColumn(name = "user_id")
-    @OneToOne(fetch = FetchType.LAZY)
+    @ManyToOne(fetch = FetchType.LAZY)
     private User user;
 
     @OneToMany(mappedBy = "order", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<OrderProduct> orderProducts = new ArrayList<>();
 
-    private int total_price;
-    private LocalDateTime orderDate;
+    private int totalPrice;
     private String orderName;
     private String orderAddress;
     private String orderAddressDetail;
@@ -47,11 +49,11 @@ public class Orders extends BaseEntity{
     private OrderStatus orderStatus;
 
     @Builder
-    private Orders(User user, int total_price, LocalDateTime orderDate, String orderName, String orderAddress,
+    private Orders(User user, int totalPrice, String orderName, String orderAddress, String orderNumber,
         String orderPhone, String orderAddressDetail, String requestNote, PaymentType paymentMethod, OrderStatus orderStatus) {
+        this.orderNumber = orderNumber;
         this.user = user;
-        this.total_price = total_price;
-        this.orderDate = orderDate;
+        this.totalPrice = totalPrice;
         this.orderName = orderName;
         this.orderAddress = orderAddress;
         this.orderPhone = orderPhone;

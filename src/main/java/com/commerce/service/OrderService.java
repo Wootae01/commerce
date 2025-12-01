@@ -1,6 +1,7 @@
 package com.commerce.service;
 
 import java.util.List;
+import java.util.UUID;
 
 import org.springframework.stereotype.Service;
 
@@ -12,7 +13,7 @@ import com.commerce.domain.Orders;
 import com.commerce.domain.Product;
 import com.commerce.domain.enums.OrderStatus;
 import com.commerce.domain.enums.PaymentType;
-import com.commerce.dto.OrderDTO;
+import com.commerce.dto.OrderCreateRequestDTO;
 import com.commerce.repository.CartProductRepository;
 import com.commerce.repository.OrderRepository;
 import com.commerce.util.SecurityUtil;
@@ -27,7 +28,7 @@ public class OrderService {
 	private final CartProductRepository cartProductRepository;
 	private final SecurityUtil securityUtil;
 
-	public Orders createOrder(OrderDTO dto, List<Long> cartProductIds, String payment) {
+	public Orders createOrder(OrderCreateRequestDTO dto, List<Long> cartProductIds, String payment) {
 		
 		List<CartProduct> cartProducts = cartProductRepository.findAllById(cartProductIds);
 		
@@ -39,7 +40,7 @@ public class OrderService {
 		// 3. order 객체 생성
 		Orders orders = createOrderEntity(dto, payment, totalPrice);
 
-		// 4. 재고 차감
+		// 4. 재고 차감, orderProduct 생성
 		for (CartProduct cartProduct : cartProducts) {
 			Product product = cartProduct.getProduct();
 			OrderProduct orderProduct = OrderProduct.builder()
@@ -64,7 +65,7 @@ public class OrderService {
 
 	}
 
-	private Orders createOrderEntity(OrderDTO dto, String payment, int totalPrice) {
+	private Orders createOrderEntity(OrderCreateRequestDTO dto, String payment, int totalPrice) {
 
 		OrderStatus orderStatus = null;
 		PaymentType paymentType = PaymentType.valueOf(payment);
@@ -77,6 +78,7 @@ public class OrderService {
 		Orders orders = Orders
 			.builder()
 			.orderAddress(dto.getAddress())
+			.orderNumber(UUID.randomUUID().toString().replace("-", "").substring(0, 12))
 			.orderAddressDetail(dto.getAddressDetail())
 			.orderName(dto.getName())
 			.orderPhone(dto.getPhone())
@@ -84,7 +86,7 @@ public class OrderService {
 			.paymentMethod(paymentType)
 			.orderStatus(orderStatus)
 			.user(securityUtil.getCurrentUser())
-			.total_price(totalPrice + DeliveryPolicy.DELIVERY_FEE)
+			.totalPrice(totalPrice + DeliveryPolicy.DELIVERY_FEE)
 			.build();
 
 		return orders;

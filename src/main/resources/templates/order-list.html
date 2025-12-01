@@ -38,30 +38,30 @@
     <!-- 주문 목록 -->
     <div class="row g-3">
 
-        <!-- 주문 카드 1개 (반복) -->
+        <!-- 주문 카드(반복) -->
         <div class="col-12">
-            <div class="card order-card shadow-sm p-3">
+            <div class="card order-card shadow-sm p-3" th:each="order : ${orders}">
 
                 <!-- 주문 상단 정보 -->
                 <div class="d-flex justify-content-between align-items-center">
                     <div>
-                        <div class="fw-bold">주문번호: <span class="text-muted">202403251234</span></div>
-                        <div class="small text-secondary">주문일자: 2025-11-30</div>
+                        <div class="fw-bold">주문번호: <span class="text-muted" th:text="${order.orderNumber}">202403251234</span></div>
+                        <div class="small text-secondary" th:text="${#temporals.format(order.orderDate, 'yyyy-MM-dd')}">주문일자: 2025-11-30</div>
                     </div>
 
-                    <div class="order-status">배송 준비중</div>
+                    <div class="order-status" th:text="${order.orderStatus}">배송 준비중</div>
                 </div>
 
                 <hr>
 
                 <!-- 주문 상품 -->
-                <div class="d-flex align-items-center">
-                    <img src="https://via.placeholder.com/70" class="order-item-img me-3">
+                <div class="d-flex align-items-center" th:each="product : ${order.productDTOS}">
+                    <img th:src="@{${product.mainIMageURL}}" class="order-item-img me-3">
 
                     <div class="flex-grow-1">
-                        <div class="fw-semibold">상품명 예시 (Product Name)</div>
-                        <div class="text-muted small">수량: 1개</div>
-                        <div class="fw-bold mt-1 text-danger">₩ 39,000</div>
+                        <div class="fw-semibold" th:text="${product.productName}">상품명 예시 (Product Name)</div>
+                        <div class="text-muted small"><span th:text="'수량: ' + ${product.quantity} + '개'">수량: 1개</span> </div>
+                        <div class="fw-bold mt-1 text-danger"><span th:text="${#numbers.formatInteger(product.price, 3, 'COMMA')} + '원'">10.000원</span></div>
                     </div>
                 </div>
 
@@ -69,7 +69,7 @@
 
                 <!-- 총 금액 & 버튼 -->
                 <div class="d-flex justify-content-between align-items-center">
-                    <div class="fw-bold">총 결제금액: <span class="text-danger">₩ 39,000</span></div>
+                    <div class="fw-bold">총 결제금액: <span class="text-danger" th:text="${#numbers.formatInteger(order.totalPrice, 3, 'COMMA')} + '원'"></span></div>
 
                     <a href="#" class="btn btn-outline-primary btn-sm">주문 상세 보기</a>
                 </div>

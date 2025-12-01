@@ -6,7 +6,6 @@ import java.util.List;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
-import com.commerce.domain.Image;
 import com.commerce.domain.Product;
 import com.commerce.dto.AdminProductListDTO;
 import com.commerce.dto.ProductDetailDTO;
@@ -14,6 +13,7 @@ import com.commerce.dto.ProductHomeDTO;
 import com.commerce.dto.ImageResponseDTO;
 import com.commerce.dto.ProductDTO;
 import com.commerce.dto.ProductResponseDTO;
+import com.commerce.util.ProductImageUtil;
 
 import lombok.RequiredArgsConstructor;
 
