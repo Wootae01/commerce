@@ -98,4 +98,6 @@ public class ProductMapper {
 		return new ProductDetailDTO(
 			product.getId(), product.getPrice(), product.getName(), mainImageUrl, images, product.getDescription());
 	}
+
+
 }

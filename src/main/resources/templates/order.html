@@ -31,28 +31,44 @@
 
     <form th:action="@{/order}" method="post" th:object="${orderForm}">
 
+        <!-- orderType도 같이 전송 -->
+        <input type="hidden" th:field="*{orderType}"/>
+
         <!-- 주문 상품 정보 -->
         <div class="section-title">주문 상품</div>
         <div class="card shadow-sm mb-4">
             <div class="card-body">
 
-                <div th:each="product : ${products}" class="d-flex justify-content-between border-bottom py-2">
+                <div th:each="orderItem : ${orderItems}" class="d-flex justify-content-between border-bottom py-2">
                     <div>
-                        <div><img th:src="@{${product.mainImageUrl}}" alt="상품 대표 이미지"
-                                  style="width:60px; height:60px; object-fit:cover;" class="rounded"></div>
-                        <div class="fw-bold" th:text="${product.name}"></div>
-                        <div class="text-muted small" th:text="'수량: ' + ${product.quantity}"></div>
+                        <div>
+                            <img th:src="@{${orderItem.mainImageUrl}}" alt="상품 대표 이미지"
+                                 style="width:60px; height:60px; object-fit:cover;" class="rounded">
+                        </div>
+                        <div class="fw-bold" th:text="${orderItem.name}"></div>
+                        <div class="text-muted small" th:text="'수량: ' + ${orderItem.quantity}"></div>
                     </div>
-                    <div class="fw-bold" th:text="${product.price} + '원'"></div>
+                    <div class="fw-bold" th:text="${orderItem.price} + '원'"></div>
 
-                    <input type="hidden" name="cartProductIds" th:value="${product.id}">
+                    <!-- 장바구니 주문일 때: cartProductIds 리스트로 바인딩 -->
+                    <input type="hidden"
+                           th:if="${orderForm.orderType == T(com.commerce.domain.enums.OrderType).CART}"
+                           name="cartProductIds"
+                           th:value="${orderItem.id}"/>
                 </div>
 
                 <div class="text-end fw-bold mt-3">
                     총 상품 금액:
-                    <span th:text="${totalPrice} + '원'" class="text-danger"></span>
+                    <span th:text="${orderPrice.totalPrice} + '원'" class="text-danger"></span>
                 </div>
 
+                <!-- 즉시 구매일 때: productId, quantity hidden으로 전송 -->
+                <input type="hidden"
+                       th:if="${orderForm.orderType == T(com.commerce.domain.enums.OrderType).BUY_NOW}"
+                       th:field="*{productId}"/>
+                <input type="hidden"
+                       th:if="${orderForm.orderType == T(com.commerce.domain.enums.OrderType).BUY_NOW}"
+                       th:field="*{quantity}"/>
             </div>
         </div>
 
@@ -74,7 +90,7 @@
 
                 <div class="mb-3">
                     <label class="form-label">주소</label>
-                    <input type="text" class="form-control mb-2" th:field="*{address}" >
+                    <input type="text" class="form-control mb-2" th:field="*{address}">
                     <input type="text" class="form-control" placeholder="상세 주소 입력" th:field="*{addressDetail}">
                 </div>
 
@@ -87,18 +103,24 @@
         </div>
 
 
-        <!-- 3️⃣ 결제 방식 -->
+        <!-- 결제 방식 -->
         <div class="section-title">결제 방식</div>
         <div class="card shadow-sm mb-4">
             <div class="card-body">
 
                 <div class="form-check">
-                    <input class="form-check-input" type="radio" name="payment" value="CARD" checked>
+                    <input class="form-check-input"
+                           type="radio"
+                           th:field="*{payment}"
+                           value="CARD">
                     <label class="form-check-label">카드 결제</label>
                 </div>
 
                 <div class="form-check mt-2">
-                    <input class="form-check-input" type="radio" name="payment" value="CASH">
+                    <input class="form-check-input"
+                           type="radio"
+                           th:field="*{payment}"
+                           value="CASH">
                     <label class="form-check-label">무통장 입금</label>
                 </div>
 
@@ -106,31 +128,31 @@
         </div>
 
 
-        <!-- 4️⃣ 결제 금액 요약 -->
+        <!-- 결제 금액 요약 -->
         <div class="section-title">결제 금액</div>
 
         <div class="price-box shadow-sm mb-4">
 
             <div class="d-flex justify-content-between my-1">
                 <span>상품 금액</span>
-                <strong th:text="${totalPrice} + '원'"></strong>
+                <strong th:text="${orderPrice.totalPrice} + '원'"></strong>
             </div>
 
             <div class="d-flex justify-content-between my-1">
                 <span>배송비</span>
-                <strong th:text="${deliveryFee} + '원'"></strong>
+                <strong th:text="${orderPrice.deliveryFee} + '원'"></strong>
             </div>
 
             <hr>
 
             <div class="d-flex justify-content-between">
                 <span class="fw-bold">최종 결제 금액</span>
-                <strong class="text-danger" th:text="${finalPrice} + '원'"></strong>
+                <strong class="text-danger" th:text="${orderPrice.finalPrice} + '원'"></strong>
             </div>
         </div>
 
 
-        <!-- 5️⃣ 주문 제출 버튼 -->
+        <!-- 주문 제출 버튼 -->
         <button type="submit" class="btn btn-primary w-100 py-2 fw-bold">
             결제하기
         </button>

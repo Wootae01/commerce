@@ -12,7 +12,6 @@ import com.commerce.domain.User;
 import com.commerce.repository.CartProductRepository;
 import com.commerce.repository.CartRepository;
 import com.commerce.repository.ProductRepository;
-import com.commerce.repository.UserRepository;
 import com.commerce.util.SecurityUtil;
 
 import lombok.RequiredArgsConstructor;

@@ -5,9 +5,12 @@ import java.util.List;
 
 import org.springframework.stereotype.Component;
 
+import com.commerce.domain.CartProduct;
 import com.commerce.domain.OrderProduct;
 import com.commerce.domain.Orders;
 import com.commerce.domain.Product;
+import com.commerce.domain.enums.OrderType;
+import com.commerce.dto.OrderItemDTO;
 import com.commerce.dto.OrderProductResponseDTO;
 import com.commerce.dto.OrderResponseDTO;
 import com.commerce.util.ProductImageUtil;
@@ -58,4 +61,27 @@ public class OrderMapper {
 		return new OrderProductResponseDTO(orderProduct.getProduct().getName(), orderProduct.getQuantity(),
 			orderProduct.getPrice(), mainImageUrl);
 	}
+
+	public OrderItemDTO toOrderItemDTO(Product product, int quantity) {
+		return new OrderItemDTO(product.getId(), quantity, product.getPrice(),
+			productImageUtil.getMainImageUrl(product), product.getName());
+
+	}
+
+	public List<OrderItemDTO> toOrderItemDTO(List<CartProduct> cartProducts) {
+		List<OrderItemDTO> list = new ArrayList<>();
+		for (CartProduct cartProduct : cartProducts) {
+			list.add(toOrderItemDTO(cartProduct));
+		}
+		return list;
+	}
+
+	public OrderItemDTO toOrderItemDTO(CartProduct cartProduct) {
+		Product product = cartProduct.getProduct();
+		String mainImageUrl = productImageUtil.getMainImageUrl(product);
+
+		return new OrderItemDTO(cartProduct.getId(), cartProduct.getQuantity(), product.getPrice(),
+			mainImageUrl, product.getName());
+	}
+
 }

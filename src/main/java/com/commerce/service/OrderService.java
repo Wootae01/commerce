@@ -1,6 +1,7 @@
 package com.commerce.service;
 
 import java.util.List;
+import java.util.NoSuchElementException;
 import java.util.UUID;
 
 import org.springframework.stereotype.Service;
@@ -16,6 +17,7 @@ import com.commerce.domain.enums.PaymentType;
 import com.commerce.dto.OrderCreateRequestDTO;
 import com.commerce.repository.CartProductRepository;
 import com.commerce.repository.OrderRepository;
+import com.commerce.repository.ProductRepository;
 import com.commerce.util.SecurityUtil;
 
 import lombok.RequiredArgsConstructor;
@@ -27,9 +29,37 @@ public class OrderService {
 	private final OrderRepository orderRepository;
 	private final CartProductRepository cartProductRepository;
 	private final SecurityUtil securityUtil;
+	private final ProductRepository productRepository;
 
-	public Orders createOrder(OrderCreateRequestDTO dto, List<Long> cartProductIds, String payment) {
-		
+	public Orders createOrderFromBuyNow(OrderCreateRequestDTO dto) {
+		Product product = productRepository.findById(dto.getProductId())
+			.orElseThrow();
+
+		// 1. 상품 재고 확인
+		validateStock(product, dto.getQuantity());
+
+		// 2. 가격 계산
+		int totalPrice = product.getPrice() * dto.getQuantity();
+
+		// 3. order 객체 생성
+		Orders orders = createOrderEntity(dto, totalPrice);
+
+		// 4. 재고 차감, orderProduct 생성
+		OrderProduct orderProduct = OrderProduct.builder()
+			.product(product)
+			.order(orders)
+			.price(product.getPrice())
+			.quantity(dto.getQuantity())
+			.build();
+
+		orders.getOrderProducts().add(orderProduct);
+		product.decreaseStock(dto.getQuantity());
+
+		return orderRepository.save(orders);
+	}
+
+	public Orders createOrderFromCart(OrderCreateRequestDTO dto) {
+		List<Long> cartProductIds = dto.getCartProductIds();
 		List<CartProduct> cartProducts = cartProductRepository.findAllById(cartProductIds);
 		
 		// 1. 상품 재고 확인
@@ -38,7 +68,7 @@ public class OrderService {
 		int totalPrice = getTotalPrice(cartProducts);
 
 		// 3. order 객체 생성
-		Orders orders = createOrderEntity(dto, payment, totalPrice);
+		Orders orders = createOrderEntity(dto, totalPrice);
 
 		// 4. 재고 차감, orderProduct 생성
 		for (CartProduct cartProduct : cartProducts) {
@@ -65,11 +95,11 @@ public class OrderService {
 
 	}
 
-	private Orders createOrderEntity(OrderCreateRequestDTO dto, String payment, int totalPrice) {
+	private Orders createOrderEntity(OrderCreateRequestDTO dto, int totalPrice) {
 
 		OrderStatus orderStatus = null;
-		PaymentType paymentType = PaymentType.valueOf(payment);
-		if (paymentType.equals(PaymentType.CASH)) {
+
+		if (dto.getPayment().equals(PaymentType.CASH)) {
 			orderStatus = OrderStatus.WAITING_FOR_DEPOSIT;
 		} else {
 			orderStatus = OrderStatus.WAITING_FOR_PAYMENT;
@@ -83,7 +113,7 @@ public class OrderService {
 			.orderName(dto.getName())
 			.orderPhone(dto.getPhone())
 			.requestNote(dto.getRequestNote())
-			.paymentMethod(paymentType)
+			.paymentMethod(dto.getPayment())
 			.orderStatus(orderStatus)
 			.user(securityUtil.getCurrentUser())
 			.totalPrice(totalPrice + DeliveryPolicy.DELIVERY_FEE)
@@ -107,6 +137,13 @@ public class OrderService {
 			if (product.getStock() - cartProduct.getQuantity() < 0) {
 				throw new RuntimeException("재고가 부족합니다.");
 			}
+		}
+	}
+
+	private static void validateStock(Product product, int quantity) {
+		int stock = product.getStock();
+		if (stock - quantity < 0) {
+			throw new RuntimeException("재고가 부족합니다.");
 		}
 	}
 
