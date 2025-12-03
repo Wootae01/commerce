@@ -27,7 +27,7 @@ public class CartService {
 	public Cart getCart() {
 		User user = securityUtil.getCurrentUser();
 
-		Cart cart = cartRepository.findByUser(user)
+		  Cart cart = cartRepository.findByUser(user)
 			.orElseThrow(() -> new NoSuchElementException("카트가 존재하지 않습니다."));
 
 		return cart;

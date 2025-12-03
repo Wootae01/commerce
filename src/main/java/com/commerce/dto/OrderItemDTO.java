@@ -1,24 +1,22 @@
 package com.commerce.dto;
 
+import lombok.AccessLevel;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
 import lombok.Getter;
+import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 @Getter
 @Setter
+@AllArgsConstructor(access = AccessLevel.PRIVATE)
+@NoArgsConstructor(access = AccessLevel.PROTECTED)
+@Builder
 public class OrderItemDTO {
 	private Long id;
 	private int quantity;
-	private int price;
+	private int unitPrice;
+	private int totalPrice;
 	private String mainImageUrl;
 	private String name;
-
-
-
-	public OrderItemDTO(Long id, int quantity, int price, String mainImageUrl, String name) {
-		this.id = id;
-		this.quantity = quantity;
-		this.price = price;
-		this.mainImageUrl = mainImageUrl;
-		this.name = name;
-	}
 }

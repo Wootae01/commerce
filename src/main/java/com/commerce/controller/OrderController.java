@@ -7,10 +7,10 @@ import com.commerce.domain.Product;
 import com.commerce.domain.User;
 import com.commerce.domain.enums.OrderType;
 import com.commerce.dto.OrderCreateRequestDTO;
+import com.commerce.dto.OrderDetailResponseDTO;
 import com.commerce.dto.OrderItemDTO;
 import com.commerce.dto.OrderPriceDTO;
 import com.commerce.dto.OrderResponseDTO;
-import com.commerce.mapper.CartProductMapper;
 import com.commerce.mapper.OrderMapper;
 import com.commerce.service.CartService;
 import com.commerce.service.OrderService;
@@ -20,6 +20,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 
@@ -41,7 +42,7 @@ public class OrderController {
     public String cartOrder(Model model) {
         // 1. cartProduct에서 선택한 상품 찾고 모델에 담기
         List<CartProduct> cartProducts = cartService.getSelectedProduct();
-        List<OrderItemDTO> dto = orderMapper.toOrderItemDTO(cartProducts);
+        List<OrderItemDTO> dto = orderMapper.toOrderItemDTOFromCart(cartProducts);
         model.addAttribute("orderItems", dto);
 
         // 2. 사용자 기본 정보 모델에 담기
@@ -65,7 +66,7 @@ public class OrderController {
     public String buyNow(Long productId, int quantity, Model model) {
         // 1. 상품 정보 담기
         Product product = productService.findById(productId);
-        OrderItemDTO dto = orderMapper.toOrderItemDTO(product,quantity);
+        OrderItemDTO dto = orderMapper.toOrderItemDTOFromCart(product,quantity);
         model.addAttribute("orderItems", List.of(dto));
 
         // 2. 사용자 기본 정보 모델에 담기
@@ -107,6 +108,16 @@ public class OrderController {
         model.addAttribute("orders", dtos);
 
         return "order-list";
+    }
+
+    @GetMapping("/detail/{orderNumber}")
+    public String orderDetail(@PathVariable String orderNumber, Model model) {
+        Orders order = orderService.findByOrderNumber(orderNumber);
+        User user = order.getUser();
+
+        OrderDetailResponseDTO dto = orderMapper.toOrderDetailResponseDTO(order, user);
+        model.addAttribute("order", dto);
+        return "order-list-detail";
     }
 
 

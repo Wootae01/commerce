@@ -39,27 +39,75 @@
         <div class="card shadow-sm mb-4">
             <div class="card-body">
 
-                <div th:each="orderItem : ${orderItems}" class="d-flex justify-content-between border-bottom py-2">
-                    <div>
-                        <div>
-                            <img th:src="@{${orderItem.mainImageUrl}}" alt="상품 대표 이미지"
-                                 style="width:60px; height:60px; object-fit:cover;" class="rounded">
-                        </div>
-                        <div class="fw-bold" th:text="${orderItem.name}"></div>
-                        <div class="text-muted small" th:text="'수량: ' + ${orderItem.quantity}"></div>
-                    </div>
-                    <div class="fw-bold" th:text="${orderItem.price} + '원'"></div>
+                <div class="table-responsive">
+                    <table class="table align-middle">
+                        <thead class="table-light">
+                        <tr>
+                            <th>상품 정보</th>
+                            <th class="text-center" style="width:120px">수량</th>
+                            <th class="text-end" style="width:140px">상품금액</th>
+                            <th class="text-end" style="width:140px">합계</th>
+                        </tr>
+                        </thead>
 
-                    <!-- 장바구니 주문일 때: cartProductIds 리스트로 바인딩 -->
-                    <input type="hidden"
-                           th:if="${orderForm.orderType == T(com.commerce.domain.enums.OrderType).CART}"
-                           name="cartProductIds"
-                           th:value="${orderItem.id}"/>
+                        <tbody>
+                        <!-- 주문 상품 루프 -->
+                        <tr th:each="orderItem : ${orderItems}">
+                            <td>
+                                <div class="d-flex align-items-center">
+                                    <img th:src="@{${orderItem.mainImageUrl}}"
+                                         alt="상품 이미지"
+                                         class="order-item-img me-3 rounded"
+                                         style="width:60px; height:60px; object-fit:cover;">
+                                    <div>
+                                        <div class="fw-semibold" th:text="${orderItem.name}">
+                                            상품명
+                                        </div>
+                                        <div class="text-muted small"
+                                             th:text="'수량: ' + ${orderItem.quantity} + '개'">
+                                            수량: 1개
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- 장바구니 주문일 때: cartProductIds 리스트로 바인딩 -->
+                                <input type="hidden"
+                                       th:if="${orderForm.orderType == T(com.commerce.domain.enums.OrderType).CART}"
+                                       name="cartProductIds"
+                                       th:value="${orderItem.id}"/>
+                            </td>
+
+                            <!-- 수량 -->
+                            <td class="text-center">
+                                <span th:text="${orderItem.quantity}">1</span>개
+                            </td>
+
+                            <!-- 상품 단가 -->
+                            <td class="text-end">
+                        <span th:text="${#numbers.formatInteger(orderItem.unitPrice, 3, 'COMMA')}">
+                            10,000
+                        </span> 원
+                            </td>
+
+                            <!-- 합계 = 단가 * 수량 -->
+                            <td class="text-end">
+                        <span th:text="${#numbers.formatInteger(orderItem.totalPrice, 3, 'COMMA')}">
+                            10,000
+                        </span> 원
+                            </td>
+                        </tr>
+
+                        </tbody>
+                    </table>
                 </div>
 
+                <!-- 총 상품 금액 -->
                 <div class="text-end fw-bold mt-3">
                     총 상품 금액:
-                    <span th:text="${orderPrice.totalPrice} + '원'" class="text-danger"></span>
+                    <span th:text="${#numbers.formatInteger(orderPrice.totalPrice, 3, 'COMMA')} + '원'"
+                          class="text-danger">
+                0원
+            </span>
                 </div>
 
                 <!-- 즉시 구매일 때: productId, quantity hidden으로 전송 -->
@@ -69,6 +117,7 @@
                 <input type="hidden"
                        th:if="${orderForm.orderType == T(com.commerce.domain.enums.OrderType).BUY_NOW}"
                        th:field="*{quantity}"/>
+
             </div>
         </div>
 

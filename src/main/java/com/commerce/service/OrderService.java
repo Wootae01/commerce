@@ -31,6 +31,11 @@ public class OrderService {
 	private final SecurityUtil securityUtil;
 	private final ProductRepository productRepository;
 
+	public Orders findByOrderNumber(String orderNumber) {
+		return orderRepository.findByOrderNumber(orderNumber)
+			.orElseThrow(() -> new NoSuchElementException("해당 주문이 존재하지 않습니다."));
+	}
+
 	public Orders createOrderFromBuyNow(OrderCreateRequestDTO dto) {
 		Product product = productRepository.findById(dto.getProductId())
 			.orElseThrow();

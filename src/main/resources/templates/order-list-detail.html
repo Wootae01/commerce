@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="ko" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>주문 상세 내역</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+
+    <style>
+        .section-title {
+            font-weight: 600;
+            font-size: 1.1rem;
+            margin-bottom: 0.75rem;
+        }
+
+        .info-label {
+            font-weight: 500;
+            color: #666666;
+            min-width: 80px;
+        }
+        .order-item-img{
+            width: 60px;
+            height: 60px;
+            object-fit: cover;
+            border-radius: 0.5rem;
+        }
+    </style>
+</head>
+<body>
+    <div th:replace="~{fragments/header :: siteHeader}"></div>
+
+
+    <div class="container py-5">
+        <!-- 페이지 제목, 주문 번호, 주문 일자, 상태-->
+        <div class="d-flex justify-content-between mb-4">
+            <div>
+                <h3 class="fw-bold mb-1">주문 상세 내역</h3>
+                <div class="text-muted small">
+                    <span th:text="'주문번호 ' + ${order.orderNumber}">주문번호 12345678901</span>
+                    <span th:text="'주문일자 ' + ${#temporals.format(order.orderDate, 'yyyy-MM-dd')}">주문일자 2025-01-01</span>
+                </div>
+            </div>
+            <div>
+                <span th:text="${order.paymentInfo.orderStatus}">주문 상태</span>
+            </div>
+        </div>
+
+        <!-- 주문자 정보, 배송지 정보, 결제 정보-->
+        <div class="row g-4 mb-2">
+
+            <!-- 주문 정보 -->
+            <div class="col-lg-4">
+                <div class="card shadow-sm">
+                    <div class="card-body">
+                        <div class="section-title">주문자 정보</div>
+                        <div class="d-flex mb-2">
+                            <div class="info-label">이름</div>
+                            <div th:text="${order.ordererInfo.name}">홍길동</div>
+                        </div>
+                        <div class="d-flex mb-2">
+                            <div class="info-label">연락처</div>
+                            <div th:text="${order.ordererInfo.phone}">010-1234-5678</div>
+                        </div>
+                        <div class="d-flex mb-2">
+                            <div class="info-label">이메일</div>
+                            <div th:text="${order.ordererInfo.email}">123@naver.com</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 배송지 정보 -->
+            <div class="col-lg-4">
+                <div class="card shadow-sm">
+                    <div class="card-body">
+                        <div class="section-title">배송지 정보</div>
+                        <div class="d-flex mb-2">
+                            <div class="info-label">받는 분</div>
+                            <div th:text="${order.shippingInfo.receiverName}">홍길동</div>
+                        </div>
+                        <div class="d-flex mb-2">
+                            <div class="info-label">연락처</div>
+                            <div th:text="${order.shippingInfo.getReceiverPhone()}">010-1234-5678</div>
+                        </div>
+                        <div class="d-flex mb-2">
+                            <div class="info-label">주소</div>
+                            <div>
+                                <div th:text="${order.shippingInfo.address}">경기도 화성시 1번길</div>
+                                <div th:text="${order.shippingInfo.addressDetail}">123동 123호</div>
+                            </div>
+                        </div>
+
+                        <div class="mb-2">
+                            <div class="info-label">요청사항</div>
+                            <div class="small text-muted ms-0" th:text="${order.shippingInfo.requestMessage}">요청사항 입니다.</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 결제 정보 -->
+            <div class="col mb-2">
+                <div class="card shadow-sm">
+                    <div class="card-body">
+                        <div class="section-title">결제 정보</div>
+                        <div class="d-flex mb-2">
+                            <div class="info-label">결제 수단</div>
+                            <div th:text="${order.paymentInfo.paymentMethod}">카드 결제</div>
+                        </div>
+
+                        <div class="d-flex mb-2">
+                            <div class="info-label">주문 상태</div>
+                            <div th:text="${order.paymentInfo.orderStatus}">결제 완료</div>
+                        </div>
+
+                        <div class="d-flex mb-2">
+                            <div class="info-label">상품 합계</div>
+                            <div th:text="${#numbers.formatInteger(order.orderPrice.totalPrice, 3, 'COMMA')} + ' 원'">50,000 원</div>
+                        </div>
+
+                        <div class="d-flex mb-2">
+                            <div class="info-label">배송비</div>
+                            <div th:text="${#numbers.formatInteger(order.orderPrice.deliveryFee, 3, 'COMMA')} + ' 원'">3,000 원</div>
+                        </div>
+                        <hr>
+                        <div class="d-flex justify-content-between align-item-center mb-2">
+                            <div class="fw-semibold">최종 결제금액</div>
+                            <div class="text-danger fw-bold fs-5" th:text="${#numbers.formatInteger(order.orderPrice.finalPrice, 3, 'COMMA')} + ' 원'">53,000 원</div>
+                        </div>
+
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 주문 상품 정보-->
+        <div class="card">
+            <div class="card-body">
+                <div class="section-title">주문 상품</div>
+
+                <div class="table-responsive">
+                    <table class="table align-middle">
+                        <thead class="table-light">
+                            <tr>
+                                <th>상품 정보</th>
+                                <th class="text-center" style="width:120px">수량</th>
+                                <th class="text-end" style="width:140px">상품금액</th>
+                                <th class="text-end"style="width:140px">합계</th>
+                            </tr>
+                        </thead>
+
+                        <tbody>
+                            <tr th:each="orderItem : ${order.orderItems}">
+                                <td>
+                                    <a th:href="@{/products/{id}(id=${orderItem.id})}" class="text-decoration-none text-dark align-items-center d-flex">
+                                        <img th:src="@{${orderItem.mainImageUrl}}" alt="상품 이미지" class="order-item-img me-3">
+                                        <div class="fw-semibold" th:text="${orderItem.name}">
+                                            상품명
+                                        </div>
+                                    </a>
+                                </td>
+                                <td class="text-center">
+                                    <span th:text="${orderItem.quantity} +'개'">1개</span>
+                                </td>
+                                <td class="text-end" th:text="${#numbers.formatInteger(orderItem.unitPrice, 3, 'COMMA')}">
+                                    1,000 원
+                                </td>
+                                <td class="text-end" th:text="${#numbers.formatInteger(orderItem.totalPrice, 3, 'COMMA')}">
+                                    10,000 원
+                                </td>
+                            </tr>
+                        </tbody>
+
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- 금액 요약 / 버튼 -->
+        <div class="row g-3 align-items-center mt-4">
+
+            <!-- 금액 요약 영역 (왼쪽) -->
+            <div class="col-lg-6 mb-3 mb-lg-0">
+                <div class="border rounded-3 p-3 bg-light">
+                    <div class="d-flex justify-content-between mb-2">
+                        <div class="info-label mb-0">상품 합계</div>
+                        <div th:text="${#numbers.formatInteger(order.orderPrice.totalPrice, 3, 'COMMA')} +' 원'">50,000 원</div>
+                    </div>
+
+                    <div class="d-flex justify-content-between mb-2">
+                        <div class="info-label mb-0">배송비</div>
+                        <div th:text="${#numbers.formatInteger(order.orderPrice.deliveryFee, 3, 'COMMA')} +' 원'">3,000 원</div>
+                    </div>
+
+                    <hr class="my-2">
+
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div class="fw-semibold">최종 결제금액</div>
+                        <div class="text-danger fw-bold fs-5" th:text="${#numbers.formatInteger(order.orderPrice.finalPrice, 3, 'COMMA')} +' 원'">53,000 원</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 버튼 영역 -->
+            <div class="col-lg-6 text-lg-end">
+                <a th:href="@{/order/list}" class="btn btn-outline-primary">
+                    목록으로
+                </a>
+            </div>
+
+        </div>
+
+
+    </div>
+
+</body>
+</html>
