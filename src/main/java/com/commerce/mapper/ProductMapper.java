@@ -6,6 +6,7 @@ import java.util.List;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
+import com.commerce.domain.Admin;
 import com.commerce.domain.Product;
 import com.commerce.dto.AdminProductListDTO;
 import com.commerce.dto.ProductDetailDTO;
@@ -25,8 +26,8 @@ public class ProductMapper {
 	private String baseUrl;
 	private final ProductImageUtil productImageUtil;
 
-	public Product toEntity(ProductDTO dto) {
-		Product product = new Product(dto.getPrice(), dto.getName(), dto.getStock(), dto.getDescription());
+	public Product toEntity(ProductDTO dto, Admin admin) {
+		Product product = new Product(admin, dto.getPrice(), dto.getName(), dto.getStock(), dto.getDescription());
 		return product;
 	}
 

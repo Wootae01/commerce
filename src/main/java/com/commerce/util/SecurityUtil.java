@@ -1,5 +1,8 @@
 package com.commerce.util;
 
+import com.commerce.auth.PrincipalDetails;
+import com.commerce.domain.Admin;
+import com.commerce.service.AdminService;
 import com.commerce.service.UserService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.Authentication;
@@ -15,6 +18,8 @@ import java.util.NoSuchElementException;
 @RequiredArgsConstructor
 public class SecurityUtil {
 	private final UserService userService;
+	private final AdminService adminService;
+
 	public User getCurrentUser() {
 		String username = getCurrentUserName();
 		return userService.findByUsername(username);
@@ -31,5 +36,15 @@ public class SecurityUtil {
 		} else {
 			throw new RuntimeException("일반 사용자 로그인 상태가 아닙니다.");
 		}
+	}
+
+	public Admin getCurrentAdmin() {
+		Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+		Object principal = authentication.getPrincipal();
+		if (principal instanceof PrincipalDetails) {
+			String username = ((PrincipalDetails)principal).getUsername();
+			return adminService.findByUsername(username);
+		}
+		throw new RuntimeException("관리자 로그인 상태가 아닙니다.");
 	}
 }

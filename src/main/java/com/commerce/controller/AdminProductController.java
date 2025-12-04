@@ -16,15 +16,14 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.multipart.MultipartFile;
 
-import com.commerce.domain.Image;
+import com.commerce.domain.Admin;
 import com.commerce.domain.Product;
 import com.commerce.dto.AdminProductListDTO;
 import com.commerce.dto.ProductDTO;
 import com.commerce.dto.ProductResponseDTO;
 import com.commerce.mapper.ProductMapper;
 import com.commerce.service.ProductService;
-import com.commerce.util.FileUtil;
-import com.commerce.util.UploadFile;
+import com.commerce.util.SecurityUtil;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -37,6 +36,7 @@ public class AdminProductController {
 
 	private final ProductService productService;
 	private final ProductMapper productMapper;
+	private final SecurityUtil securityUtil;
 
 	@GetMapping
 	public String productManagement(Model model) {
@@ -62,7 +62,8 @@ public class AdminProductController {
 			return "admin/product-new";
 		}
 
-		Product product = productMapper.toEntity(productDTO);
+		Admin admin = securityUtil.getCurrentAdmin();
+		Product product = productMapper.toEntity(productDTO, admin);
 
 		productService.saveProduct(product, mainFile, files);
 		return "redirect:/admin/products";
