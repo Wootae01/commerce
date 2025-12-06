@@ -5,12 +5,14 @@ import java.util.List;
 
 import org.springframework.stereotype.Component;
 
+import com.commerce.domain.Admin;
 import com.commerce.domain.CartProduct;
 import com.commerce.domain.DeliveryPolicy;
 import com.commerce.domain.OrderProduct;
 import com.commerce.domain.Orders;
 import com.commerce.domain.Product;
 import com.commerce.domain.User;
+import com.commerce.dto.AdminOrderListResponseDTO;
 import com.commerce.dto.OrderDetailResponseDTO;
 import com.commerce.dto.OrderItemDTO;
 import com.commerce.dto.OrderPriceDTO;
@@ -25,6 +27,30 @@ import lombok.RequiredArgsConstructor;
 public class OrderMapper {
 
 	private final ProductImageUtil productImageUtil;
+
+	public List<AdminOrderListResponseDTO> toAdminOrderListResponseDTOS(List<Orders> orders) {
+
+		List<AdminOrderListResponseDTO> list = new ArrayList<>();
+
+		for (Orders order : orders) {
+			list.add(toAdminOrderListResponseDTO(order));
+		}
+		return list;
+	}
+
+	public AdminOrderListResponseDTO toAdminOrderListResponseDTO(Orders order) {
+		AdminOrderListResponseDTO dto = AdminOrderListResponseDTO.builder()
+			.id(order.getId())
+			.buyerName(order.getUser().getName())
+			.orderPhone(order.getOrderPhone())
+			.paymentType(order.getPaymentType().getText())
+			.orderDate(order.getCreatedAt())
+			.orderNumber(order.getOrderNumber())
+			.orderStatus(order.getOrderStatus().getText())
+			.totalPrice(order.getTotalPrice())
+			.build();
+		return dto;
+	}
 
 	public List<OrderResponseDTO> toOrderResponseDTO(List<Orders> orders) {
 		List<OrderResponseDTO> list = new ArrayList<>();
@@ -147,7 +173,7 @@ public class OrderMapper {
 			.orderItems(toOrderItemDTOFromOrder(order.getOrderProducts()))
 			.orderPrice(new OrderPriceDTO(order.getTotalPrice(), DeliveryPolicy.DELIVERY_FEE, order.getTotalPrice() + DeliveryPolicy.DELIVERY_FEE))
 			.paymentInfo(OrderDetailResponseDTO.PaymentInfo.builder()
-				.paymentMethod(order.getPaymentMethod().getText())
+				.paymentMethod(order.getPaymentType().getText())
 				.orderStatus(order.getOrderStatus().getText())
 				.build())
 			.build();

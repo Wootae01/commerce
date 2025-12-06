@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="ko" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>관리자 주문 목록</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    <!-- Bootstrap 5 CDN -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css"
+          rel="stylesheet">
+
+    <style>
+        body {
+            background-color: #f8f9fa;
+        }
+
+        .page-title {
+            font-weight: 700;
+            margin-bottom: 20px;
+        }
+
+        .search-card {
+            margin-bottom: 20px;
+        }
+
+        .order-table th,
+        .order-table td {
+            vertical-align: middle;
+            font-size: 0.9rem;
+        }
+
+        .status-badge {
+            font-size: 0.75rem;
+        }
+
+        .table-responsive {
+            max-height: 600px;
+            overflow-y: auto;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container-fluid py-4">
+
+    <!-- 페이지 제목 -->
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h2 class="page-title">주문 관리</h2>
+    </div>
+
+    <!-- 검색 / 필터 영역 -->
+    <div class="card search-card shadow-sm">
+        <div class="card-body">
+            <form th:action="@{/admin/orders}" method="get">
+                <div class="row g-3 align-items-end">
+
+                    <!-- 주문번호 / 이름 / 전화번호 통합 검색 -->
+                    <div class="col-md-3">
+                        <label class="form-label">검색어</label>
+                        <input type="text" class="form-control" name="keyword"
+                               placeholder="주문번호 / 이름 / 전화번호"
+                               th:value="${param.keyword}">
+                    </div>
+
+                    <!-- 날짜 범위 -->
+                    <div class="col-md-3">
+                        <label class="form-label">시작일</label>
+                        <input type="date" class="form-control" name="startDate"
+                               th:value="${param.startDate}">
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">종료일</label>
+                        <input type="date" class="form-control" name="endDate"
+                               th:value="${param.endDate}">
+                    </div>
+
+                    <!-- 주문 상태 -->
+                    <div class="col-md-3">
+                        <label class="form-label">주문 상태</label>
+                        <select class="form-select" name="orderStatus"
+                                th:value="${param.orderStatus}">
+                            <option value="">전체</option>
+                            <option value="PAID">결제완료</option>
+                            <option value="WAITING_FOR_PAYMENT">결제대기</option>
+                            <option value="PREPARING">배송준비중</option>
+                            <option value="SHIPPING">배송중</option>
+                            <option value="DELIVERED">배송완료</option>
+                            <option value="CANCEL_REQUESTED">취소요청</option>
+                            <option value="CANCELED">취소완료</option>
+                        </select>
+                    </div>
+
+                    <!-- 결제 수단 -->
+                    <div class="col-md-3">
+                        <label class="form-label">결제 수단</label>
+                        <select class="form-select" name="paymentType"
+                                th:value="${param.paymentType}">
+                            <option value="">전체</option>
+                            <option value="CARD">카드</option>
+                            <option value="VIRTUAL_ACCOUNT">무통장입금</option>
+                        </select>
+                    </div>
+
+                    <!-- 검색 버튼들 -->
+                    <div class="col-md-3 ms-auto text-end">
+                        <button type="reset" class="btn btn-outline-secondary me-2"
+                                onclick="window.location.href='/admin/orders'">
+                            초기화
+                        </button>
+                        <button type="submit" class="btn btn-primary">검색</button>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- 주문 목록 테이블 -->
+    <div class="card shadow-sm">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <span class="fw-semibold">주문 목록</span>
+            <div>
+                <button class="btn btn-outline-primary btn-sm" type="button">
+                    선택 주문 배송중 처리
+                </button>
+                <button class="btn btn-outline-danger btn-sm" type="button">
+                    선택 주문 취소 처리
+                </button>
+            </div>
+        </div>
+        <div class="card-body p-0">
+
+            <div class="table-responsive">
+                <table class="table table-hover mb-0 order-table">
+                    <thead class="table-light">
+                    <tr>
+                        <th style="width: 40px;">
+                            <input type="checkbox" class="form-check-input"
+                                   id="checkAll"
+                                   onclick="toggleAll(this)">
+                        </th>
+                        <th>주문번호</th>
+                        <th>주문일시</th>
+                        <th>주문자</th>
+                        <th>연락처</th>
+                        <th>결제수단</th>
+                        <th class="text-end">결제금액</th>
+                        <th>주문상태</th>
+                        <th style="width: 120px;">관리</th>
+                    </tr>
+                    </thead>
+                    <tbody>
+
+                    <!-- 데이터 없을 때 -->
+                    <tr th:if="${#lists.isEmpty(orders)}">
+                        <td colspan="10" class="text-center py-4 text-muted">
+                            주문이 없습니다.
+                        </td>
+                    </tr>
+
+                    <!-- 주문 리스트 -->
+                    <tr th:each="order : ${orders}">
+                        <td>
+                            <input type="checkbox" class="form-check-input order-check"
+                                   th:value="${order.id}">
+                        </td>
+                        <td>
+                            <a th:href="@{|/admin/orders/${order.id}|}"
+                               class="text-decoration-none fw-semibold"
+                               th:text="${order.orderNumber}">
+                                ORD-20251203-0001
+                            </a>
+                        </td>
+                        <td th:text="${#temporals.format(order.orderDate, 'yyyy-MM-dd HH:mm')}">
+                            2025-12-03 10:15
+                        </td>
+                        <td th:text="${order.buyerName}">홍길동</td>
+                        <td th:text="${order.orderPhone}">010-1234-5678</td>
+                        <td th:text="${order.paymentType}">CARD</td>
+                        <td class="text-end"
+                            th:text="${#numbers.formatInteger(order.totalPrice, 3, 'COMMA')} + '원'">
+                            59,000원
+                        </td>
+                        <td>
+                            <span class="badge status-badge"
+                                  th:text="${order.orderStatus}"
+                                  th:classappend="${order.orderStatus} == 'PAID' ? ' bg-success' :
+                                                  (${order.orderStatus} == 'CANCEL_REQUESTED' ? ' bg-danger' :
+                                                  (${order.orderStatus} == 'CANCELED' ? ' bg-secondary' :
+                                                  ' bg-warning text-dark'))">
+                                결제완료
+                            </span>
+                        </td>
+                        <td>
+                            <a class="btn btn-sm btn-outline-primary"
+                               th:href="@{|/admin/orders/${order.id}|}">
+                                상세
+                            </a>
+                        </td>
+                    </tr>
+
+                    </tbody>
+                </table>
+            </div>
+
+        </div>
+    </div>
+
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+    // 전체 체크박스 토글
+    function toggleAll(source) {
+        const checkboxes = document.querySelectorAll('.order-check');
+        checkboxes.forEach(cb => cb.checked = source.checked);
+    }
+</script>
+</body>
+</html>

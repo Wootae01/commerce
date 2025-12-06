@@ -88,6 +88,8 @@ public class OrderController {
 
     @PostMapping
     public String order(OrderCreateRequestDTO dto) {
+        // 카트에 담긴 상품 주문 or
+        // 즉시 주문
         if (dto.getOrderType().equals(OrderType.CART)) {
             orderService.createOrderFromCart(dto);
         } else if (dto.getOrderType().equals(OrderType.BUY_NOW)) {

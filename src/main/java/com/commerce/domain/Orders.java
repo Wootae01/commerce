@@ -9,7 +9,6 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
-import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -43,21 +42,21 @@ public class Orders extends BaseEntity{
     private String requestNote;
 
     @Enumerated(EnumType.STRING)
-    private PaymentType paymentMethod;
+    private PaymentType paymentType;
 
     @Enumerated(EnumType.STRING)
     private OrderStatus orderStatus;
 
     @Builder
     private Orders(User user, int totalPrice, String orderName, String orderAddress, String orderNumber,
-        String orderPhone, String orderAddressDetail, String requestNote, PaymentType paymentMethod, OrderStatus orderStatus) {
+        String orderPhone, String orderAddressDetail, String requestNote, PaymentType paymentType, OrderStatus orderStatus) {
         this.orderNumber = orderNumber;
         this.user = user;
         this.totalPrice = totalPrice;
         this.orderName = orderName;
         this.orderAddress = orderAddress;
         this.orderPhone = orderPhone;
-        this.paymentMethod = paymentMethod;
+        this.paymentType = paymentType;
         this.orderStatus = orderStatus;
         this.orderAddressDetail = orderAddressDetail;
         this.requestNote = requestNote;

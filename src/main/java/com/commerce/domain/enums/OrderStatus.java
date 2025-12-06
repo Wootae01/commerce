@@ -4,10 +4,11 @@ public enum OrderStatus {
 	WAITING_FOR_PAYMENT("결제 대기"),
 	WAITING_FOR_DEPOSIT("무통장 입금 대기"),
 	PAID("결제 완료"),
-	CANCELLED("주문 취소"),
+	PREPARING("배송 준비"),
 	SHIPPING("배송 중"),
-	DELIVERED("배송 완료"),
-	COMPLETED("구매 확정");
+	CANCEL_REQUESTED("취소 요청"),
+	CANCELED("취소 완료"),
+	DELIVERED("배송 완료");
 
 	private final String text;
 

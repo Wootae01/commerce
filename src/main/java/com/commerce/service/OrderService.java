@@ -1,5 +1,7 @@
 package com.commerce.service;
 
+import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.UUID;
@@ -14,6 +16,7 @@ import com.commerce.domain.Orders;
 import com.commerce.domain.Product;
 import com.commerce.domain.enums.OrderStatus;
 import com.commerce.domain.enums.PaymentType;
+import com.commerce.dto.AdminOrderSearchCond;
 import com.commerce.dto.OrderCreateRequestDTO;
 import com.commerce.repository.CartProductRepository;
 import com.commerce.repository.OrderRepository;
@@ -30,6 +33,19 @@ public class OrderService {
 	private final CartProductRepository cartProductRepository;
 	private final SecurityUtil securityUtil;
 	private final ProductRepository productRepository;
+
+	public List<Orders> getOrderList(AdminOrderSearchCond cond) {
+		LocalDateTime start = null;
+		LocalDateTime end = null;
+		if (cond.getStartDate() != null) {
+			start = cond.getStartDate().atTime(LocalTime.MIN);
+		}
+		if (cond.getEndDate() != null) {
+			end = cond.getEndDate().atTime(LocalTime.MAX);
+		}
+		return orderRepository.searchAdminOrders(cond.getKeyword(), start, end,
+			cond.getOrderStatus(), cond.getPaymentType());
+	}
 
 	public Orders findByOrderNumber(String orderNumber) {
 		return orderRepository.findByOrderNumber(orderNumber)
@@ -118,7 +134,7 @@ public class OrderService {
 			.orderName(dto.getName())
 			.orderPhone(dto.getPhone())
 			.requestNote(dto.getRequestNote())
-			.paymentMethod(dto.getPayment())
+			.paymentType(dto.getPayment())
 			.orderStatus(orderStatus)
 			.user(securityUtil.getCurrentUser())
 			.totalPrice(totalPrice + DeliveryPolicy.DELIVERY_FEE)
