@@ -7,6 +7,7 @@ import java.util.NoSuchElementException;
 import java.util.UUID;
 
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import com.commerce.domain.Cart;
 import com.commerce.domain.CartProduct;
@@ -27,12 +28,22 @@ import lombok.RequiredArgsConstructor;
 
 @Service
 @RequiredArgsConstructor
+@Transactional(readOnly = true)
 public class OrderService {
 
 	private final OrderRepository orderRepository;
 	private final CartProductRepository cartProductRepository;
 	private final SecurityUtil securityUtil;
 	private final ProductRepository productRepository;
+
+	// 주문 상태 변경
+	@Transactional
+	public void changeStatus(List<Long> orderIds,OrderStatus status) {
+		List<Orders> orders = orderRepository.findAllById(orderIds);
+		for (Orders order : orders) {
+			order.setOrderStatus(status);
+		}
+	}
 
 	public List<Orders> getOrderList(AdminOrderSearchCond cond) {
 		LocalDateTime start = null;
@@ -52,6 +63,7 @@ public class OrderService {
 			.orElseThrow(() -> new NoSuchElementException("해당 주문이 존재하지 않습니다."));
 	}
 
+	@Transactional
 	public Orders createOrderFromBuyNow(OrderCreateRequestDTO dto) {
 		Product product = productRepository.findById(dto.getProductId())
 			.orElseThrow();
@@ -79,6 +91,7 @@ public class OrderService {
 		return orderRepository.save(orders);
 	}
 
+	@Transactional
 	public Orders createOrderFromCart(OrderCreateRequestDTO dto) {
 		List<Long> cartProductIds = dto.getCartProductIds();
 		List<CartProduct> cartProducts = cartProductRepository.findAllById(cartProductIds);

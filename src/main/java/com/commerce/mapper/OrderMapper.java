@@ -46,7 +46,7 @@ public class OrderMapper {
 			.paymentType(order.getPaymentType().getText())
 			.orderDate(order.getCreatedAt())
 			.orderNumber(order.getOrderNumber())
-			.orderStatus(order.getOrderStatus().getText())
+			.orderStatus(order.getOrderStatus())
 			.totalPrice(order.getTotalPrice())
 			.build();
 		return dto;

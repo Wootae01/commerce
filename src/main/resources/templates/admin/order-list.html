@@ -116,93 +116,107 @@
 
     <!-- 주문 목록 테이블 -->
     <div class="card shadow-sm">
-        <div class="card-header d-flex justify-content-between align-items-center">
-            <span class="fw-semibold">주문 목록</span>
-            <div>
-                <button class="btn btn-outline-primary btn-sm" type="button">
-                    선택 주문 배송중 처리
-                </button>
-                <button class="btn btn-outline-danger btn-sm" type="button">
-                    선택 주문 취소 처리
-                </button>
+        <form th:action="@{/admin/orders/status}" method="post">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <span class="fw-semibold">주문 목록</span>
+
+                <!-- 오른쪽 영역 -->
+                <div class="d-flex align-items-center gap-2">
+                    <!-- 상태 선택 드롭다운 -->
+                    <select name="status" class="form-select form-select-sm w-auto">
+                        <option value="">상태 선택</option>
+                        <option value="PAID">결제완료</option>
+                        <option value="PREPARING">배송준비중</option>
+                        <option value="SHIPPING">배송중</option>
+                        <option value="DELIVERED">배송완료</option>
+                        <option value="CANCELED">취소완료</option>
+                    </select>
+
+                    <!-- 일괄 상태 변경 버튼 -->
+                    <button class="btn btn-outline-primary btn-sm" type="submit">
+                        선택 주문 상태 변경
+                    </button>
+                </div>
+
             </div>
-        </div>
-        <div class="card-body p-0">
+            <div class="card-body p-0">
 
-            <div class="table-responsive">
-                <table class="table table-hover mb-0 order-table">
-                    <thead class="table-light">
-                    <tr>
-                        <th style="width: 40px;">
-                            <input type="checkbox" class="form-check-input"
-                                   id="checkAll"
-                                   onclick="toggleAll(this)">
-                        </th>
-                        <th>주문번호</th>
-                        <th>주문일시</th>
-                        <th>주문자</th>
-                        <th>연락처</th>
-                        <th>결제수단</th>
-                        <th class="text-end">결제금액</th>
-                        <th>주문상태</th>
-                        <th style="width: 120px;">관리</th>
-                    </tr>
-                    </thead>
-                    <tbody>
+                <div class="table-responsive">
+                    <table class="table table-hover mb-0 order-table">
+                        <thead class="table-light">
+                        <tr>
+                            <th style="width: 40px;">
+                                <input type="checkbox" class="form-check-input"
+                                       id="checkAll"
+                                       onclick="toggleAll(this)">
+                            </th>
+                            <th>주문번호</th>
+                            <th>주문일시</th>
+                            <th>주문자</th>
+                            <th>연락처</th>
+                            <th>결제수단</th>
+                            <th class="text-end">결제금액</th>
+                            <th>주문상태</th>
+                            <th style="width: 120px;">관리</th>
+                        </tr>
+                        </thead>
+                        <tbody>
 
-                    <!-- 데이터 없을 때 -->
-                    <tr th:if="${#lists.isEmpty(orders)}">
-                        <td colspan="10" class="text-center py-4 text-muted">
-                            주문이 없습니다.
-                        </td>
-                    </tr>
+                        <!-- 데이터 없을 때 -->
+                        <tr th:if="${#lists.isEmpty(orders)}">
+                            <td colspan="10" class="text-center py-4 text-muted">
+                                주문이 없습니다.
+                            </td>
+                        </tr>
 
-                    <!-- 주문 리스트 -->
-                    <tr th:each="order : ${orders}">
-                        <td>
-                            <input type="checkbox" class="form-check-input order-check"
-                                   th:value="${order.id}">
-                        </td>
-                        <td>
-                            <a th:href="@{|/admin/orders/${order.id}|}"
-                               class="text-decoration-none fw-semibold"
-                               th:text="${order.orderNumber}">
-                                ORD-20251203-0001
-                            </a>
-                        </td>
-                        <td th:text="${#temporals.format(order.orderDate, 'yyyy-MM-dd HH:mm')}">
-                            2025-12-03 10:15
-                        </td>
-                        <td th:text="${order.buyerName}">홍길동</td>
-                        <td th:text="${order.orderPhone}">010-1234-5678</td>
-                        <td th:text="${order.paymentType}">CARD</td>
-                        <td class="text-end"
-                            th:text="${#numbers.formatInteger(order.totalPrice, 3, 'COMMA')} + '원'">
-                            59,000원
-                        </td>
-                        <td>
+                        <!-- 주문 리스트 -->
+                        <tr th:each="order : ${orders}">
+                            <td>
+                                <input type="checkbox" class="form-check-input order-check"
+                                       th:value="${order.id}" name="orderIds">
+                            </td>
+                            <td>
+                                <a th:href="@{|/admin/orders/${order.id}|}"
+                                   class="text-decoration-none fw-semibold"
+                                   th:text="${order.orderNumber}">
+                                    ORD-20251203-0001
+                                </a>
+                            </td>
+                            <td th:text="${#temporals.format(order.orderDate, 'yyyy-MM-dd HH:mm')}">
+                                2025-12-03 10:15
+                            </td>
+                            <td th:text="${order.buyerName}">홍길동</td>
+                            <td th:text="${order.orderPhone}">010-1234-5678</td>
+                            <td th:text="${order.paymentType}">CARD</td>
+                            <td class="text-end"
+                                th:text="${#numbers.formatInteger(order.totalPrice, 3, 'COMMA')} + '원'">
+                                59,000원
+                            </td>
+                            <td>
                             <span class="badge status-badge"
-                                  th:text="${order.orderStatus}"
-                                  th:classappend="${order.orderStatus} == 'PAID' ? ' bg-success' :
-                                                  (${order.orderStatus} == 'CANCEL_REQUESTED' ? ' bg-danger' :
-                                                  (${order.orderStatus} == 'CANCELED' ? ' bg-secondary' :
+                                  th:text="${order.orderStatus.text}"
+                                  th:classappend="${order.orderStatus.name()} == 'PAID' ? ' bg-success' :
+                                                  (${order.orderStatus.name()} == 'CANCEL_REQUESTED' ? ' bg-danger' :
+                                                  (${order.orderStatus.name()} == 'CANCELED' ? ' bg-secondary' :
                                                   ' bg-warning text-dark'))">
                                 결제완료
                             </span>
-                        </td>
-                        <td>
-                            <a class="btn btn-sm btn-outline-primary"
-                               th:href="@{|/admin/orders/${order.id}|}">
-                                상세
-                            </a>
-                        </td>
-                    </tr>
+                            </td>
+                            <td>
+                                <a class="btn btn-sm btn-outline-primary"
+                                   th:href="@{|/admin/orders/${order.id}|}">
+                                    상세
+                                </a>
+                            </td>
+                        </tr>
 
-                    </tbody>
-                </table>
+                        </tbody>
+                    </table>
+                </div>
+
             </div>
+        </form>
 
-        </div>
     </div>
 
 </div>

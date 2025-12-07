@@ -2,6 +2,8 @@ package com.commerce.dto;
 
 import java.time.LocalDateTime;
 
+import com.commerce.domain.enums.OrderStatus;
+
 import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -22,5 +24,5 @@ public class AdminOrderListResponseDTO {
 	private String paymentType;
 	private String orderPhone;
 	private int totalPrice;
-	private String orderStatus;
+	private OrderStatus orderStatus;
 }
