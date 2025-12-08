@@ -91,7 +91,7 @@
                 <div>
                     <h5 class="fw-bold">
                         총 금액:
-                        <span class="text-danger" th:text="${#numbers.formatInteger(totalPrice, 3, 'COMMA')} + '원'"}></span>
+                        <span class="text-danger" th:text="${#numbers.formatInteger(totalPrice, 3, 'COMMA')} + '원'"></span>
                     </h5>
                 </div>
                 <form method="get" th:action="@{/order/cart}">

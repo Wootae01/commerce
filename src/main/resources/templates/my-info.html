@@ -18,25 +18,35 @@
         <!-- 이름 -->
         <div class="mb-3">
             <label class="form-label fw-semibold">이름</label>
-            <input class="form-control" th:field="*{name}" readonly>
+            <input class="form-control" th:field="*{name}" readonly th:errorclass="is-invalid">
+            <div th:errors="*{name}" th:class="invalid-feedback">이름 에러</div>
         </div>
 
         <!-- 연락처 -->
         <div class="mb-3">
             <label class="form-label fw-semibold">연락처</label>
-            <input class="form-control" th:field="*{phone}">
+            <input class="form-control" th:field="*{phone}" th:errorclass="is-invalid">
+            <div th:errors="*{phone}" th:class="invalid-feedback">연락처 에러</div>
         </div>
 
         <!-- 주소 -->
         <div class="mb-3">
             <label class="form-label fw-semibold">주소</label>
-            <input class="form-control" th:field="*{address}">
+            <input class="form-control" th:field="*{address}" th:errorclass="is-invalid">
+            <div th:errors="*{address}" th:class="invalid-feedback">주소</div>
+        </div>
+        <!-- 상세 주소 -->
+        <div class="mb-3">
+            <label class="form-label fw-semibold">상세 주소</label>
+            <input class="form-control" th:field="*{addressDetail}" th:errorclass="is-invalid">
+            <div th:errors="*{addressDetail}" th:class="invalid-feedback">상세 주소 에러</div>
         </div>
 
         <!-- 이메일 -->
         <div class="mb-3">
             <label class="form-label fw-semibold">이메일</label>
-            <input class="form-control" th:field="*{email}">
+            <input class="form-control" th:field="*{email}" th:errorclass="is-invalid">
+            <div th:errors="*{email}" th:class="invalid-feedback">이메일 에러</div>
         </div>
 
         <!-- 버튼 -->

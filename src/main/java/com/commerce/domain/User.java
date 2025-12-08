@@ -32,6 +32,7 @@ public class User extends BaseEntity{
     private String name;
     private String phone;
     private String address;
+    private String addressDetail;
     private String email;
 
     @Builder
@@ -53,6 +54,7 @@ public class User extends BaseEntity{
         this.name = dto.getName();
         this.phone = dto.getPhone();
         this.address = dto.getAddress();
+        this.addressDetail = dto.getAddressDetail();
         this.email = dto.getEmail();
     }
 

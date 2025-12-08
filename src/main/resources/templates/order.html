@@ -129,18 +129,22 @@
 
                 <div class="mb-3">
                     <label class="form-label">받는 사람</label>
-                    <input type="text" class="form-control" th:field="*{name}">
+                    <input type="text" class="form-control" th:field="*{name}" th:errorclass="is-invalid">
+                    <div class="invalid-feedback" th:errors="*{name}">이름 오류</div>
                 </div>
 
                 <div class="mb-3">
                     <label class="form-label">연락처</label>
-                    <input type="text" class="form-control" th:field="*{phone}">
+                    <input type="text" class="form-control" th:field="*{phone}" th:errorclass="is-invalid">
+                    <div class="invalid-feedback" th:errors="*{phone}">전화번호 오류</div>
                 </div>
 
                 <div class="mb-3">
                     <label class="form-label">주소</label>
-                    <input type="text" class="form-control mb-2" th:field="*{address}">
-                    <input type="text" class="form-control" placeholder="상세 주소 입력" th:field="*{addressDetail}">
+                    <input type="text" class="form-control mb-2" th:field="*{address}" th:errorclass="is-invalid">
+                    <div class="invalid-feedback" th:errors="*{address}">주소 오류</div>
+                    <input type="text" class="form-control" placeholder="상세 주소 입력" th:field="*{addressDetail}" th:errorclass="is-invalid">
+                    <div class="invalid-feedback" th:errors="*{addressDetail}">상세 주소 오류</div>
                 </div>
 
                 <div class="mb-3">
@@ -171,6 +175,10 @@
                            th:field="*{payment}"
                            value="CASH">
                     <label class="form-check-label">무통장 입금</label>
+                </div>
+
+                <div class="text-danger small mt-2"
+                     th:errors="*{payment}">
                 </div>
 
             </div>

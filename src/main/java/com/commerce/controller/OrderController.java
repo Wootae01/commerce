@@ -19,7 +19,10 @@ import com.commerce.util.SecurityUtil;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
+import org.springframework.validation.BindingResult;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.ModelAttribute;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -87,7 +90,14 @@ public class OrderController {
     }
 
     @PostMapping
-    public String order(OrderCreateRequestDTO dto) {
+    public String order(@Validated @ModelAttribute("orderForm") OrderCreateRequestDTO dto, BindingResult bindingResult, Model model) {
+
+        if (bindingResult.hasErrors()) {
+            // 다시 dto 담음
+            repopulateOrderView(dto, model);
+            return "order";
+        }
+
         // 카트에 담긴 상품 주문 or
         // 즉시 주문
         if (dto.getOrderType().equals(OrderType.CART)) {
@@ -98,6 +108,31 @@ public class OrderController {
 
 
         return "redirect:/order/list";
+    }
+
+    private void repopulateOrderView(OrderCreateRequestDTO dto, Model model) {
+        // cart 주문인 경우
+        if (dto.getOrderType() == OrderType.CART) {
+            List<CartProduct> cartProducts = cartService.getProductsByIds(dto.getCartProductIds());
+            List<OrderItemDTO> items = orderMapper.toOrderItemDTOFromCart(cartProducts);
+            model.addAttribute("orderItems", items);
+
+            int totalPrice = cartService.getTotalPrice(cartProducts);
+            int deliveryFee = DeliveryPolicy.DELIVERY_FEE;
+            model.addAttribute("orderPrice",
+                new OrderPriceDTO(totalPrice, deliveryFee, totalPrice + deliveryFee));
+
+            // 즉시 주문인 경우
+        } else if (dto.getOrderType() == OrderType.BUY_NOW) {
+            Product product = productService.findById(dto.getProductId());
+            OrderItemDTO item = orderMapper.toOrderItemDTOFromCart(product, dto.getQuantity());
+            model.addAttribute("orderItems", List.of(item));
+
+            int totalPrice = product.getPrice() * dto.getQuantity();
+            int deliveryFee = DeliveryPolicy.DELIVERY_FEE;
+            model.addAttribute("orderPrice",
+                new OrderPriceDTO(totalPrice, deliveryFee, totalPrice + deliveryFee));
+        }
     }
 
     @GetMapping("/list")

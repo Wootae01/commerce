@@ -24,6 +24,11 @@ public class CartService {
 	private final ProductRepository productRepository;
 	private final SecurityUtil securityUtil;
 
+	public List<CartProduct> getProductsByIds(List<Long> cartProductIds) {
+
+		return cartProductRepository.findAllById(cartProductIds);
+	}
+
 	public Cart getCart() {
 		User user = securityUtil.getCurrentUser();
 

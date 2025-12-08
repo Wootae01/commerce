@@ -16,6 +16,7 @@ import com.commerce.dto.CartProductDTO;
 import com.commerce.mapper.CartProductMapper;
 import com.commerce.service.CartService;
 
+import jakarta.validation.constraints.Min;
 import lombok.RequiredArgsConstructor;
 
 @Controller
@@ -40,7 +41,7 @@ public class CartController {
 	}
 
 	@PostMapping("/add/{cartProductId}")
-	public String addProduct(@PathVariable Long cartProductId, int quantity,
+	public String addProduct(@PathVariable Long cartProductId, @Min(1) int quantity,
 		@RequestHeader(value = "Referer", required = false) String referer) {
 
 		cartService.addCart(cartProductId, quantity);
@@ -48,7 +49,7 @@ public class CartController {
 	}
 
 	@PostMapping("/edit/{cartProductId}")
-	public String editQuantity(@PathVariable Long cartProductId, int quantity) {
+	public String editQuantity(@PathVariable Long cartProductId, @Min(1) int quantity) {
 		cartService.addProductQuantity(cartProductId, quantity);
 
 		return "redirect:/cart";
