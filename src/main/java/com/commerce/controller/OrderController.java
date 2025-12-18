@@ -9,6 +9,7 @@ import com.commerce.domain.enums.OrderType;
 import com.commerce.dto.OrderCreateRequestDTO;
 import com.commerce.dto.OrderDetailResponseDTO;
 import com.commerce.dto.OrderItemDTO;
+import com.commerce.dto.OrderPrepareResponseDTO;
 import com.commerce.dto.OrderPriceDTO;
 import com.commerce.dto.OrderResponseDTO;
 import com.commerce.mapper.OrderMapper;
@@ -17,6 +18,8 @@ import com.commerce.service.OrderService;
 import com.commerce.service.ProductService;
 import com.commerce.util.SecurityUtil;
 import lombok.RequiredArgsConstructor;
+
+import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.validation.BindingResult;
@@ -26,12 +29,15 @@ import org.springframework.web.bind.annotation.ModelAttribute;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.ResponseBody;
 
 import java.util.Comparator;
 import java.util.List;
+import java.util.Map;
+import java.util.NoSuchElementException;
 
 @Controller
-@RequestMapping("/order")
+@RequestMapping("/orders")
 @RequiredArgsConstructor
 public class OrderController {
 
@@ -40,6 +46,37 @@ public class OrderController {
     private final OrderService orderService;
     private final OrderMapper orderMapper;
     private final ProductService productService;
+
+    // 결제 전 필요한 데이터 보내줌.
+    @PostMapping("/prepare")
+    @ResponseBody
+    public ResponseEntity<?> orderPrepare(@Validated @ModelAttribute("orderForm") OrderCreateRequestDTO dto,
+        BindingResult bindingResult) {
+
+        if (bindingResult.hasErrors()) {
+            return ResponseEntity.badRequest().body(Map.of("message", "입력값 오류"));
+        }
+
+        Orders order = null;
+
+        try {
+            if (dto.getOrderType() == OrderType.CART) {
+                order = orderService.prepareOrderFromCart(dto);
+            } else if (dto.getOrderType() == OrderType.BUY_NOW) {
+                order = orderService.prepareOrderFromBuyNow(dto);
+            } else {
+                return ResponseEntity.badRequest().body(Map.of("message", "잘못된 요청"));
+            }
+
+        } catch (IllegalArgumentException | NoSuchElementException e) {
+            return ResponseEntity.badRequest().body(Map.of("message", e.getMessage()));
+        }
+
+        OrderPrepareResponseDTO prepared = orderMapper.toOrderPrepareResponseDTO(order);
+
+        return ResponseEntity.ok(prepared);
+
+    }
 
     @GetMapping("/cart")
     public String cartOrder(Model model) {

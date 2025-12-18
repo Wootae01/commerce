@@ -20,6 +20,9 @@
             padding: 15px;
         }
     </style>
+
+    <!-- 토스페이먼츠 SDK 추가 -->
+    <script src="https://js.tosspayments.com/v2/standard"></script>
 </head>
 
 <body class="bg-light">
@@ -29,7 +32,7 @@
     <!-- 페이지 제목 -->
     <h2 class="fw-bold mb-4 text-center">🧾 주문하기</h2>
 
-    <form th:action="@{/order}" method="post" th:object="${orderForm}">
+    <form th:action="@{/orders}" method="post" th:object="${orderForm}">
 
         <!-- orderType도 같이 전송 -->
         <input type="hidden" th:field="*{orderType}"/>
@@ -157,32 +160,13 @@
 
 
         <!-- 결제 방식 -->
-        <div class="section-title">결제 방식</div>
-        <div class="card shadow-sm mb-4">
-            <div class="card-body">
-
-                <div class="form-check">
-                    <input class="form-check-input"
-                           type="radio"
-                           th:field="*{payment}"
-                           value="CARD">
-                    <label class="form-check-label">카드 결제</label>
-                </div>
-
-                <div class="form-check mt-2">
-                    <input class="form-check-input"
-                           type="radio"
-                           th:field="*{payment}"
-                           value="CASH">
-                    <label class="form-check-label">무통장 입금</label>
-                </div>
-
-                <div class="text-danger small mt-2"
-                     th:errors="*{payment}">
-                </div>
-
-            </div>
+        <div class="box_section" style="padding: 40px 30px 50px 30px; margin-top: 30px; margin-bottom: 50px">
+            <!-- 결제 UI -->
+            <div id="payment-method"></div>
+            <!-- 이용약관 UI -->
+            <div id="agreement"></div>
         </div>
+
 
 
         <!-- 결제 금액 요약 -->
@@ -209,16 +193,110 @@
         </div>
 
 
-        <!-- 주문 제출 버튼 -->
-        <button type="submit" class="btn btn-primary w-100 py-2 fw-bold">
-            결제하기
-        </button>
+        <!-- 결제하기 버튼 -->
+        <div class="result wrapper">
+            <button type="button" class="button" id="payment-button" style="margin-top: 30px">
+                결제하기
+            </button>
+        </div>
 
     </form>
 </div>
 
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+
+ <script th:inline="javascript">
+    main();
+
+    async function main() {
+        const button = document.getElementById("payment-button");
+
+        const amount = {
+            currency: "KRW",
+            value: 50000,
+        };
+        // ------  결제위젯 초기화 ------
+        // TODO: clientKey는 개발자센터의 결제위젯 연동 키 > 클라이언트 키로 바꾸세요.
+        // TODO: 구매자의 고유 아이디를 불러와서 customerKey로 설정하세요. 이메일・전화번호와 같이 유추가 가능한 값은 안전하지 않습니다.
+        // @docs https://docs.tosspayments.com/sdk/v2/js#토스페이먼츠-초기화
+        const clientKey = "test_gck_docs_Ovk5rk1EwkEbP0W43n07xlzm";
+        const customerKey = /*[[${customerKey}]]*/ "";
+        const finalPrice = Number(/*[[${orderPrice.finalPrice}]]*/ 0);
+
+        const tossPayments = TossPayments(clientKey);
+        // 회원 결제
+        const widgets = tossPayments.widgets({
+            customerKey,
+        });
+        // 비회원 결제
+        // const widgets = tossPayments.widgets({customerKey: TossPayments.ANONYMOUS});
+
+        // ------  주문서의 결제 금액 설정 ------
+        // TODO: renderPaymentMethods, renderAgreement, requestPayment 보다 반드시 선행되어야 합니다.
+        await widgets.setAmount({currency: "KRW", value: finalPrice });
+
+        // ------  결제 UI 렌더링 ------
+        // @docs https://docs.tosspayments.com/sdk/v2/js#widgetsrenderpaymentmethods
+        await widgets.renderPaymentMethods({
+            selector: "#payment-method",
+            // 렌더링하고 싶은 결제 UI의 variantKey
+            // 결제 수단 및 스타일이 다른 멀티 UI를 직접 만들고 싶다면 계약이 필요해요.
+            // @docs https://docs.tosspayments.com/guides/v2/payment-widget/admin#새로운-결제-ui-추가하기
+            variantKey: "DEFAULT",
+        });
+
+        // ------  이용약관 UI 렌더링 ------
+        // @docs https://docs.tosspayments.com/reference/widget-sdk#renderagreement선택자-옵션
+        await widgets.renderAgreement({ selector: "#agreement", variantKey: "AGREEMENT" });
+
+
+        // ------ '결제하기' 버튼 누르면 결제창 띄우기 ------
+        // @docs https://docs.tosspayments.com/sdk/v2/js#widgetsrequestpayment
+        button.addEventListener("click", async function (e) {
+
+            e.preventDefault();
+            try{
+                // 1. 서버에 주문 준비 요청
+                const form = document.querySelector("form");
+                const res = await fetch("/orders/prepare", {
+                    method: "POST",
+                    body: new FormData(form),
+                });
+
+                if(!res.ok) {
+                    alert("주문 준비 실패");
+                    return;
+                }
+
+                const prepared = await res.json();
+
+                // 2. 금액 확정
+                await widgets.setAmount({ currency: "KRW", value: Number(prepared.amount) });
+
+                // 3. 토스로 결제 요청
+                await widgets.requestPayment({
+                    orderId: prepared.orderId,
+                    orderName: prepared.orderName,
+                    successUrl:  prepared.successUrl,
+                    failUrl:  prepared.failUrl,
+                    customerName: prepared.customerName,
+                    customerMobilePhone: prepared.customerMobilePhone,
+                });
+
+            } catch (err) {
+                console.log(err);
+                alert("결제 요청 중 오류가 발생하였습니다.");
+            }
+
+        });
+    }
+
+    function generateRandomString() {
+        return window.btoa(Math.random()).slice(0, 20);
+    }
+
+</script>
 
 </body>
 </html>

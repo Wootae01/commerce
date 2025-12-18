@@ -1,6 +1,7 @@
 package com.commerce.service;
 
 import java.util.Optional;
+import java.util.UUID;
 
 import org.springframework.security.oauth2.client.userinfo.DefaultOAuth2UserService;
 import org.springframework.security.oauth2.client.userinfo.OAuth2UserRequest;
@@ -50,6 +51,7 @@ public class CustomOauth2UserService extends DefaultOAuth2UserService {
 
 			User user = User.builder()
 					.username(username)
+					.customerPaymentKey(UUID.randomUUID().toString())
 					.role(role)
 					.name(oauth2Response.getName())
 					.phone(oauth2Response.getPhone())

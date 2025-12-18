@@ -94,7 +94,7 @@
                         <span class="text-danger" th:text="${#numbers.formatInteger(totalPrice, 3, 'COMMA')} + '원'"></span>
                     </h5>
                 </div>
-                <form method="get" th:action="@{/order/cart}">
+                <form method="get" th:action="@{/orders/cart}">
                     <button class="my-2 btn btn-primary" >주문 하기</button>
                 </form>
 

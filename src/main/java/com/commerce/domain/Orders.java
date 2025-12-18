@@ -1,6 +1,7 @@
 package com.commerce.domain;
 
 import com.commerce.domain.enums.OrderStatus;
+import com.commerce.domain.enums.OrderType;
 import com.commerce.domain.enums.PaymentType;
 import jakarta.persistence.*;
 import lombok.AccessLevel;
@@ -34,11 +35,13 @@ public class Orders extends BaseEntity{
     @OneToMany(mappedBy = "order", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<OrderProduct> orderProducts = new ArrayList<>();
 
-    private int totalPrice;
+    private int finalPrice;
+
     private String orderName;
-    private String orderAddress;
+    private String receiverName;
+    private String receiverAddress;
     private String orderAddressDetail;
-    private String orderPhone;
+    private String receiverPhone;
     private String requestNote;
 
     @Enumerated(EnumType.STRING)
@@ -47,18 +50,23 @@ public class Orders extends BaseEntity{
     @Enumerated(EnumType.STRING)
     private OrderStatus orderStatus;
 
+    @Enumerated(EnumType.STRING)
+    private OrderType orderType;
+
     @Builder
-    private Orders(User user, int totalPrice, String orderName, String orderAddress, String orderNumber,
-        String orderPhone, String orderAddressDetail, String requestNote, PaymentType paymentType, OrderStatus orderStatus) {
+    private Orders(User user, String orderName, int finalPrice, String receiverName, String receiverAddress, String orderNumber,
+        String receiverPhone, String orderAddressDetail, String requestNote, PaymentType paymentType, OrderStatus orderStatus, OrderType orderType) {
         this.orderNumber = orderNumber;
         this.user = user;
-        this.totalPrice = totalPrice;
         this.orderName = orderName;
-        this.orderAddress = orderAddress;
-        this.orderPhone = orderPhone;
+        this.finalPrice = finalPrice;
+        this.receiverName = receiverName;
+        this.receiverAddress = receiverAddress;
+        this.receiverPhone = receiverPhone;
         this.paymentType = paymentType;
         this.orderStatus = orderStatus;
         this.orderAddressDetail = orderAddressDetail;
         this.requestNote = requestNote;
+        this.orderType = orderType;
     }
 }

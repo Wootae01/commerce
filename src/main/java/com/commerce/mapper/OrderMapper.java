@@ -3,9 +3,9 @@ package com.commerce.mapper;
 import java.util.ArrayList;
 import java.util.List;
 
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
-import com.commerce.domain.Admin;
 import com.commerce.domain.CartProduct;
 import com.commerce.domain.DeliveryPolicy;
 import com.commerce.domain.OrderProduct;
@@ -15,6 +15,7 @@ import com.commerce.domain.User;
 import com.commerce.dto.AdminOrderListResponseDTO;
 import com.commerce.dto.OrderDetailResponseDTO;
 import com.commerce.dto.OrderItemDTO;
+import com.commerce.dto.OrderPrepareResponseDTO;
 import com.commerce.dto.OrderPriceDTO;
 import com.commerce.dto.OrderProductResponseDTO;
 import com.commerce.dto.OrderResponseDTO;
@@ -27,6 +28,9 @@ import lombok.RequiredArgsConstructor;
 public class OrderMapper {
 
 	private final ProductImageUtil productImageUtil;
+
+	@Value("${app.base-url}")
+	private String baseUrl;
 
 	public List<AdminOrderListResponseDTO> toAdminOrderListResponseDTOS(List<Orders> orders) {
 
@@ -42,14 +46,26 @@ public class OrderMapper {
 		AdminOrderListResponseDTO dto = AdminOrderListResponseDTO.builder()
 			.id(order.getId())
 			.buyerName(order.getUser().getName())
-			.orderPhone(order.getOrderPhone())
+			.orderPhone(order.getReceiverPhone())
 			.paymentType(order.getPaymentType().getText())
 			.orderDate(order.getCreatedAt())
 			.orderNumber(order.getOrderNumber())
 			.orderStatus(order.getOrderStatus())
-			.totalPrice(order.getTotalPrice())
+			.totalPrice(order.getFinalPrice())
 			.build();
 		return dto;
+	}
+
+	public OrderPrepareResponseDTO toOrderPrepareResponseDTO(Orders order) {
+		return OrderPrepareResponseDTO.builder()
+				.orderId(order.getOrderNumber())
+				.amount(order.getFinalPrice())
+				.customerName(order.getReceiverName())
+				.customerMobilePhone(order.getReceiverPhone())
+				.orderName(order.getOrderName())
+				.successUrl(baseUrl + "/pay/loading")
+				.failUrl(baseUrl + "/pay/fail")
+				.build();
 	}
 
 	public List<OrderResponseDTO> toOrderResponseDTO(List<Orders> orders) {
@@ -67,7 +83,7 @@ public class OrderMapper {
 		List<OrderProductResponseDTO> productResponseDTOList = toOrderProductResponseDTOS(orderProducts);
 
 		OrderResponseDTO orderResponseDTO = new OrderResponseDTO(
-			order.getOrderNumber(), order.getCreatedAt(), order.getOrderStatus().getText(),productResponseDTOList, order.getTotalPrice()
+			order.getOrderNumber(), order.getCreatedAt(), order.getOrderStatus().getText(),productResponseDTOList, order.getFinalPrice()
 		);
 
 		return orderResponseDTO;
@@ -163,15 +179,15 @@ public class OrderMapper {
 				.build()
 			)
 			.shippingInfo(OrderDetailResponseDTO.ShippingInfo.builder()
-				.receiverName(order.getOrderName())
-				.receiverPhone(order.getOrderPhone())
-				.address(order.getOrderAddress())
+				.receiverName(order.getReceiverName())
+				.receiverPhone(order.getReceiverPhone())
+				.address(order.getReceiverAddress())
 				.addressDetail(order.getOrderAddressDetail())
 				.requestMessage(order.getRequestNote())
 				.build()
 			)
 			.orderItems(toOrderItemDTOFromOrder(order.getOrderProducts()))
-			.orderPrice(new OrderPriceDTO(order.getTotalPrice(), DeliveryPolicy.DELIVERY_FEE, order.getTotalPrice() + DeliveryPolicy.DELIVERY_FEE))
+			.orderPrice(new OrderPriceDTO(order.getFinalPrice(), DeliveryPolicy.DELIVERY_FEE, order.getFinalPrice() + DeliveryPolicy.DELIVERY_FEE))
 			.paymentInfo(OrderDetailResponseDTO.PaymentInfo.builder()
 				.paymentMethod(order.getPaymentType().getText())
 				.orderStatus(order.getOrderStatus().getText())

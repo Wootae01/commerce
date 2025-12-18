@@ -31,9 +31,6 @@ public class OrderCreateRequestDTO {
     private String requestNote;
 
     @NotNull
-    private PaymentType payment;   // CASH, CARD
-
-    @NotNull
     private OrderType orderType;   // CART, BUY_NOW
 
     // 장바구니 주문일 때만 사용

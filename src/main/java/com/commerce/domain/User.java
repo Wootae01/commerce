@@ -25,6 +25,7 @@ public class User extends BaseEntity{
     private List<Orders> orders = new ArrayList<>();
 
     private String username;
+    private String customerPaymentKey; // 토스 페이먼츠 구매자 구분 값
 
     @Enumerated(value = EnumType.STRING)
     private RoleType role;
@@ -36,8 +37,9 @@ public class User extends BaseEntity{
     private String email;
 
     @Builder
-    private User(String username, RoleType role, String name, String phone, String email) {
+    private User(String username, String customerPaymentKey, RoleType role, String name, String phone, String email) {
         this.username = username;
+        this.customerPaymentKey = customerPaymentKey;
         this.role = role;
         this.name = name;
         this.phone = phone;

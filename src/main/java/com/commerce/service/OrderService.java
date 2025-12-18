@@ -16,7 +16,7 @@ import com.commerce.domain.OrderProduct;
 import com.commerce.domain.Orders;
 import com.commerce.domain.Product;
 import com.commerce.domain.enums.OrderStatus;
-import com.commerce.domain.enums.PaymentType;
+import com.commerce.domain.enums.OrderType;
 import com.commerce.dto.AdminOrderSearchCond;
 import com.commerce.dto.OrderCreateRequestDTO;
 import com.commerce.repository.CartProductRepository;
@@ -64,6 +64,71 @@ public class OrderService {
 	}
 
 	@Transactional
+	public Orders prepareOrderFromBuyNow(OrderCreateRequestDTO dto) {
+		Product product = productRepository.findById(dto.getProductId())
+			.orElseThrow();
+
+		// 1. 상품 재고 확인
+		validateStock(product, dto.getQuantity());
+
+		// 2. 가격 계산
+		int totalPrice = product.getPrice() * dto.getQuantity();
+
+		// 3. 주문 이름 생성
+		String orderName = product.getName();
+
+		// 3. order 객체 생성
+		Orders orders = createOrderEntity(dto, OrderStatus.READY, OrderType.BUY_NOW, orderName, totalPrice);
+
+		// 4. orderProduct 생성
+		OrderProduct orderProduct = OrderProduct.builder()
+			.product(product)
+			.order(orders)
+			.price(product.getPrice())
+			.quantity(dto.getQuantity())
+			.build();
+
+		orders.getOrderProducts().add(orderProduct);
+
+		return orderRepository.save(orders);
+	}
+
+	@Transactional
+	public Orders prepareOrderFromCart(OrderCreateRequestDTO dto) {
+		List<Long> cartProductIds = dto.getCartProductIds();
+		List<CartProduct> cartProducts = cartProductRepository.findAllById(cartProductIds);
+
+		// 1. 상품 재고 확인
+		validateStock(cartProducts);
+
+		// 2. 가격 계산
+		int totalPrice = getTotalPrice(cartProducts);
+
+		// 주문 이름 생성
+		String orderName = buildOrderName(cartProducts);
+
+		// 3. order 객체 생성
+		Orders orders = createOrderEntity(dto, OrderStatus.READY, OrderType.CART, orderName, totalPrice);
+
+		// 4. orderProduct 생성
+		for (CartProduct cartProduct : cartProducts) {
+			Product product = cartProduct.getProduct();
+			OrderProduct orderProduct = OrderProduct.builder()
+				.product(product)
+				.order(orders)
+				.price(product.getPrice())
+				.quantity(cartProduct.getQuantity())
+				.build();
+
+			orders.getOrderProducts().add(orderProduct);
+		}
+
+
+		return orderRepository.save(orders);
+
+	}
+
+	@Transactional
 	public Orders createOrderFromBuyNow(OrderCreateRequestDTO dto) {
 		Product product = productRepository.findById(dto.getProductId())
 			.orElseThrow();
@@ -74,8 +139,11 @@ public class OrderService {
 		// 2. 가격 계산
 		int totalPrice = product.getPrice() * dto.getQuantity();
 
+		// 3. 주문 이름 생성
+		String orderName = product.getName();
+
 		// 3. order 객체 생성
-		Orders orders = createOrderEntity(dto, totalPrice);
+		Orders orders = createOrderEntity(dto, OrderStatus.READY, dto.getOrderType(), orderName, totalPrice);
 
 		// 4. 재고 차감, orderProduct 생성
 		OrderProduct orderProduct = OrderProduct.builder()
@@ -98,11 +166,15 @@ public class OrderService {
 		
 		// 1. 상품 재고 확인
 		validateStock(cartProducts);
+
 		// 2. 가격 계산
 		int totalPrice = getTotalPrice(cartProducts);
 
+		// 주문 이름 생성
+		String orderName = buildOrderName(cartProducts);
+
 		// 3. order 객체 생성
-		Orders orders = createOrderEntity(dto, totalPrice);
+		Orders orders = createOrderEntity(dto, OrderStatus.READY, dto.getOrderType(), orderName, totalPrice);
 
 		// 4. 재고 차감, orderProduct 생성
 		for (CartProduct cartProduct : cartProducts) {
@@ -129,28 +201,37 @@ public class OrderService {
 
 	}
 
-	private Orders createOrderEntity(OrderCreateRequestDTO dto, int totalPrice) {
-
-		OrderStatus orderStatus = null;
-
-		if (dto.getPayment().equals(PaymentType.CASH)) {
-			orderStatus = OrderStatus.WAITING_FOR_DEPOSIT;
-		} else {
-			orderStatus = OrderStatus.WAITING_FOR_PAYMENT;
+	// 주문 이름 생성
+	private String buildOrderName(List<CartProduct> cartProducts) {
+		if (cartProducts.isEmpty()) {
+			throw new IllegalArgumentException("주문 상품이 없습니다.");
 		}
+
+		CartProduct cartProduct = cartProducts.get(0);
+		String prefix = cartProduct.getProduct().getName();
+
+		int size = cartProducts.size() - 1;
+		String suffix = (size > 0) ? " 외 " + size + "건" : "";
+
+		return prefix + suffix;
+	}
+
+	private Orders createOrderEntity(OrderCreateRequestDTO dto, OrderStatus orderStatus, OrderType orderType, String orderName, int totalPrice) {
 
 		Orders orders = Orders
 			.builder()
-			.orderAddress(dto.getAddress())
-			.orderNumber(UUID.randomUUID().toString().replace("-", "").substring(0, 12))
+			.receiverAddress(dto.getAddress())
+			.orderNumber(UUID.randomUUID().toString().replace("-", ""))
 			.orderAddressDetail(dto.getAddressDetail())
-			.orderName(dto.getName())
-			.orderPhone(dto.getPhone())
+			.orderName(orderName)
+			.receiverName(dto.getName())
+			.receiverPhone(dto.getPhone())
 			.requestNote(dto.getRequestNote())
-			.paymentType(dto.getPayment())
+			.paymentType(null)
+			.orderType(orderType)
 			.orderStatus(orderStatus)
 			.user(securityUtil.getCurrentUser())
-			.totalPrice(totalPrice + DeliveryPolicy.DELIVERY_FEE)
+			.finalPrice(totalPrice + DeliveryPolicy.DELIVERY_FEE)
 			.build();
 
 		return orders;
