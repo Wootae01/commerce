@@ -176,29 +176,28 @@
 
             <div class="d-flex justify-content-between my-1">
                 <span>상품 금액</span>
-                <strong th:text="${orderPrice.totalPrice} + '원'"></strong>
+                <strong th:text="${#numbers.formatInteger(orderPrice.totalPrice, 3, 'COMMA')} + '원'"></strong>
             </div>
 
             <div class="d-flex justify-content-between my-1">
                 <span>배송비</span>
-                <strong th:text="${orderPrice.deliveryFee} + '원'"></strong>
+                <strong th:text="${#numbers.formatInteger(orderPrice.deliveryFee, 3, 'COMMA')} + '원'"></strong>
             </div>
 
             <hr>
 
             <div class="d-flex justify-content-between">
                 <span class="fw-bold">최종 결제 금액</span>
-                <strong class="text-danger" th:text="${orderPrice.finalPrice} + '원'"></strong>
+                <strong class="text-danger" th:text="${#numbers.formatInteger(orderPrice.finalPrice, 3, 'COMMA') } + '원'"></strong>
             </div>
         </div>
 
 
         <!-- 결제하기 버튼 -->
-        <div class="result wrapper">
-            <button type="button" class="button" id="payment-button" style="margin-top: 30px">
-                결제하기
-            </button>
-        </div>
+        <button type="button" class="btn btn-primary btn-lg w-100 mt-4" id="payment-button">
+            결제하기
+        </button>
+
 
     </form>
 </div>
@@ -220,8 +219,8 @@
         // TODO: clientKey는 개발자센터의 결제위젯 연동 키 > 클라이언트 키로 바꾸세요.
         // TODO: 구매자의 고유 아이디를 불러와서 customerKey로 설정하세요. 이메일・전화번호와 같이 유추가 가능한 값은 안전하지 않습니다.
         // @docs https://docs.tosspayments.com/sdk/v2/js#토스페이먼츠-초기화
-        const clientKey = "test_gck_docs_Ovk5rk1EwkEbP0W43n07xlzm";
-        const customerKey = /*[[${customerKey}]]*/ "";
+        const clientKey = /*[[${tossClientKey}]]*/ "";
+        const customerKey = /*[[${orderForm.customerKey}]]*/ "";
         const finalPrice = Number(/*[[${orderPrice.finalPrice}]]*/ 0);
 
         const tossPayments = TossPayments(clientKey);
@@ -233,7 +232,6 @@
         // const widgets = tossPayments.widgets({customerKey: TossPayments.ANONYMOUS});
 
         // ------  주문서의 결제 금액 설정 ------
-        // TODO: renderPaymentMethods, renderAgreement, requestPayment 보다 반드시 선행되어야 합니다.
         await widgets.setAmount({currency: "KRW", value: finalPrice });
 
         // ------  결제 UI 렌더링 ------
@@ -259,7 +257,7 @@
             try{
                 // 1. 서버에 주문 준비 요청
                 const form = document.querySelector("form");
-                const res = await fetch("/orders/prepare", {
+                const res = await fetch("/pay/prepare", {
                     method: "POST",
                     body: new FormData(form),
                 });

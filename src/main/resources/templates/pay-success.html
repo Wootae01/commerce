@@ -1,10 +1,92 @@
-<!DOCTYPE html>
-<html lang="en">
+<!doctype html>
+<html lang="ko" xmlns:th="http://www.thymeleaf.org">
 <head>
-    <meta charset="UTF-8">
-    <title>Title</title>
-</head>
-<body>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta http-equiv="Cache-Control" content="no-store, no-cache, must-revalidate, max-age=0" />
+    <meta http-equiv="Pragma" content="no-cache" />
+    <title>결제 완료</title>
 
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+</head>
+
+<body class="bg-light">
+<div class="container py-5" style="max-width: 760px;">
+
+    <div class="text-center mb-4">
+        <div class="display-6 fw-bold">결제가 완료되었습니다</div>
+        <div class="text-muted mt-2">주문 처리가 정상적으로 진행 중입니다.</div>
+    </div>
+
+    <div class="card shadow-sm border-0">
+        <div class="card-body p-4">
+            <div class="alert alert-success d-flex align-items-center mb-4" role="alert">
+                <div class="me-2">✅</div>
+                <div>
+                    <div class="fw-semibold">승인 성공</div>
+                    <div class="small text-muted">결제 확인이 완료되었습니다.</div>
+                </div>
+            </div>
+
+            <div class="row g-3">
+                <!-- 주문번호 -->
+                <div class="col-12">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <span class="text-muted">주문번호</span>
+                        <span class="fw-semibold"
+                              th:text="${success.orderNumber}">-</span>
+                    </div>
+                    <hr class="my-3">
+                </div>
+
+                <!-- 결제금액 -->
+                <div class="col-12">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <span class="text-muted">결제금액</span>
+                        <span class="fw-semibold"
+                              th:text="${#numbers.formatInteger(success.amount, 3, 'COMMA')} + '원'">-</span>
+                    </div>
+                    <hr class="my-3">
+                </div>
+
+                <!-- 결제수단 -->
+                <div class="col-12">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <span class="text-muted">결제수단</span>
+                        <span class="fw-semibold"
+                              th:text="${success.method}">-</span>
+                    </div>
+                    <hr class="my-3">
+                </div>
+
+                <!-- 승인일시 -->
+                <div class="col-12">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <span class="text-muted">승인일시</span>
+                        <span class="fw-semibold"
+                              th:text="${success.approvedAt}">-</span>
+                    </div>
+                </div>
+
+                <!-- paymentKey는 노출하지 않음 (DB/서버 로그에만 저장) -->
+            </div>
+
+            <div class="d-grid gap-2 d-sm-flex justify-content-sm-end mt-4">
+                <!-- 주문 상세로 -->
+                <a class="btn btn-outline-primary"
+                   th:href="@{/orders/list}">
+                    주문내역 보기
+                </a>
+
+                <!-- 홈으로 -->
+                <a class="btn btn-primary"
+                   th:href="@{/}">
+                    홈으로
+                </a>
+            </div>
+        </div>
+    </div>
+
+</div>
 </body>
 </html>

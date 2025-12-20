@@ -19,6 +19,7 @@ import com.commerce.service.ProductService;
 import com.commerce.util.SecurityUtil;
 import lombok.RequiredArgsConstructor;
 
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
@@ -47,36 +48,8 @@ public class OrderController {
     private final OrderMapper orderMapper;
     private final ProductService productService;
 
-    // 결제 전 필요한 데이터 보내줌.
-    @PostMapping("/prepare")
-    @ResponseBody
-    public ResponseEntity<?> orderPrepare(@Validated @ModelAttribute("orderForm") OrderCreateRequestDTO dto,
-        BindingResult bindingResult) {
-
-        if (bindingResult.hasErrors()) {
-            return ResponseEntity.badRequest().body(Map.of("message", "입력값 오류"));
-        }
-
-        Orders order = null;
-
-        try {
-            if (dto.getOrderType() == OrderType.CART) {
-                order = orderService.prepareOrderFromCart(dto);
-            } else if (dto.getOrderType() == OrderType.BUY_NOW) {
-                order = orderService.prepareOrderFromBuyNow(dto);
-            } else {
-                return ResponseEntity.badRequest().body(Map.of("message", "잘못된 요청"));
-            }
-
-        } catch (IllegalArgumentException | NoSuchElementException e) {
-            return ResponseEntity.badRequest().body(Map.of("message", e.getMessage()));
-        }
-
-        OrderPrepareResponseDTO prepared = orderMapper.toOrderPrepareResponseDTO(order);
-
-        return ResponseEntity.ok(prepared);
-
-    }
+    @Value("${toss.payments.client-key}")
+    private String tossClientKey;
 
     @GetMapping("/cart")
     public String cartOrder(Model model) {
@@ -97,6 +70,8 @@ public class OrderController {
         OrderPriceDTO orderPriceDTO = new OrderPriceDTO(totalPrice, deliveryFee, totalPrice + deliveryFee);
         model.addAttribute("orderPrice", orderPriceDTO);
 
+        // 토스 클라이언트 키
+        model.addAttribute("tossClientKey", tossClientKey);
 
         return "order";
     }
@@ -122,6 +97,9 @@ public class OrderController {
         int deliveryFee = DeliveryPolicy.DELIVERY_FEE;
         OrderPriceDTO orderPriceDTO = new OrderPriceDTO(totalPrice, deliveryFee, totalPrice + deliveryFee);
         model.addAttribute("orderPrice", orderPriceDTO);
+
+        // 토스 클라이언트 키
+        model.addAttribute("tossClientKey", tossClientKey);
 
         return "order";
     }
@@ -200,6 +178,7 @@ public class OrderController {
         orderDTO.setAddress(user.getAddress());
         orderDTO.setPhone(user.getPhone());
         orderDTO.setName(user.getName());
+        orderDTO.setCustomerKey(user.getCustomerPaymentKey());
         return orderDTO;
     }
 

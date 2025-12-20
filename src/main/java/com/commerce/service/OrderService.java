@@ -36,6 +36,11 @@ public class OrderService {
 	private final SecurityUtil securityUtil;
 	private final ProductRepository productRepository;
 
+	// 주문 삭제
+	public void deleteOrderByOrderNumber(String orderNumber) {
+		orderRepository.deleteByOrderNumber(orderNumber);
+	}
+
 	// 주문 상태 변경
 	@Transactional
 	public void changeStatus(List<Long> orderIds,OrderStatus status) {
@@ -120,6 +125,7 @@ public class OrderService {
 				.quantity(cartProduct.getQuantity())
 				.build();
 
+			orders.getCartProductIds().add(cartProduct.getId());
 			orders.getOrderProducts().add(orderProduct);
 		}
 

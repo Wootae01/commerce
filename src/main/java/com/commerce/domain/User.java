@@ -42,22 +42,30 @@ public class User extends BaseEntity{
         this.customerPaymentKey = customerPaymentKey;
         this.role = role;
         this.name = name;
-        this.phone = phone;
+        this.phone = normalizePhone(phone);
         this.email = email;
     }
 
     public void updateOauth2Info(Oauth2Response oauth2Response) {
         this.name = oauth2Response.getName();
-        this.phone = oauth2Response.getPhone();
+        this.phone = normalizePhone(oauth2Response.getPhone());
         this.email = oauth2Response.getEmail();
     }
 
     public void updateInfo(UserDTO dto) {
         this.name = dto.getName();
-        this.phone = dto.getPhone();
+        this.phone = normalizePhone(dto.getPhone());
         this.address = dto.getAddress();
         this.addressDetail = dto.getAddressDetail();
         this.email = dto.getEmail();
+    }
+
+    private String normalizePhone(String phone) {
+        if (phone == null) {
+            return null;
+        }
+        String digit = phone.replaceAll("\\D", "");
+        return digit.isBlank() ? null : digit;
     }
 
 }

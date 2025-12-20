@@ -14,7 +14,7 @@ public class UserDTO {
     private String name;
 
     @NotBlank
-    @Pattern(regexp = "^010-\\d{4}-\\d{4}$")
+    @Pattern(regexp = "^010\\d{8}$")
     private String phone;
 
     private String address;

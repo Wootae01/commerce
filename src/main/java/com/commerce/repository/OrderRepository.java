@@ -13,6 +13,9 @@ import com.commerce.domain.enums.OrderStatus;
 import com.commerce.domain.enums.PaymentType;
 
 public interface OrderRepository extends JpaRepository<Orders, Long> {
+
+	void deleteByOrderNumber(String orderNumber);
+
 	Optional<Orders> findByOrderNumber(String orderNumber);
 
 	@Query("""
@@ -23,7 +26,7 @@ public interface OrderRepository extends JpaRepository<Orders, Long> {
 		and (:keyword is null 
 			or o.orderNumber like concat('%', :keyword, '%')
 			or o.user.name like concat('%', :keyword, '%')
-			or o.orderPhone like concat('%', :keyword, '%')
+			or o.receiverPhone like concat('%', :keyword, '%')
 			) 	
 		and (:startDateTime is null or o.createdAt >= :startDateTime)
 		and (:endDateTime is null or o.createdAt <= :endDateTime)

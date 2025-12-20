@@ -1,6 +1,11 @@
 app:
   base-url: "http://localhost:8080"
 
+toss:
+  payments:
+    secret-key: ${TOSS_SECRET_KEY}
+    client-key: ${TOSS_CLIENT_KEY}
+
 spring:
   config:
     import: optional:file:.env[.properties]

@@ -10,6 +10,7 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -27,6 +28,9 @@ public class Orders extends BaseEntity{
 
     @Column(unique = true, nullable = false)
     private String orderNumber;
+
+    @Column(unique = true)
+    private String paymentKey;
 
     @JoinColumn(name = "user_id")
     @ManyToOne(fetch = FetchType.LAZY)
@@ -52,6 +56,16 @@ public class Orders extends BaseEntity{
 
     @Enumerated(EnumType.STRING)
     private OrderType orderType;
+
+    @ElementCollection(fetch = FetchType.LAZY)
+    @CollectionTable(
+        name = "order_cart_product",
+        joinColumns = @JoinColumn(name = "order_id")
+    )
+    @Column(name = "cart_product_id")
+    private List<Long> cartProductIds = new ArrayList<>(); // 카트 주문인 경우 사용. 카트 상품 삭제하는데 사용
+
+    private LocalDateTime approvedAt; // 결제 승인 날짜
 
     @Builder
     private Orders(User user, String orderName, int finalPrice, String receiverName, String receiverAddress, String orderNumber,
