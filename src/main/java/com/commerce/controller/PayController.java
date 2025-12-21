@@ -2,36 +2,42 @@ package com.commerce.controller;
 
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
 
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Controller;
-import org.springframework.stereotype.Service;
 import org.springframework.ui.Model;
 import org.springframework.validation.BindingResult;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.ModelAttribute;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseBody;
 
-import net.minidev.json.JSONObject;
-
+import com.commerce.domain.CartProduct;
+import com.commerce.domain.DeliveryPolicy;
 import com.commerce.domain.Orders;
+import com.commerce.domain.Product;
 import com.commerce.domain.enums.OrderType;
+import com.commerce.dto.CancelResponseDTO;
 import com.commerce.dto.OrderCreateRequestDTO;
+import com.commerce.dto.OrderItemDTO;
 import com.commerce.dto.OrderPrepareResponseDTO;
+import com.commerce.dto.OrderPriceDTO;
 import com.commerce.dto.PayConfirmDTO;
 import com.commerce.dto.PaySuccessDTO;
 import com.commerce.mapper.OrderMapper;
+import com.commerce.service.CartService;
 import com.commerce.service.OrderService;
 import com.commerce.service.PayService;
+import com.commerce.service.ProductService;
 import com.commerce.util.SecurityUtil;
-import com.fasterxml.jackson.databind.ObjectMapper;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -46,6 +52,8 @@ public class PayController {
 	private final PayService payService;
 	private final OrderService orderService;
 	private final OrderMapper orderMapper;
+	private final CartService cartService;
+	private final ProductService productService;
 
 	@GetMapping("/loading")
 	public String loading() {
@@ -78,9 +86,10 @@ public class PayController {
 	@PostMapping("/prepare")
 	@ResponseBody
 	public ResponseEntity<?> orderPrepare(@Validated @ModelAttribute("orderForm") OrderCreateRequestDTO dto,
-		BindingResult bindingResult) {
+		BindingResult bindingResult, Model model) {
 
 		if (bindingResult.hasErrors()) {
+			repopulateOrderView(dto, model);
 			return ResponseEntity.badRequest().body(Map.of("message", "입력값 오류"));
 		}
 
@@ -114,5 +123,50 @@ public class PayController {
 		payService.confirm(req, userId);
 
 		return ResponseEntity.ok(Map.of("ok", true));
+	}
+
+	@PostMapping("/{orderNumber}/cancel")
+	public String cancel(@PathVariable String orderNumber, Model model) {
+
+		String cancelReason = "단순 변심";
+
+		try {
+			CancelResponseDTO dto = payService.cancel(orderNumber, cancelReason);
+			model.addAttribute("result", dto);
+		} catch (IllegalStateException e) {
+			model.addAttribute("result",
+				new CancelResponseDTO(false, orderNumber, null, 0, null, e.getMessage()));
+		} catch (Exception e) {
+			model.addAttribute("result",
+				new CancelResponseDTO(false, orderNumber, null, 0, null,
+					"주문 취소 중 오류가 발생했습니다. 잠시 후 다시 시도해 주세요."));
+		}
+
+		return "order-cancel";
+	}
+
+	private void repopulateOrderView(OrderCreateRequestDTO dto, Model model) {
+		// cart 주문인 경우
+		if (dto.getOrderType() == OrderType.CART) {
+			List<CartProduct> cartProducts = cartService.getProductsByIds(dto.getCartProductIds());
+			List<OrderItemDTO> items = orderMapper.toOrderItemDTOFromCart(cartProducts);
+			model.addAttribute("orderItems", items);
+
+			int totalPrice = cartService.getTotalPrice(cartProducts);
+			int deliveryFee = DeliveryPolicy.DELIVERY_FEE;
+			model.addAttribute("orderPrice",
+				new OrderPriceDTO(totalPrice, deliveryFee, totalPrice + deliveryFee));
+
+			// 즉시 주문인 경우
+		} else if (dto.getOrderType() == OrderType.BUY_NOW) {
+			Product product = productService.findById(dto.getProductId());
+			OrderItemDTO item = orderMapper.toOrderItemDTOFromCart(product, dto.getQuantity());
+			model.addAttribute("orderItems", List.of(item));
+
+			int totalPrice = product.getPrice() * dto.getQuantity();
+			int deliveryFee = DeliveryPolicy.DELIVERY_FEE;
+			model.addAttribute("orderPrice",
+				new OrderPriceDTO(totalPrice, deliveryFee, totalPrice + deliveryFee));
+		}
 	}
 }

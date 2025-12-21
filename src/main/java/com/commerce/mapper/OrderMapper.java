@@ -83,7 +83,7 @@ public class OrderMapper {
 		List<OrderProductResponseDTO> productResponseDTOList = toOrderProductResponseDTOS(orderProducts);
 
 		OrderResponseDTO orderResponseDTO = new OrderResponseDTO(
-			order.getOrderNumber(), order.getCreatedAt(), order.getOrderStatus().getText(),productResponseDTOList, order.getFinalPrice()
+			order.getOrderNumber(), order.getCreatedAt(), order.getOrderStatus(),productResponseDTOList, order.getFinalPrice()
 		);
 
 		return orderResponseDTO;

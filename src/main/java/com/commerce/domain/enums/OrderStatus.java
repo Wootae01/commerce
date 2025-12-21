@@ -1,8 +1,6 @@
 package com.commerce.domain.enums;
 
 public enum OrderStatus {
-	WAITING_FOR_PAYMENT("결제 대기"),
-	WAITING_FOR_DEPOSIT("무통장 입금 대기"),
 	READY("결제 준비"),
 	PAID("결제완료"),
 	PREPARING("배송준비"),

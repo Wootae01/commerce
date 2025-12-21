@@ -3,6 +3,7 @@ package com.commerce.dto;
 import java.time.LocalDateTime;
 import java.util.List;
 
+import com.commerce.domain.enums.OrderStatus;
 
 import lombok.Getter;
 import lombok.Setter;
@@ -12,11 +13,11 @@ import lombok.Setter;
 public class OrderResponseDTO {
 	private String orderNumber;
 	private LocalDateTime orderDate;
-	private String orderStatus;
+	private OrderStatus orderStatus;
 	List<OrderProductResponseDTO> productDTOS;
 	private int totalPrice;
 
-	public OrderResponseDTO(String orderNumber, LocalDateTime orderDate, String orderStatus,
+	public OrderResponseDTO(String orderNumber, LocalDateTime orderDate, OrderStatus orderStatus,
 		List<OrderProductResponseDTO> productDTOS, int totalPrice) {
 		this.orderNumber = orderNumber;
 		this.orderDate = orderDate;
