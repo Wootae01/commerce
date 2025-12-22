@@ -32,6 +32,15 @@ spring:
       max-file-size: 20MB
       max-request-size: 40MB
 
+management:
+  endpoints:
+    web:
+      exposure:
+        include: "health,metrics,info,prometheus"
+  endpoint:
+    health:
+      show-details: always  # 상세한 헬스 정보 표시
+
 file:
   dir: C:\study\img\commerce\
   url-path: /uploads/
@@ -39,3 +48,4 @@ file:
 logging:
   level:
     org.springframework.security: trace
+
