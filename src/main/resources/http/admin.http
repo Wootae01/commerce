@@ -1,0 +1,26 @@
+@host = http://localhost:8080
+
+### Admin Dashboard (Thymeleaf)
+GET {{host}}/admin/dashboard
+Accept: text/html
+
+### Admin Orders list - no filters
+GET {{host}}/admin/orders
+Accept: text/html
+
+### Admin Orders list - filters (예시: keyword/status/paymentType/startDate/endDate)
+GET {{host}}/admin/orders?keyword=&orderStatus=&paymentType=&startDate=&endDate=
+Accept: text/html
+
+### Admin Orders status change - 정상 케이스 예시
+# orderIds는 여러 개면 orderIds=1&orderIds=2 형태
+POST {{host}}/admin/orders/status
+Content-Type: application/x-www-form-urlencoded
+
+orderIds=1&orderIds=2&status=PREPARING
+
+### Admin Orders status change - 파라미터 누락(컨트롤러에서 redirect 처리)
+POST {{host}}/admin/orders/status
+Content-Type: application/x-www-form-urlencoded
+
+status=

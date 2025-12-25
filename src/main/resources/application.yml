@@ -7,6 +7,8 @@ toss:
     client-key: ${TOSS_CLIENT_KEY}
 
 spring:
+  profiles:
+    active: dev
   config:
     import: optional:file:.env[.properties]
 
@@ -47,5 +49,5 @@ file:
 
 logging:
   level:
-    org.springframework.security: trace
+    org.springframework.security: debug
 

@@ -1,0 +1,18 @@
+@host = http://localhost:8080
+
+### View cart (Thymeleaf)
+GET {{host}}/cart
+Accept: text/html
+
+### Add product to cart (Referer 없으면 redirect:null 될 수 있음 → 헤더 넣어두는게 안전)
+POST {{host}}/cart/add/1?quantity=2
+Referer: {{host}}/products/1
+
+### Edit quantity
+POST {{host}}/cart/edit/1?quantity=3
+
+### Select / Unselect (boolean param)
+POST {{host}}/cart/select/1?checked=true
+
+### Delete cart item
+POST {{host}}/cart/delete/1

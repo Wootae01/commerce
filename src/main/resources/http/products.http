@@ -1,0 +1,5 @@
+@host = http://localhost:8080
+
+### Product detail page (Thymeleaf)
+GET {{host}}/products/1
+Accept: text/html

@@ -1,0 +1,18 @@
+@host = http://localhost:8080
+
+### Order page from selected cart items (Thymeleaf)
+GET {{host}}/orders/cart
+Accept: text/html
+
+### Buy now (Thymeleaf)
+GET {{host}}/orders/buy-now?productId=1&quantity=2
+Accept: text/html
+
+### My order list (Thymeleaf)
+GET {{host}}/orders/list
+Accept: text/html
+
+### Order detail (Thymeleaf) - orderNumber 예시로 바꿔서 실행
+GET {{host}}/orders/detail/ORDER_20251224_0001
+Accept: text/html
+

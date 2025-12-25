@@ -1,0 +1,12 @@
+@host = http://localhost:8080
+
+### My info edit page (Thymeleaf)
+GET {{host}}/user/edit
+Accept: text/html
+
+### Update user info (폼)
+# UserDTO 필드명에 맞춰 파라미터 수정해야 함
+POST {{host}}/user/edit
+Content-Type: application/x-www-form-urlencoded
+
+name=홍길동&phone=01012345678&address=서울&addressDetail=101동 1001호

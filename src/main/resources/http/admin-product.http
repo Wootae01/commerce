@@ -1,0 +1,29 @@
+@host = http://localhost:8080
+
+### Admin products page (Thymeleaf)
+GET {{host}}/admin/products
+Accept: text/html
+
+### New product page
+GET {{host}}/admin/products/new
+Accept: text/html
+
+### Register product (multipart) - 템플릿
+# 실제 파일 경로를 네 PC 경로로 바꿔서 사용
+POST {{host}}/admin/products/new
+Content-Type: multipart/form-data; boundary=WebAppBoundary
+
+--WebAppBoundary
+Content-Disposition: form-data; name="productName"
+
+테스트상품
+--WebAppBoundary
+Content-Disposition: form-data; name="price"
+
+10000
+--WebAppBoundary
+Content-Disposition: form-data; name="mainImage"; filename="main.jpg"
+Content-Type: image/jpeg
+
+< C:\path\to\main.jpg
+--WebAppBoundary--
