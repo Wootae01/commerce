@@ -66,7 +66,9 @@
 					.userInfoEndpoint(userInfo -> userInfo.userService(customOauth2UserService)))
 
 				.authorizeHttpRequests(auth -> auth
-					.requestMatchers("/", "/home", "/login/**", "/oauth2/**", "/uploads/**", "/products/*", "/error/**").permitAll()
+					.requestMatchers("/", "/home", "/login/**", "/oauth2/**", "/uploads/**",
+						"/products/*", "/error/**", "/actuator/health", "/actuator/prometheus"
+					).permitAll()
 					.anyRequest().authenticated())
 				.logout(logout -> logout
 					.logoutUrl("/logout")
@@ -100,8 +102,9 @@
 				)
 
 				.authorizeHttpRequests(auth -> auth
-					.requestMatchers("/", "/home", "/login/**", "/oauth2/**", "/uploads/**", "/products/*", "/error/**")
-					.permitAll()
+					.requestMatchers("/", "/home", "/login/**", "/oauth2/**", "/uploads/**",
+						"/products/*", "/error/**", "/actuator/health", "/actuator/prometheus"
+					).permitAll()
 					.anyRequest().authenticated()
 				)
 				.logout(logout -> logout
