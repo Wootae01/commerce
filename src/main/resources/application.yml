@@ -1,3 +1,8 @@
+aws:
+  region: ap-northeast-2
+  s3:
+    bucket: commerce-image-bucket-xxxx   # terraform이 만든 실제 버킷명
+
 app:
   base-url: "http://localhost:8080"
 

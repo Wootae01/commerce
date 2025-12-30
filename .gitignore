@@ -37,3 +37,6 @@ out/
 .vscode/
 
 .env
+commerce-key.pub
+commerce-key
+terraform.tfvars
