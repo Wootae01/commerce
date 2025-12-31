@@ -23,7 +23,7 @@ import com.commerce.domain.enums.PaymentType;
 import com.commerce.dto.CancelResponseDTO;
 import com.commerce.dto.PayConfirmDTO;
 import com.commerce.repository.CartProductRepository;
-import com.commerce.util.TossPaymentClient;
+import com.commerce.external.TossPaymentClient;
 import com.fasterxml.jackson.databind.JsonNode;
 
 import lombok.RequiredArgsConstructor;

@@ -2,12 +2,11 @@ package com.commerce.service;
 
 import com.commerce.domain.Image;
 import com.commerce.domain.Product;
-import com.commerce.dto.ProductDTO;
 import com.commerce.dto.ProductResponseDTO;
 import com.commerce.repository.ImageRepository;
 import com.commerce.repository.ProductRepository;
-import com.commerce.util.FileUtil;
-import com.commerce.util.UploadFile;
+import com.commerce.storage.FileStorage;
+import com.commerce.storage.UploadFile;
 
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -24,7 +23,7 @@ public class ProductService {
 
     private final ProductRepository productRepository;
     private final ImageRepository imageRepository;
-    private final FileUtil fileUtil;
+    private final FileStorage fileStorage;
 
     public Image findImageById(Long imageId) {
         return imageRepository.findById(imageId)
@@ -47,7 +46,7 @@ public class ProductService {
 
         // 대표 이미지 등록
         if (mainFile != null && !mainFile.isEmpty()) {
-            UploadFile uploadFile = fileUtil.storeFile(mainFile);
+            UploadFile uploadFile = fileStorage.storeImage(mainFile);
 
             Image mainImage = Image.createMainImage(uploadFile);
             product.addImage(mainImage);
@@ -55,7 +54,15 @@ public class ProductService {
 
         // 서브 이미지 등록
         if (files != null && !files.isEmpty()) {
-            List<UploadFile> uploadFiles = fileUtil.storeFiles(files);
+
+            // 서브 이미지 저장
+            List<UploadFile> uploadFiles = new ArrayList<>();
+            for (MultipartFile file : files) {
+                if (file == null || file.isEmpty()) continue;
+                uploadFiles.add(fileStorage.storeImage(file));
+            }
+
+            // 이미지, 상품 연관관계
             int order = 1;
             for (UploadFile uploadFile : uploadFiles) {
                 Image image = Image.createSubImage(uploadFile, order++);
@@ -73,7 +80,7 @@ public class ProductService {
 
         List<Image> images = product.getImages();
         for (Image image : images) {
-            fileUtil.deleteFile(image.getStoreFileName());
+            fileStorage.delete(image.getStoreFileName());
         }
 
         productRepository.delete(product);
@@ -96,7 +103,7 @@ public class ProductService {
         if (deleteImageIds != null && !deleteImageIds.isEmpty()) {
             for (Long imageId : deleteImageIds) {
                 Image image = findImageById(imageId);
-                fileUtil.deleteFile(image.getStoreFileName());
+                fileStorage.delete(image.getStoreFileName());
                 product.getImages().remove(image);
             }
         }
@@ -114,7 +121,14 @@ public class ProductService {
     }
 
     private void addExtraImages(List<MultipartFile> files, Product product) throws IOException {
-        List<UploadFile> uploadFiles = fileUtil.storeFiles(files);
+
+        // 여러 이미지 저장
+        List<UploadFile> uploadFiles = new ArrayList<>();
+        for (MultipartFile file : files) {
+            uploadFiles.add(fileStorage.storeImage(file));
+        }
+
+        // 이미지 객체 생성, 연관관계 설정
         int order = product.getImages().size();
         for (UploadFile uploadFile : uploadFiles) {
             Image image = Image.createSubImage(uploadFile, order++);
@@ -127,12 +141,12 @@ public class ProductService {
             .filter(Image::isMain)
             .findFirst()
             .ifPresent(image -> {
-                fileUtil.deleteFile(image.getStoreFileName());
+                fileStorage.delete(image.getStoreFileName());
                 product.getImages().remove(image);
             });
 
         // 새 대표 이미지 저장
-        UploadFile uploadFile = fileUtil.storeFile(mainFile);
+        UploadFile uploadFile = fileStorage.storeImage(mainFile);
         Image mainImage = Image.createMainImage(uploadFile);
         product.addImage(mainImage);
     }

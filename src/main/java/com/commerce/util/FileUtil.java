@@ -10,16 +10,13 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 import org.springframework.web.multipart.MultipartFile;
 
+import com.commerce.storage.UploadFile;
 
 @Component
 public class FileUtil {
 
 	@Value("${file.dir}")
 	private String fileDir;
-
-	public String getFullPath(String fileName) {
-		return fileDir + fileName;
-	}
 
 	public List<UploadFile> storeFiles(List<MultipartFile> multipartFiles) throws IOException {
 		List<UploadFile> result = new ArrayList<>();
@@ -60,5 +57,8 @@ public class FileUtil {
 	private String extractExt(String originalFilename) {
 		int pos = originalFilename.indexOf(".") + 1;
 		return originalFilename.substring(pos);
+	}
+	private String getFullPath(String fileName) {
+		return fileDir + fileName;
 	}
 }

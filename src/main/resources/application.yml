@@ -1,7 +1,7 @@
 aws:
   region: ap-northeast-2
   s3:
-    bucket: commerce-image-bucket-xxxx   # terraform이 만든 실제 버킷명
+    bucket: commerce-image-bucket-c7195f0f   # terraform이 만든 실제 버킷명
 
 app:
   base-url: "http://localhost:8080"
@@ -13,7 +13,7 @@ toss:
 
 spring:
   profiles:
-    active: dev
+    active: local
   config:
     import: optional:file:.env[.properties]
 

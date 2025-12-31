@@ -1,4 +1,4 @@
-package com.commerce.util;
+package com.commerce.storage;
 
 import lombok.Getter;
 import lombok.Setter;
@@ -6,7 +6,7 @@ import lombok.Setter;
 @Getter
 @Setter
 public class UploadFile {
-	private String uploadFileName;
+	private String    uploadFileName;
 	private String storeFileName;
 
 	public UploadFile(String uploadFileName, String storeFileName) {

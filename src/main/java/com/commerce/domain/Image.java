@@ -1,6 +1,6 @@
 package com.commerce.domain;
 
-import com.commerce.util.UploadFile;
+import com.commerce.storage.UploadFile;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -12,7 +12,6 @@ import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import lombok.Builder;
 import lombok.Getter;
-import lombok.Setter;
 
 @Entity
 @Getter
@@ -30,7 +29,7 @@ public class Image {
 	private String storeFileName;  // 서버에서 저장한 파일 이름
 
 	private boolean isMain;
-	private int imgOrder;
+	private int imgOrder;			// 순서
 
 	public Image() {}
 

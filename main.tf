@@ -608,3 +608,7 @@ resource "aws_iam_role_policy" "s3_policy" {
   })
 }
 
+# S3 버킷명 출력
+output "s3_bucket_name" {
+  value = aws_s3_bucket.app.bucket
+}

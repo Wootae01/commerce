@@ -1,16 +1,17 @@
 	package com.commerce.config;
 
+	import org.springframework.beans.factory.annotation.Qualifier;
 	import org.springframework.context.annotation.Bean;
 	import org.springframework.context.annotation.Configuration;
 	import org.springframework.context.annotation.Profile;
 	import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 	import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
+	import org.springframework.security.core.userdetails.UserDetailsService;
 	import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 	import org.springframework.security.crypto.password.PasswordEncoder;
 	import org.springframework.security.web.SecurityFilterChain;
 
 	import com.commerce.auth.CustomClientRegistrationRepo;
-	import com.commerce.auth.DevAuthUsers;
 	import com.commerce.service.CustomOauth2UserService;
 	import com.commerce.service.CustomUserDetailService;
 
@@ -24,7 +25,7 @@
 		private final CustomOauth2UserService customOauth2UserService;
 		private final CustomClientRegistrationRepo clientRegistrationRepo;
 		private final CustomUserDetailService customUserDetailService;
-		private final DevAuthUsers devAuthUsers;
+
 		@Bean
 		public PasswordEncoder passwordEncoder() {
 			return new BCryptPasswordEncoder();
@@ -54,7 +55,7 @@
 
 		// (2) 일반 사용자용 보안 설정
 		@Bean
-		@Profile("!dev")
+		@Profile("prod")
 		public SecurityFilterChain userSecurity(HttpSecurity http) throws Exception {
 			http
 				.csrf(csrf -> csrf.disable())
@@ -80,20 +81,21 @@
 		}
 
 		@Bean
-		@Profile("dev")
-		public SecurityFilterChain userSecurityDev(HttpSecurity http) throws Exception {
+		@Profile({"local", "dev"})
+		public SecurityFilterChain userSecurityDev(HttpSecurity http, @Qualifier("devUserDetailService")
+			UserDetailsService devUserDetailService) throws Exception {
 			http
 				.csrf(csrf -> csrf.disable())
 				.httpBasic(basic -> basic.disable())
 
-				// dev에서는 로컬 폼 로그인 추가
+				// local에서는 로컬 폼 로그인 추가
 				.formLogin(form -> form
 					.loginPage("/login")
 					.loginProcessingUrl("/login")   // POST /login 처리
 					.defaultSuccessUrl("/", true)
 					.permitAll()
 				)
-				.userDetailsService(devAuthUsers.userDetailsService(passwordEncoder()))
+				.userDetailsService(devUserDetailService)
 
 				.oauth2Login(oauth2 -> oauth2
 					.loginPage("/login")
