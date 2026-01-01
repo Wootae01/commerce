@@ -1,15 +1,15 @@
 aws:
   region: ap-northeast-2
   s3:
-    bucket: ${AWS_S3_BUCKET}  # terraform이 만든 실제 버킷명. commerce-image-bucket-xxx
+    bucket: ${AWS_S3_BUCKET:dummy}  # terraform이 만든 실제 버킷명. commerce-image-bucket-xxx
 
 app:
   base-url: "http://localhost:8080"
 
 toss:
   payments:
-    secret-key: ${TOSS_SECRET_KEY}
-    client-key: ${TOSS_CLIENT_KEY}
+    secret-key: ${TOSS_SECRET_KEY:dummy}
+    client-key: ${TOSS_CLIENT_KEY:dummy}
 
 spring:
   profiles:
