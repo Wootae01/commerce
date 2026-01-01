@@ -8,10 +8,10 @@ import org.springframework.stereotype.Component;
 @Component
 public class SocialClientRegistration {
 
-	@Value("${NAVER_CLIENT_ID}")
+	@Value("${naver.client-id}")
 	private String NAVER_CLIENT_ID;
 
-	@Value("${NAVER_CLIENT_SECRET}")
+	@Value("${naver.client-secret}")
 	private String NAVER_CLIENT_SECRET;
 
 	public ClientRegistration naverClientRegistration() {
