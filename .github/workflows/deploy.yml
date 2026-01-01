@@ -12,7 +12,7 @@ on:
 
 env:
   AWS_REGION: ap-northeast-2
-  ECR_REPOSITORY: commerce
+  ECR_REPOSITORY: commerce-ecr
 
 jobs:
   deploy:
@@ -66,6 +66,6 @@ jobs:
                 "docker stop commerce-app || true",
                 "docker rm commerce-app || true",
                 "aws ecr get-login-password --region ap-northeast-2 | docker login --username AWS --password-stdin ${{ steps.login-ecr.outputs.registry }}",
-                "docker run -d --name commerce-app -p 8080:8080 -e JAVA_OPTS=-Xmx256m -e SPRING_PROFILES_ACTIVE=${{ env.PROFILE }} -e SPRING_DATASOURCE_URL=jdbc:mysql://${{ secrets.RDS_ENDPOINT }}/commerce?useSSL=false\\&serverTimezone=Asia/Seoul\\&allowPublicKeyRetrieval=true -e SPRING_DATASOURCE_PASSWORD=${{ secrets.RDS_PASSWORD }} -e AWS_S3_BUCKET=${{ secrets.AWS_S3_BUCKET }} -e NAVER_CLIENT_ID=${{ secrets.NAVER_CLIENT_ID }} -e NAVER_CLIENT_SECRET=${{ secrets.NAVER_CLIENT_SECRET }} -e TOSS_SECRET_KEY=${{ secrets.TOSS_SECRET_KEY }} -e TOSS_CLIENT_KEY=${{ secrets.TOSS_CLIENT_KEY }} ${{ env.IMAGE }}"
+                "docker run -d --name commerce-app -p 8080:8080 -e JAVA_OPTS=-Xmx256m -e SPRING_PROFILES_ACTIVE=${{ env.PROFILE }} -e SPRING_DATASOURCE_URL=jdbc:mysql://${{ secrets.RDS_ENDPOINT }}/commerce?useSSL=false\\&serverTimezone=Asia/Seoul\\&allowPublicKeyRetrieval=true -e SPRING_DATASOURCE_USERNAME=${{ secrets.RDS_USERNAME }} -e SPRING_DATASOURCE_PASSWORD=${{ secrets.RDS_PASSWORD }} -e AWS_S3_BUCKET=${{ secrets.AWS_S3_BUCKET }} -e NAVER_CLIENT_ID=${{ secrets.NAVER_CLIENT_ID }} -e NAVER_CLIENT_SECRET=${{ secrets.NAVER_CLIENT_SECRET }} -e TOSS_SECRET_KEY=${{ secrets.TOSS_SECRET_KEY }} -e TOSS_CLIENT_KEY=${{ secrets.TOSS_CLIENT_KEY }} ${{ env.IMAGE }}"
               ]
             }'
