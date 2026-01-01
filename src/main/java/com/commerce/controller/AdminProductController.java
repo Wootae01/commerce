@@ -43,7 +43,7 @@ public class AdminProductController {
 		List<Product> products = productService.findAll();
 		List<AdminProductListDTO> dtoList = productMapper.toAdminResponseDTO(products);
 		model.addAttribute("products", dtoList);
-		return "/admin/products";
+		return "admin/products";
 	}
 
 	// 상품 등록
