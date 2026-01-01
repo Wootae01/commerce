@@ -34,11 +34,9 @@ services:
       SPRING_DATASOURCE_URL: jdbc:mysql://db:3306/commerce?allowPublicKeyRetrieval=true&useSSL=false&rewriteBatchedStatements=true
       JAVA_OPTS: "-Xms256m -Xmx512m"  # JVM 힙 메모리 제한
 
-      NAVER_CLIENT_ID: ${NAVER_CLIENT_ID}
-      NAVER_CLIENT_SECRET: ${NAVER_CLIENT_SECRET}
-      UPLOAD_DIR: ${UPLOAD_DIR}
-      TOSS_SECRET_KEY: ${TOSS_SECRET_KEY}
-      TOSS_CLIENT_KEY: ${TOSS_CLIENT_KEY}
+    env_file:
+      - .env
+
     deploy:
       resources:
         limits:

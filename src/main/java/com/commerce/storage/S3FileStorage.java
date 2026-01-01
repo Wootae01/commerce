@@ -19,7 +19,7 @@ import software.amazon.awssdk.services.s3.presigner.model.GetObjectPresignReques
 
 @Component
 @RequiredArgsConstructor
-@Profile("prod")
+@Profile(value = {"dev", "prod"})
 public class S3FileStorage implements FileStorage {
 
 	private final S3Client s3Client;
