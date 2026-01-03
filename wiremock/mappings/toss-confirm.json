@@ -1,0 +1,17 @@
+{
+  "request" : {
+    "method" : "POST",
+    "url": "/v1/payments/confirm"
+  },
+  "response": {
+    "status": 200,
+    "fixedDelayMilliseconds": 600,
+    "headers": {
+      "Content-Type": "application/json"
+    },
+    "jsonBody": {
+      "method": "카드",
+      "approvedAt": "2026-01-03T01:23:45+09:00"
+    }
+  }
+}

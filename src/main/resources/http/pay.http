@@ -13,7 +13,6 @@ GET {{host}}/pay/success?orderId=ORDER_20251224_0001
 Accept: text/html
 
 ### Prepare order (Form submit) - CART 예시
-# 실제 DTO 필드명에 맞춰서 추가/수정해야 함 (name/phone/address/... + cartProductIds 등)
 POST {{host}}/pay/prepare
 Content-Type: application/x-www-form-urlencoded
 Accept: application/json
@@ -47,9 +46,9 @@ Content-Type: application/json
 Accept: application/json
 
 {
-  "orderId": "ORDER_20251224_0001",
-  "paymentKey": "test_payment_key",
-  "amount": 10000
+  "orderId": "84176da4bec74907a340160b6b80f856",
+  "paymentKey": "test_customer_key",
+  "amount": 5222
 }
 
 ### Cancel payment (서버에서 orderNumber로 취소)

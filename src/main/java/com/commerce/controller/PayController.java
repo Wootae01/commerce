@@ -10,6 +10,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.validation.BindingResult;
+import org.springframework.validation.FieldError;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.ModelAttribute;
@@ -89,6 +90,19 @@ public class PayController {
 		BindingResult bindingResult, Model model) {
 
 		if (bindingResult.hasErrors()) {
+			log.warn("orderPrepare validation failed: errorCount={}", bindingResult.getErrorCount());
+
+			for (FieldError e : bindingResult.getFieldErrors()) {
+				log.warn("fieldError field={} rejectedValue={} code={} defaultMessage={}",
+					e.getField(),
+					e.getRejectedValue(),
+					e.getCode(),              // NotBlank, Pattern, typeMismatch 등
+					e.getDefaultMessage());
+			}
+
+			// DTO가 실제로 뭐로 바인딩됐는지도 같이 찍으면 더 확실함
+			log.warn("bound dto={}", dto);
+
 			repopulateOrderView(dto, model);
 			return ResponseEntity.badRequest().body(Map.of("message", "입력값 오류"));
 		}
