@@ -53,9 +53,13 @@ app:
   base-url: "http://localhost:8080"
 
 toss:
+  base-url: "http://localhost:18080"    # http://localhost:18080        wiremock
+                                              # https://api.tosspayments.com  toss
   payments:
     secret-key: ${TOSS_SECRET_KEY:dummy}
     client-key: ${TOSS_CLIENT_KEY:dummy}
 naver:
   client-id: ${NAVER_CLIENT_ID:dummy}
   client-secret: ${NAVER_CLIENT_SECRET:dummy}
+
+

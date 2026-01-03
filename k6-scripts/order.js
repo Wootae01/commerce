@@ -9,7 +9,7 @@ const loginDuration = new Trend("login_duration", true);
 const loginFail = new Rate("login_fail");
 
 const prepareDuration = new Trend("prepare_duration", true);
-const prepareFail = new Rate("pay_prepare_fail");
+const payPrepareFail = new Rate("pay_prepare_fail");
 
 export const options = {
     scenarios: {
@@ -70,13 +70,11 @@ export default function () {
             tags: { name: "pay_prepare" },
         }
     );
-    if (__VU === 1 && __ITER < 3) {
-        console.log(`PREPARE status=${prepareRes.status} body0=${String(prepareRes.body).slice(0,200)}`);
-    }
+
     check(prepareRes, { "prepare 200": (r) => r.status === 200 });
 
     if (prepareRes.status !== 200) {
-        prepareFail.add(true);
+        payPrepareFail.add(true);
         return;
     }
     prepareDuration.add(prepareRes.timings.duration);
@@ -92,7 +90,7 @@ export default function () {
         `${BASE_URL}/pay/confirm`,
         JSON.stringify({
             orderId,
-            paymentKey: `test-payment-key-${__VU}-${__ITER}`,
+            paymentKey: `test-payment-key-${crypto.randomUUID()}`,
             amount,
         }),
         {
@@ -108,5 +106,5 @@ export default function () {
 
     check(confirmRes, { "confirm 200": (r) => r.status === 200 });
 
-    sleep(0.5);
+    sleep(1);
 }

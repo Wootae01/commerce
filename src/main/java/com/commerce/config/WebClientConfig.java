@@ -14,12 +14,12 @@ import org.springframework.web.reactive.function.client.WebClient;
 public class WebClientConfig {
 
 	@Bean
-	public WebClient tossWebClient(@Value("${toss.payments.secret-key}") String secretKey) {
+	public WebClient tossWebClient(@Value("${toss.payments.secret-key}") String secretKey, @Value("${toss.base-url}") String baseUrl) {
 		String basic = Base64.getEncoder()
 			.encodeToString((secretKey + ":").getBytes(StandardCharsets.UTF_8));
 
 		return WebClient.builder()
-			.baseUrl("https://api.tosspayments.com")
+			.baseUrl(baseUrl)
 			.defaultHeader(HttpHeaders.AUTHORIZATION, "Basic " + basic)
 			.defaultHeader(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)
 			.build();

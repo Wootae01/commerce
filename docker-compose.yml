@@ -85,6 +85,15 @@ services:
           cpus: '0.5'
           memory: 512M
 
+  wiremock:
+    image: wiremock/wiremock:latest
+    container_name: wiremock
+    ports:
+      - "18080:8080"
+    volumes:
+      - ./wiremock:/home/wiremock
+    command: ["--verbose"]
+
 networks:
   monitoring:
 volumes:
