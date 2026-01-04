@@ -35,7 +35,7 @@ import lombok.extern.slf4j.Slf4j;
 public class PayService {
 
 	private final OrderService orderService;
-	private final WebClient tossWebClient;
+	private final PaymentTxService paymentTxService;
 	private final CartProductRepository cartProductRepository;
 	private final TossPaymentClient tossPaymentClient;
 
@@ -71,96 +71,38 @@ public class PayService {
 		return new CancelResponseDTO(true, orderNumber, LocalDateTime.now(), cancelAmount, method, null);
 	}
 
-	@Transactional
 	public void confirm(PayConfirmDTO req, Long userId) {
 		log.info("confirm start: orderId={}, paymentKey={}, amount={}",
 			req.getOrderId(), req.getPaymentKey(), req.getAmount());
 
-		// 1, 주문 조회
-		Orders order = orderService.findByOrderNumber(req.getOrderId());
-		log.info("order loaded: orderNumber={}, status={}, finalPrice={}",
-			order.getOrderNumber(), order.getOrderStatus(), order.getFinalPrice());
+		// 1. 검증
+		paymentTxService.validatePayment(req, userId);
 
-		if (!Objects.equals(order.getUser().getId(), userId)) {
-			throw new ResponseStatusException(HttpStatus.FORBIDDEN, "본인 주문이 아닙니다.");
-		}
+		// 2. 토스 요청
+		JsonNode tossResponse = confirmWithToss(req);
+		log.info("toss confirm ok: {}", tossResponse);
 
-		// 2. 중복 주문 방지
-		if (order.getOrderStatus() == OrderStatus.PAID) {
-			if (Objects.equals(order.getPaymentKey(), req.getPaymentKey())) return;
-			log.info("이미 처리도니 주문입니다.");
-			throw new ResponseStatusException(HttpStatus.CONFLICT, "이미 처리된 주문입니다.");
-		}
+		// 3. 재고 차감, 장바구니 삭제, 결제 일시, 상태 변경
+		paymentTxService.applyPayment(req.getOrderId(), tossResponse, userId, req.getPaymentKey());
 
-		// 3. 상태 확인
-		if (order.getOrderStatus() != OrderStatus.READY) {
-			log.info("결제 가능한 상태가 아닙니다.");
-			throw new ResponseStatusException(HttpStatus.CONFLICT, "결제 가능한 상태가 아닙니다.");
-		}
+	}
 
-		// 4. 금액 검증
-		if (req.getAmount() == null || order.getFinalPrice() != req.getAmount()) {
-			log.info("결제 금액이 일치하지 않습니다.");
-			throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "결제 금액이 일치하지 않습니다");
-		}
-		log.info("calling toss confirm");
-
-		// 5. 토스 요청
+	private JsonNode confirmWithToss(PayConfirmDTO req) {
 		JsonNode tossResponse;
-
 		try {
-			tossResponse = tossWebClient.post()
-				.uri("/v1/payments/confirm")
-				.bodyValue(new PayConfirmDTO(req.getPaymentKey(), req.getOrderId(), req.getAmount()))
-				.retrieve()
-				.onStatus(HttpStatusCode::isError, res ->
-					res.bodyToMono(String.class)
-						.defaultIfEmpty("")
-						.map(body -> new ResponseStatusException(res.statusCode(),
-							"toss confirm error: " + body))
-				)
-				.bodyToMono(JsonNode.class)
-				.block();
+			tossResponse = tossPaymentClient.confirm(req);
 		} catch (WebClientResponseException e) {
-			log.error("toss confirm failed: status={}, body={}", e.getStatusCode(), e.getResponseBodyAsString(), e);
+			log.warn("payment confirm failed in service: orderId={}, amount={}, status={}",
+				req.getOrderId(), req.getAmount(), e.getStatusCode().value());
 			orderService.deleteOrderByOrderNumber(req.getOrderId());
 			throw new ResponseStatusException(e.getStatusCode(), "토스 승인 실패");
 		} catch (Exception e) {
-			log.error("toss confirm exception", e);
+			log.error("toss confirm exception: orderId={}, amount={}",
+				req.getOrderId(), req.getAmount(), e);
 			orderService.deleteOrderByOrderNumber(req.getOrderId());
 			throw e;
 		}
-
-		log.info("toss confirm ok: {}", tossResponse);
-
-		// 6. 재고 차감, 장바구니 삭제, 결제 일시, 상태 변경
-		order.setOrderStatus(OrderStatus.PAID);
-		order.setPaymentType(PaymentType.fromTossMethod(tossResponse.path("method").asText()));
-		order.setPaymentKey(req.getPaymentKey());
-
-		String approvedAtStr = tossResponse.path("approvedAt").asText();
-
-		// 결제 일시
-		LocalDateTime approvedAt = null;
-		if (approvedAtStr != null && !approvedAtStr.isBlank()) {
-			approvedAt = OffsetDateTime.parse(approvedAtStr).toLocalDateTime();
-		}
-
-		order.setApprovedAt(approvedAt);
-
-		// 재고 차감
-		List<OrderProduct> orderProducts = order.getOrderProducts();
-		for (OrderProduct orderProduct : orderProducts) {
-			orderProduct.getProduct().decreaseStock(orderProduct.getQuantity());
-		}
-
-		// 장바구니 삭제
-		if (order.getOrderType() == OrderType.CART) {
-			List<Long> ids = order.getCartProductIds();
-			if (!ids.isEmpty()) {
-				cartProductRepository.deleteSelectedFromUserCart(ids, userId);
-			}
-		}
+		return tossResponse;
 	}
 
 }

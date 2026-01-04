@@ -92,6 +92,9 @@ services:
       - "18080:8080"
     volumes:
       - ./wiremock:/home/wiremock
+
+    networks:
+      - monitoring
     command: ["--verbose"]
 
 networks:
