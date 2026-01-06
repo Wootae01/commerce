@@ -10,5 +10,5 @@ import lombok.NoArgsConstructor;
 public class PayConfirmDTO {
 	private String paymentKey;
 	private String orderId;
-	private Long amount;
+	private int amount;
 }

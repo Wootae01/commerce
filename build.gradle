@@ -51,6 +51,13 @@ dependencies {
 	testImplementation 'org.testcontainers:testcontainers:1.19.6'
 	testImplementation 'org.testcontainers:junit-jupiter:1.19.6'
 	testImplementation 'org.testcontainers:mysql:1.19.6'
+
+	// 테스트에서 Lombok 사용을 위한 의존성 추가
+	testCompileOnly 'org.projectlombok:lombok'
+	testAnnotationProcessor 'org.projectlombok:lombok'
+
+	testImplementation("org.wiremock.integrations:wiremock-spring-boot:4.0.8")
+
 }
 
 tasks.named('test') {

@@ -139,6 +139,17 @@ public class PayController {
 		return ResponseEntity.ok(Map.of("ok", true));
 	}
 
+	@RequestMapping(value = "/confirm/before")
+	@ResponseBody
+	public ResponseEntity<?> confirmPayment_before(@RequestBody PayConfirmDTO req){
+		log.info("confirm req: orderId={}, paymentKey={}, amount={}",
+			req.getOrderId(), req.getPaymentKey(), req.getAmount());
+		Long userId = securityUtil.getCurrentUser().getId();
+		payService.confirm_before(req, userId);
+
+		return ResponseEntity.ok(Map.of("ok", true));
+	}
+
 	@PostMapping("/{orderNumber}/cancel")
 	public String cancel(@PathVariable String orderNumber, Model model) {
 

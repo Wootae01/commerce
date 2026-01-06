@@ -86,7 +86,6 @@ export default function () {
         {
             redirects: 0,
             tags: { name: "pay_prepare" },
-            //headers: apiHeaders,
         }
     );
 
@@ -111,7 +110,7 @@ export default function () {
 
     // 2) 결제 confirm
     const confirmRes = http.post(
-        `${BASE_URL}/pay/confirm`,
+        `${BASE_URL}/pay/confirm/before`,
         JSON.stringify({
             orderId: body.orderId,
             paymentKey: `test-payment-key-${__VU}-${Date.now()}`,
@@ -120,7 +119,7 @@ export default function () {
         {
             redirects: 0,
             tags: { name: "pay_confirm" },
-            headers: { /*...apiHeaders,*/ "Content-Type": "application/json" },
+            headers: { "Content-Type": "application/json" },
         }
     );
 
@@ -128,6 +127,8 @@ export default function () {
     payConfirmFail.add(confirmRes.status !== 200);
 
     check(confirmRes, { "confirm 200": (r) => r.status === 200 });
-
+    if (confirmRes.status !== 200) {
+        console.log(`status: ${confirmRes.status}, ${confirmRes.body}`)
+    }
     sleep(1);
 }
