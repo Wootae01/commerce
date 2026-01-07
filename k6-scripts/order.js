@@ -15,14 +15,10 @@ export const options = {
     noCookiesReset: true,
     scenarios: {
         order_1k: {
-            executor: "ramping-vus",
-            startVUs: 10,
-            stages: [
-                { duration: "30s", target: 20 },
-                { duration: "5m", target: 100 },
-                { duration: "30s", target: 0}
-            ],
-            gracefulRampDown: "10s",
+            executor: "constant-vus",
+            vus: 400,          // 항상 100 VU
+            duration: "5m",    // 5분 동안 유지
+            gracefulStop: "10s",
         },
     },
 };
