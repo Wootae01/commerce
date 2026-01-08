@@ -21,6 +21,9 @@ spring:
         show_sql: true
         dialect: org.hibernate.dialect.MySQL8Dialect
 
+        session_factory:
+          statement_inspector: com.commerce.interceptor.QueryCountStatementInterceptor
+
   servlet:
     multipart:
       max-file-size: 20MB
