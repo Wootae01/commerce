@@ -1,6 +1,5 @@
 package com.commerce.controller;
 
-import java.util.Comparator;
 import java.util.List;
 
 import org.springframework.beans.factory.annotation.Value;
@@ -27,10 +26,12 @@ import com.commerce.service.OrderService;
 import com.commerce.service.ProductService;
 import com.commerce.util.SecurityUtil;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
 @Controller
 @RequestMapping("/orders")
 @RequiredArgsConstructor
+@Slf4j
 public class OrderController {
 
     private final CartService cartService;
@@ -99,10 +100,7 @@ public class OrderController {
     @GetMapping("/list")
     public String viewOrderList(Model model) {
         User user = securityUtil.getCurrentUser();
-
-        List<Orders> orders = user.getOrders();
-        orders.sort(Comparator.comparing(Orders::getCreatedAt).reversed());
-        List<OrderResponseDTO> dtos = orderMapper.toOrderResponseDTO(orders);
+        List<OrderResponseDTO> dtos = orderService.findOrderList(user);
         model.addAttribute("orders", dtos);
 
         return "order-list";

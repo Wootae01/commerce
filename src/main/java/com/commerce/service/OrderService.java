@@ -2,24 +2,35 @@ package com.commerce.service;
 
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import com.commerce.domain.Cart;
 import com.commerce.domain.CartProduct;
 import com.commerce.domain.DeliveryPolicy;
 import com.commerce.domain.OrderProduct;
 import com.commerce.domain.Orders;
 import com.commerce.domain.Product;
+import com.commerce.domain.User;
 import com.commerce.domain.enums.OrderStatus;
 import com.commerce.domain.enums.OrderType;
 import com.commerce.dto.AdminOrderSearchCond;
 import com.commerce.dto.OrderCreateRequestDTO;
+import com.commerce.dto.OrderListRow;
+import com.commerce.dto.OrderProductResponseDTO;
+import com.commerce.dto.OrderResponseDTO;
+import com.commerce.dto.ProductMainImageRow;
 import com.commerce.repository.CartProductRepository;
+import com.commerce.repository.OrderProductRepository;
 import com.commerce.repository.OrderRepository;
 import com.commerce.repository.ProductRepository;
 import com.commerce.util.SecurityUtil;
@@ -35,6 +46,60 @@ public class OrderService {
 	private final CartProductRepository cartProductRepository;
 	private final SecurityUtil securityUtil;
 	private final ProductRepository productRepository;
+	private final OrderProductRepository orderProductRepository;
+
+	@Value("${file.url-path}")
+	private String baseUrl;
+
+	// 주문 리스트 반환
+	@Transactional(readOnly = true)
+	public List<OrderResponseDTO> findOrderList(User user) {
+
+		List<OrderListRow> orderListRows = orderProductRepository.findOrderListRows(user);
+
+		// product id 수집
+		List<Long> productIds = orderListRows.stream()
+			.map(OrderListRow::productId)
+			.distinct()
+			.toList();
+
+		// product main image 수집
+		List<ProductMainImageRow> mainImages = productRepository.findMainImages(productIds);
+
+		// productId, mainImageUrl map 생성
+		Map<Long, String> mainUrlByProductId = mainImages.stream()
+			.collect(Collectors.toMap(
+				ProductMainImageRow::productId,
+				r -> (r.storeFileName() == null)
+					? baseUrl + "default.png"
+					: baseUrl + r.storeFileName(),
+				(a, b) -> a // 혹시 중복 키 나오면 첫 값 유지
+			));
+
+		// orderNumber OrderResponseDTO 묶음
+		Map<String, OrderResponseDTO> byOrderNumber = new LinkedHashMap<>();
+
+		for (OrderListRow r : orderListRows) {
+			OrderResponseDTO orderDto = byOrderNumber.computeIfAbsent(r.orderNumber(), k ->
+				new OrderResponseDTO(
+					r.orderNumber(),
+					r.orderDate(),
+					r.orderStatus(),
+					new ArrayList<>(),
+					r.totalPrice()
+				)
+			);
+
+			String imageUrl = mainUrlByProductId.getOrDefault(r.productId(), baseUrl + "default.png");
+
+			orderDto.getProductDTOS().add(
+				new OrderProductResponseDTO(r.productId(), r.productName(), r.quantity(), r.price(), imageUrl
+				)
+			);
+		}
+
+		return new ArrayList<>(byOrderNumber.values());
+	}
 
 	// 주문 삭제
 	public void deleteOrderByOrderNumber(String orderNumber) {

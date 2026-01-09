@@ -9,6 +9,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import com.commerce.domain.Orders;
+import com.commerce.domain.User;
 import com.commerce.domain.enums.OrderStatus;
 import com.commerce.domain.enums.PaymentType;
 
@@ -19,8 +20,7 @@ public interface OrderRepository extends JpaRepository<Orders, Long> {
 	Optional<Orders> findByOrderNumber(String orderNumber);
 
 	@Query("""
-		select o 
-		from Orders o
+		select o from Orders o
 		where(:orderStatus is null or o.orderStatus = :orderStatus)
 		and (:paymentType is null or o.paymentType =:paymentType)
 		and (:keyword is null 
@@ -37,4 +37,13 @@ public interface OrderRepository extends JpaRepository<Orders, Long> {
 		@Param("endDateTime") LocalDateTime endDateTime,
 		@Param("orderStatus") OrderStatus orderStatus,
 		@Param("paymentType") PaymentType paymentType);
+
+	@Query("""
+			select o from Orders o
+			join fetch o.orderProducts op
+			join fetch op.product p
+			where o.user =:user
+			order by o.createdAt desc
+		""")
+	List<Orders> findOrdersByUserWithProduct(User user);
 }
