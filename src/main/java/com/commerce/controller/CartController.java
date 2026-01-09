@@ -11,9 +11,8 @@ import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 
 import com.commerce.domain.Cart;
-import com.commerce.domain.CartProduct;
 import com.commerce.dto.CartProductDTO;
-import com.commerce.mapper.CartProductMapper;
+import com.commerce.repository.CartProductRepository;
 import com.commerce.service.CartService;
 
 import jakarta.validation.constraints.Min;
@@ -25,17 +24,16 @@ import lombok.RequiredArgsConstructor;
 public class CartController {
 
 	private final CartService cartService;
-	private final CartProductMapper cartProductMapper;
+	private final CartProductRepository cartProductRepository;
 
 	@GetMapping
 	public String viewCart(Model model) {
 		Cart cart = cartService.getCart();
-		List<CartProduct> cartProducts = cart.getCartProducts();
-		List<CartProductDTO> dtos = cartProductMapper.toCartProductDTOs(cartProducts);
+		List<CartProductDTO> cartProductDTOS = cartProductRepository.findCartRows(cart.getId());
 
 		int totalPrice = cartService.getTotalPrice(cart.getId());
 
-		model.addAttribute("cartProducts", dtos);
+		model.addAttribute("cartProducts", cartProductDTOS);
 		model.addAttribute("totalPrice", totalPrice);
 		return "cart";
 	}
