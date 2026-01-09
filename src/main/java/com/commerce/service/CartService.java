@@ -9,6 +9,7 @@ import com.commerce.domain.Cart;
 import com.commerce.domain.CartProduct;
 import com.commerce.domain.Product;
 import com.commerce.domain.User;
+import com.commerce.dto.CartProductDTO;
 import com.commerce.repository.CartProductRepository;
 import com.commerce.repository.CartRepository;
 import com.commerce.repository.ProductRepository;
@@ -23,6 +24,10 @@ public class CartService {
 	private final CartProductRepository cartProductRepository;
 	private final ProductRepository productRepository;
 	private final SecurityUtil securityUtil;
+
+	public List<CartProductDTO> getCartProductDTOS(Long cartId) {
+		return  cartProductRepository.findCartRows(cartId);
+	}
 
 	public List<CartProduct> getProductsByIds(List<Long> cartProductIds) {
 

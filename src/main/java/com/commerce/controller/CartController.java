@@ -24,12 +24,11 @@ import lombok.RequiredArgsConstructor;
 public class CartController {
 
 	private final CartService cartService;
-	private final CartProductRepository cartProductRepository;
 
 	@GetMapping
 	public String viewCart(Model model) {
 		Cart cart = cartService.getCart();
-		List<CartProductDTO> cartProductDTOS = cartProductRepository.findCartRows(cart.getId());
+		List<CartProductDTO> cartProductDTOS = cartService.getCartProductDTOS(cart.getId());
 
 		int totalPrice = cartService.getTotalPrice(cart.getId());
 
