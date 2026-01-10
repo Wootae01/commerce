@@ -3,6 +3,7 @@ package com.commerce.repository;
 import java.util.List;
 
 import com.commerce.domain.Product;
+import com.commerce.dto.ProductHomeDTO;
 import com.commerce.dto.ProductMainImageRow;
 
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -28,4 +29,11 @@ public interface ProductRepository extends JpaRepository<Product, Long> {
 		and i.isMain = true
 	""")
 	List<ProductMainImageRow> findMainImages(@Param("productIds") List<Long> productIds);
+
+	@Query("""
+			select distinct new com.commerce.dto.ProductHomeDTO(p.id, i.storeFileName, p.name, p.price)
+			from Product p
+			left join p.images i on i.isMain = true
+		""")
+	List<ProductHomeDTO> findHomeProducts();
 }

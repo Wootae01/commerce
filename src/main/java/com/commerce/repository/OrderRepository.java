@@ -38,12 +38,4 @@ public interface OrderRepository extends JpaRepository<Orders, Long> {
 		@Param("orderStatus") OrderStatus orderStatus,
 		@Param("paymentType") PaymentType paymentType);
 
-	@Query("""
-			select o from Orders o
-			join fetch o.orderProducts op
-			join fetch op.product p
-			where o.user =:user
-			order by o.createdAt desc
-		""")
-	List<Orders> findOrdersByUserWithProduct(User user);
 }

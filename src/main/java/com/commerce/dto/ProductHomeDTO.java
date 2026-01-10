@@ -1,9 +1,11 @@
 package com.commerce.dto;
 
+
 import lombok.Getter;
 import lombok.Setter;
 
 @Getter
+@Setter
 public class ProductHomeDTO {
 	private Long id;
 	private String mainImageUrl;

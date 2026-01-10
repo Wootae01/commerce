@@ -10,7 +10,6 @@ import com.commerce.domain.Admin;
 import com.commerce.domain.Product;
 import com.commerce.dto.AdminProductListDTO;
 import com.commerce.dto.ProductDetailDTO;
-import com.commerce.dto.ProductHomeDTO;
 import com.commerce.dto.ImageResponseDTO;
 import com.commerce.dto.ProductDTO;
 import com.commerce.dto.ProductResponseDTO;
@@ -79,18 +78,6 @@ public class ProductMapper {
 		return dto;
 	}
 
-	public List<ProductHomeDTO> toHomeProductDTO(List<Product> products) {
-		List<ProductHomeDTO> result = new ArrayList<>();
-		for (Product product : products) {
-			result.add(toHomeProductDTO(product));
-		}
-		return result;
-	}
-	public ProductHomeDTO toHomeProductDTO(Product product) {
-		return new ProductHomeDTO(
-			product.getId(), productImageUtil.getMainImageUrl(product), product.getName(), product.getPrice()
-		);
-	}
 
 	public ProductDetailDTO toProductDetailDTO(Product product) {
 		String mainImageUrl = productImageUtil.getMainImageUrl(product);

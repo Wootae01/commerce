@@ -54,6 +54,8 @@ aws:
 
 app:
   base-url: "http://localhost:8080"
+  image:
+    default-path: /images/default.png   # 상품 기본 이미지 경로
 
 toss:
   base-url: "http://wiremock:8080"    # http://wiremock:8080        wiremock http://localhost:18080

@@ -2,6 +2,7 @@ package com.commerce.service;
 
 import com.commerce.domain.Image;
 import com.commerce.domain.Product;
+import com.commerce.dto.ProductHomeDTO;
 import com.commerce.dto.ProductResponseDTO;
 import com.commerce.repository.ImageRepository;
 import com.commerce.repository.ProductRepository;
@@ -9,6 +10,8 @@ import com.commerce.storage.FileStorage;
 import com.commerce.storage.UploadFile;
 
 import lombok.RequiredArgsConstructor;
+
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -24,6 +27,19 @@ public class ProductService {
     private final ProductRepository productRepository;
     private final ImageRepository imageRepository;
     private final FileStorage fileStorage;
+
+    @Value("${app.image.default-path}")
+    private String defaultImagePath;
+
+    public List<ProductHomeDTO> findHomeProducts() {
+        List<ProductHomeDTO> homeProducts = productRepository.findHomeProducts();
+        for (ProductHomeDTO homeProduct : homeProducts) {
+            if (homeProduct.getMainImageUrl() == null || homeProduct.getMainImageUrl().isEmpty()) {
+                homeProduct.setMainImageUrl(defaultImagePath);
+            }
+        }
+        return homeProducts;
+    }
 
     public Image findImageById(Long imageId) {
         return imageRepository.findById(imageId)
