@@ -13,6 +13,9 @@ public class ProductImageUtil {
 	@Value("${file.url-path}")
 	private String baseUrl;
 
+	@Value("${app.image.default-path}")
+	private String imageDefaultPath;
+
 	public List<String> getSubImagesUrl(Product product) {
 		return product.getImages().stream()
 			.filter(image -> image.isMain() == false)
@@ -25,6 +28,6 @@ public class ProductImageUtil {
 			.filter(Image::isMain)
 			.findFirst()
 			.map(image -> baseUrl + image.getStoreFileName())
-			.orElse(baseUrl + "default.png");
+			.orElse(imageDefaultPath);
 	}
 }

@@ -3,6 +3,7 @@ package com.commerce.service;
 import java.util.List;
 import java.util.NoSuchElementException;
 
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import com.commerce.domain.Cart;
@@ -25,8 +26,18 @@ public class CartService {
 	private final ProductRepository productRepository;
 	private final SecurityUtil securityUtil;
 
+	@Value("${app.image.default-path}")
+	private String imageDefaultPath;
+
 	public List<CartProductDTO> getCartProductDTOS(Long cartId) {
-		return  cartProductRepository.findCartRows(cartId);
+		List<CartProductDTO> cartRows = cartProductRepository.findCartRows(cartId);
+		for (CartProductDTO cartRow : cartRows) {
+			// 메인 이미지 없으면 기본 이미지
+			if (cartRow.getMainImageUrl() == null || cartRow.getMainImageUrl().isEmpty()) {
+				cartRow.setMainImageUrl(imageDefaultPath);
+			}
+		}
+		return cartRows;
 	}
 
 	public List<CartProduct> getProductsByIds(List<Long> cartProductIds) {

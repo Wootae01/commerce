@@ -51,6 +51,9 @@ public class OrderService {
 	@Value("${file.url-path}")
 	private String baseUrl;
 
+	@Value("${app.image.default-path}")
+	private String imageDefaultPath;
+
 	// 주문 리스트 반환
 	@Transactional(readOnly = true)
 	public List<OrderResponseDTO> findOrderList(User user) {
@@ -71,7 +74,7 @@ public class OrderService {
 			.collect(Collectors.toMap(
 				ProductMainImageRow::productId,
 				r -> (r.storeFileName() == null)
-					? baseUrl + "default.png"
+					? imageDefaultPath
 					: baseUrl + r.storeFileName(),
 				(a, b) -> a // 혹시 중복 키 나오면 첫 값 유지
 			));
@@ -90,7 +93,7 @@ public class OrderService {
 				)
 			);
 
-			String imageUrl = mainUrlByProductId.getOrDefault(r.productId(), baseUrl + "default.png");
+			String imageUrl = mainUrlByProductId.getOrDefault(r.productId(), imageDefaultPath);
 
 			orderDto.getProductDTOS().add(
 				new OrderProductResponseDTO(r.productId(), r.productName(), r.quantity(), r.price(), imageUrl
