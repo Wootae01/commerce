@@ -46,36 +46,38 @@ public class PayService {
 	private final ProductRepository productRepository;
 	private final OrderRepository orderRepository;
 
-	@Transactional
 	public CancelResponseDTO cancel(String orderNumber, String cancelReason) {
 		Orders order = orderService.findByOrderNumber(orderNumber);
 
 		// 1. 주문 상태 확인
-		OrderStatus status = order.getOrderStatus();
-		if (!(status == OrderStatus.PAID || status == OrderStatus.READY)) {
-			throw new IllegalStateException("현재 상태에서는 주문 취소를할 수 없습니다.");
-		}
-
-		if (order.getPaymentKey() == null || order.getPaymentKey().isBlank()) {
-			throw new IllegalStateException("paymentKey가 없어 주문 취소를 할 수 없습니다.");
-		}
+		validateCancelableOrder(order);
 
 		// 2. 토스 요청
 		Map<String, Object> data = new HashMap<>();
 		data.put("cancelReason", cancelReason);
-
 		JsonNode response = tossPaymentClient.cancel(order.getPaymentKey(), data);
 
 		// 3. 성공 시  상태 변경, 재고 수정
-		order.setOrderStatus(OrderStatus.CANCELED);
-		order.getOrderProducts().forEach((
-			orderProduct -> orderProduct.getProduct().increaseStock(orderProduct.getQuantity())
-		));
+		paymentTxService.updateOrderStatusAndStock(order, OrderStatus.CANCELED, true);
 
 		// 4. dto 반환
-		String method = response.path("method").asText();
-		int cancelAmount = response.path("cancels").path(0).path("cancelAmount").asInt();
+		String method = response.path("method").asText(); // 결제 수단
+		int cancelAmount = response.path("cancels").path(0).path("cancelAmount").asInt(); // 취소 금액
 		return new CancelResponseDTO(true, orderNumber, LocalDateTime.now(), cancelAmount, method, null);
+	}
+
+	private void validateCancelableOrder(Orders order) {
+		// 1. 주문 상태 확인
+		OrderStatus status = order.getOrderStatus();
+		if (!(status == OrderStatus.PAID || status == OrderStatus.READY)) {
+			log.info("현재 상태에서는 주문 취소를할 수 없습니다.");
+			throw new IllegalStateException("현재 상태에서는 주문 취소를할 수 없습니다.");
+		}
+
+		if (order.getPaymentKey() == null || order.getPaymentKey().isBlank()) {
+			log.info("주문 취소 실패: paymentKey가 없어 주문 취소를 할 수 없습니다.");
+			throw new IllegalStateException("paymentKey가 없어 주문 취소를 할 수 없습니다.");
+		}
 	}
 
 	public void confirm(PayConfirmDTO req, Long userId) {
@@ -92,7 +94,7 @@ public class PayService {
 		log.info("toss confirm ok: {}", tossResponse);
 
 		// 3. 재고 차감, 장바구니 삭제, 결제 일시, 상태 변경
-		paymentTxService.applyPayment(req.getOrderId(), tossResponse, userId, req.getPaymentKey());
+		paymentTxService.applyPaymentSuccess(req.getOrderId(), tossResponse, userId, req.getPaymentKey());
 
 	}
 

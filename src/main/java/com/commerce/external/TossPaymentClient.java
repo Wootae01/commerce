@@ -22,12 +22,22 @@ public class TossPaymentClient {
 	private final WebClient tossWebClient;
 
 	public JsonNode cancel(String paymentKey, Map<String, Object> data) {
-		return tossWebClient.post()
-			.uri("/v1/payments/{paymentKey}/cancel", paymentKey)
-			.bodyValue(data)
-			.retrieve()
-			.bodyToMono(JsonNode.class)
-			.block();
+		JsonNode jsonNode;
+		try {
+			jsonNode = tossWebClient.post()
+				.uri("/v1/payments/{paymentKey}/cancel", paymentKey)
+				.bodyValue(data)
+				.retrieve()
+				.bodyToMono(JsonNode.class)
+				.block();
+		} catch (WebClientResponseException e) {
+			log.error("toss confirm failed: status={}, body={}", e.getStatusCode(), e.getResponseBodyAsString(), e);
+			throw new ResponseStatusException(e.getStatusCode(), "토스 승인 실패");
+		} catch (Exception e) {
+			log.error("toss confirm exception", e);
+			throw e;
+		}
+		return jsonNode;
 	}
 
 	public JsonNode confirm(PayConfirmDTO req) {

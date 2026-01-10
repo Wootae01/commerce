@@ -16,6 +16,10 @@ public interface ProductRepository extends JpaRepository<Product, Long> {
 	@Query("update Product p set p.stock = p.stock - :quantity where p.id = :id and p.stock > :quantity")
 	int decreaseStock(Long id, int quantity);
 
+	@Modifying
+	@Query("update Product p set p.stock = p.stock + :quantity where p.id =:id")
+	int increaseStock(Long id, int quantity);
+
 	@Query("""
 	  select new com.commerce.dto.ProductMainImageRow(p.id, i.storeFileName)
 	  from Product p
