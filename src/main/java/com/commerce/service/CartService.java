@@ -11,6 +11,7 @@ import com.commerce.domain.CartProduct;
 import com.commerce.domain.Product;
 import com.commerce.domain.User;
 import com.commerce.dto.CartProductDTO;
+import com.commerce.dto.OrderItemDTO;
 import com.commerce.repository.CartProductRepository;
 import com.commerce.repository.CartRepository;
 import com.commerce.repository.ProductRepository;
@@ -28,6 +29,20 @@ public class CartService {
 
 	@Value("${app.image.default-path}")
 	private String imageDefaultPath;
+
+	public List<CartProduct> findAllByIdWithProduct(List<Long> cartProductIds) {
+		return cartProductRepository.findAllByIdWithProduct(cartProductIds);
+	}
+
+	public List<OrderItemDTO> getOrderItemDTOS(List<Long> cartProductIds) {
+		List<OrderItemDTO> result = cartProductRepository.findOrderItemDTO(cartProductIds);
+		for (OrderItemDTO dto : result) {
+			if (dto.getMainImageUrl() == null || dto.getMainImageUrl().isEmpty()) {
+				dto.setMainImageUrl(imageDefaultPath);
+			}
+		}
+		return result;
+	}
 
 	public List<CartProductDTO> getCartProductDTOS(Long cartId) {
 		List<CartProductDTO> cartRows = cartProductRepository.findCartRows(cartId);

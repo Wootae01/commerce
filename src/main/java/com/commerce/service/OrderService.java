@@ -3,7 +3,6 @@ package com.commerce.service;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -24,12 +23,16 @@ import com.commerce.domain.User;
 import com.commerce.domain.enums.OrderStatus;
 import com.commerce.domain.enums.OrderType;
 import com.commerce.dto.AdminOrderSearchCond;
+import com.commerce.dto.OrderCartProductRow;
 import com.commerce.dto.OrderCreateRequestDTO;
 import com.commerce.dto.OrderListRow;
 import com.commerce.dto.OrderProductResponseDTO;
+import com.commerce.dto.OrderProductRow;
 import com.commerce.dto.OrderResponseDTO;
 import com.commerce.dto.ProductMainImageRow;
 import com.commerce.repository.CartProductRepository;
+import com.commerce.repository.OrderCartProductJdbcRepository;
+import com.commerce.repository.OrderProductJdbcRepository;
 import com.commerce.repository.OrderProductRepository;
 import com.commerce.repository.OrderRepository;
 import com.commerce.repository.ProductRepository;
@@ -47,6 +50,8 @@ public class OrderService {
 	private final SecurityUtil securityUtil;
 	private final ProductRepository productRepository;
 	private final OrderProductRepository orderProductRepository;
+	private final OrderProductJdbcRepository orderProductJdbcRepository;
+	private final OrderCartProductJdbcRepository orderCartProductJdbcRepository;
 
 	@Value("${file.url-path}")
 	private String baseUrl;
@@ -169,7 +174,7 @@ public class OrderService {
 	@Transactional
 	public Orders prepareOrderFromCart(OrderCreateRequestDTO dto) {
 		List<Long> cartProductIds = dto.getCartProductIds();
-		List<CartProduct> cartProducts = cartProductRepository.findAllById(cartProductIds);
+		List<CartProduct> cartProducts = cartProductRepository.findAllByIdWithProduct(cartProductIds);
 
 		// 1. 상품 재고 확인
 		validateStock(cartProducts);
@@ -182,24 +187,25 @@ public class OrderService {
 
 		// 3. order 객체 생성
 		Orders orders = createOrderEntity(dto, OrderStatus.READY, OrderType.CART, orderName, totalPrice);
+		orders = orderRepository.saveAndFlush(orders);
 
 		// 4. orderProduct 생성
+		List<OrderProductRow> orderProductRows = new ArrayList<>();
+		List<OrderCartProductRow> orderCartProductRows = new ArrayList<>();
 		for (CartProduct cartProduct : cartProducts) {
 			Product product = cartProduct.getProduct();
-			OrderProduct orderProduct = OrderProduct.builder()
-				.product(product)
-				.order(orders)
-				.price(product.getPrice())
-				.quantity(cartProduct.getQuantity())
-				.build();
+			orderProductRows.add(
+				new OrderProductRow(orders.getId(), product.getId(),
+					product.getPrice(), cartProduct.getQuantity())
+			);
 
-			orders.getCartProductIds().add(cartProduct.getId());
-			orders.getOrderProducts().add(orderProduct);
+			orderCartProductRows.add(new OrderCartProductRow(orders.getId(), cartProduct.getId()));
 		}
 
+		orderProductJdbcRepository.batchInsert(orderProductRows);
+		orderCartProductJdbcRepository.batchInsert(orderCartProductRows);
 
-		return orderRepository.save(orders);
-
+		return orders; // 이 객체에서 orderProduct, orderCartProduct 사용하면 안됨.
 	}
 
 	// 주문 이름 생성

@@ -132,7 +132,6 @@ public class OrderMapper {
 		Product product = cartProduct.getProduct();
 		String mainImageUrl = productImageUtil.getMainImageUrl(product);
 
-
 		return OrderItemDTO.builder()
 			.id(cartProduct.getId())
 			.quantity(cartProduct.getQuantity())

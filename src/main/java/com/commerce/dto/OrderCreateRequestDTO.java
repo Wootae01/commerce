@@ -3,7 +3,6 @@ package com.commerce.dto;
 import java.util.List;
 
 import com.commerce.domain.enums.OrderType;
-import com.commerce.domain.enums.PaymentType;
 
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;

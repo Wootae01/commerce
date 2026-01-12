@@ -173,8 +173,8 @@ public class PayController {
 	private void repopulateOrderView(OrderCreateRequestDTO dto, Model model) {
 		// cart 주문인 경우
 		if (dto.getOrderType() == OrderType.CART) {
-			List<CartProduct> cartProducts = cartService.getProductsByIds(dto.getCartProductIds());
-			List<OrderItemDTO> items = orderMapper.toOrderItemDTOFromCart(cartProducts);
+			List<OrderItemDTO> items = cartService.getOrderItemDTOS(dto.getCartProductIds());
+			List<CartProduct> cartProducts = cartService.findAllByIdWithProduct(dto.getCartProductIds());
 			model.addAttribute("orderItems", items);
 
 			int totalPrice = cartService.getTotalPrice(cartProducts);
