@@ -42,5 +42,5 @@ public interface ProductRepository extends JpaRepository<Product, Long> {
 
 	@Lock(LockModeType.PESSIMISTIC_WRITE)
 	@Query("select p.id from Product p where p.id in :productIds order by p.id asc")
-	List<Long> lockProductIds(List<Long> productIds);
+	List<Long> lockProductIds(@Param("productIds") List<Long> productIds);
 }

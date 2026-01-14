@@ -3,6 +3,7 @@ package com.commerce.service;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -201,6 +202,10 @@ public class OrderService {
 
 			orderCartProductRows.add(new OrderCartProductRow(orders.getId(), cartProduct.getId()));
 		}
+
+		// 데드락 방지
+		orderProductRows.sort(Comparator.comparing(OrderProductRow::productId));
+		orderCartProductRows.sort(Comparator.comparing(OrderCartProductRow::cartProductId));
 
 		orderProductJdbcRepository.batchInsert(orderProductRows);
 		orderCartProductJdbcRepository.batchInsert(orderCartProductRows);

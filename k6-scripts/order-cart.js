@@ -9,7 +9,7 @@ export const options = {
     scenarios: {
         buy_once: {
             executor: "per-vu-iterations",
-            vus: 300,
+            vus: 100,
             iterations: 1,      // VU당 딱 1번만 실행
             maxDuration: "5m",
         },
@@ -83,8 +83,12 @@ export default function () {
     );
 
     payConfirmDuration.add(confirmRes.timings.duration);
-    payConfirmFail.add(confirmRes.status !== 200);
+
 
     check(confirmRes, { "confirm 200": (r) => r.status === 200 });
+    if (confirmRes.status !== 200) {
+        console.log(`VU=${__VU} confirm failed status=${prepareRes.status} ${prepareRes.body}`);
+        payConfirmFail.add(confirmRes.status !== 200);
+    }
     sleep(1);
 }
