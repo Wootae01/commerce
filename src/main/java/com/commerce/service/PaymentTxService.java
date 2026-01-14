@@ -2,6 +2,7 @@ package com.commerce.service;
 
 import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
+import java.util.Comparator;
 import java.util.List;
 import java.util.NoSuchElementException;
 
@@ -15,6 +16,7 @@ import com.commerce.domain.enums.OrderStatus;
 import com.commerce.domain.enums.OrderType;
 import com.commerce.domain.enums.PaymentType;
 import com.commerce.repository.CartProductRepository;
+import com.commerce.repository.OrderProductRepository;
 import com.commerce.repository.OrderRepository;
 import com.commerce.repository.ProductRepository;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -30,23 +32,30 @@ public class PaymentTxService {
 	private final OrderRepository orderRepository;
 	private final CartProductRepository cartProductRepository;
 	private final ProductRepository productRepository;
+	private final OrderProductRepository orderProductRepository;
 
 	// 주문 상태 변경, 재고 수정
 	@Transactional
-	public void updateOrderStatusAndStock(Orders order, OrderStatus status, boolean isIncrease) {
+	public void updateOrderStatusAndStock(Long orderId, boolean isIncrease) {
 
-		// 주문 상태 변경
-		order.setOrderStatus(status);
+		List<OrderProduct> orderProducts = orderProductRepository.findOrderProductByOrderIdWithProduct(
+			orderId);
+		orderProducts.sort(Comparator.comparing(op -> op.getProduct().getId()));
+
+		// 상품 id 순서대로 락 잡아놓기
+		List<Long> productIds = orderProducts.stream().map(op -> op.getProduct().getId()).distinct().toList();
+		productRepository.lockProductIds(productIds);
 
 		// 재고 수정
-		List<OrderProduct> orderProducts = order.getOrderProducts();
 		for (OrderProduct orderProduct : orderProducts) {
 			Product product = orderProduct.getProduct();
 
-			if (isIncrease) {
-				productRepository.increaseStock(product.getId(), orderProduct.getQuantity());
-			} else {
-				productRepository.decreaseStock(product.getId(), orderProduct.getQuantity());
+			int affected = isIncrease
+				? productRepository.increaseStock(product.getId(), orderProduct.getQuantity())
+				: productRepository.decreaseStock(product.getId(), orderProduct.getQuantity());
+
+			if (!isIncrease && affected == 0) {
+				throw new IllegalStateException("재고 부족");
 			}
 
 		}
@@ -73,7 +82,8 @@ public class PaymentTxService {
 		order.setApprovedAt(approvedAt);
 
 		// 재고 차감, 주문 상태 변경
-		updateOrderStatusAndStock(order, OrderStatus.PAID, false);
+		order.setOrderStatus(OrderStatus.PAID);
+		updateOrderStatusAndStock(order.getId(), false);
 
 
 		// 장바구니 삭제

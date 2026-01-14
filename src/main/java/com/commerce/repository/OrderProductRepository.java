@@ -29,4 +29,7 @@ public interface OrderProductRepository extends JpaRepository<OrderProduct, Long
     order by o.createdAt desc
 """)
 	List<OrderListRow> findOrderListRows(@Param("user") User user);
+
+	@Query("select op from OrderProduct op join fetch op.product where op.order.id = :orderId")
+	List<OrderProduct> findOrderProductByOrderIdWithProduct(Long orderId);
 }

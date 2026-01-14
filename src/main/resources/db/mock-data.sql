@@ -112,7 +112,7 @@ JOIN (
     SELECT product_id
     FROM product
     ORDER BY RAND()
-    LIMIT 50
+    LIMIT 30
 ) rp
 LEFT JOIN cart_product cp
           ON cp.cart_id = c.cart_id AND cp.product_id = rp.product_id

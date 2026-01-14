@@ -58,7 +58,8 @@ public class PayService {
 		JsonNode response = tossPaymentClient.cancel(order.getPaymentKey(), data);
 
 		// 3. 성공 시  상태 변경, 재고 수정
-		paymentTxService.updateOrderStatusAndStock(order, OrderStatus.CANCELED, true);
+		order.setOrderStatus(OrderStatus.CANCELED);
+		paymentTxService.updateOrderStatusAndStock(order.getId(), true);
 
 		// 4. dto 반환
 		String method = response.path("method").asText(); // 결제 수단

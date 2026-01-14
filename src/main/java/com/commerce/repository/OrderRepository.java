@@ -9,7 +9,6 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import com.commerce.domain.Orders;
-import com.commerce.domain.User;
 import com.commerce.domain.enums.OrderStatus;
 import com.commerce.domain.enums.PaymentType;
 
@@ -18,6 +17,14 @@ public interface OrderRepository extends JpaRepository<Orders, Long> {
 	void deleteByOrderNumber(String orderNumber);
 
 	Optional<Orders> findByOrderNumber(String orderNumber);
+
+	@Query("""
+			select o from Orders o
+			join fetch o.orderProducts op
+			join fetch op.product p
+			where o.id = :orderId
+	""")
+	Optional<Orders> findByOrderNumberWithProduct(Long orderId);
 
 	@Query("""
 		select o from Orders o
