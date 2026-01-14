@@ -59,7 +59,7 @@ public class PayService {
 
 		// 3. 성공 시  상태 변경, 재고 수정
 		order.setOrderStatus(OrderStatus.CANCELED);
-		paymentTxService.updateOrderStatusAndStock(order.getId(), true);
+		paymentTxService.updateStock(order.getId(), true);
 
 		// 4. dto 반환
 		String method = response.path("method").asText(); // 결제 수단

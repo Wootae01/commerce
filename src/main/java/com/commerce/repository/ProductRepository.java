@@ -2,17 +2,14 @@ package com.commerce.repository;
 
 import java.util.List;
 
-import com.commerce.domain.Product;
-import com.commerce.dto.ProductHomeDTO;
-import com.commerce.dto.ProductMainImageRow;
-
 import org.springframework.data.jpa.repository.JpaRepository;
-import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
-import jakarta.persistence.LockModeType;
+import com.commerce.domain.Product;
+import com.commerce.dto.ProductHomeDTO;
+import com.commerce.dto.ProductMainImageRow;
 
 public interface ProductRepository extends JpaRepository<Product, Long> {
 
@@ -40,7 +37,4 @@ public interface ProductRepository extends JpaRepository<Product, Long> {
 		""")
 	List<ProductHomeDTO> findHomeProducts();
 
-	@Lock(LockModeType.PESSIMISTIC_WRITE)
-	@Query("select p.id from Product p where p.id in :productIds order by p.id asc")
-	List<Long> lockProductIds(@Param("productIds") List<Long> productIds);
 }
