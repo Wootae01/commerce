@@ -18,6 +18,8 @@ import org.springframework.web.multipart.MultipartFile;
 import com.commerce.domain.Admin;
 import com.commerce.domain.Product;
 import com.commerce.dto.AdminProductListDTO;
+import com.commerce.dto.FeaturedItem;
+import com.commerce.dto.FeaturedUpdateForm;
 import com.commerce.dto.ProductDTO;
 import com.commerce.dto.ProductResponseDTO;
 import com.commerce.mapper.ProductMapper;
@@ -99,6 +101,13 @@ public class AdminProductController {
 
 		productService.updateProduct(id, updatedProduct, deleteImageIds, mainFile, files);
 
+		return "redirect:/admin/products";
+	}
+
+	@PostMapping("/featured")
+	public String featured(FeaturedUpdateForm form) {
+		List<FeaturedItem> items = form.getItems();
+		productService.updateFeatured(items);
 		return "redirect:/admin/products";
 	}
 

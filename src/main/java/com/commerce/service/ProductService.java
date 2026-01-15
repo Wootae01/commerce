@@ -2,9 +2,11 @@ package com.commerce.service;
 
 import com.commerce.domain.Image;
 import com.commerce.domain.Product;
+import com.commerce.dto.FeaturedItem;
 import com.commerce.dto.ProductHomeDTO;
 import com.commerce.dto.ProductResponseDTO;
 import com.commerce.repository.ImageRepository;
+import com.commerce.repository.ProductJdbcRepository;
 import com.commerce.repository.ProductRepository;
 import com.commerce.storage.FileStorage;
 import com.commerce.storage.UploadFile;
@@ -27,9 +29,14 @@ public class ProductService {
     private final ProductRepository productRepository;
     private final ImageRepository imageRepository;
     private final FileStorage fileStorage;
+    private final ProductJdbcRepository productJdbcRepository;
 
     @Value("${app.image.default-path}")
     private String defaultImagePath;
+
+    public void updateFeatured(List<FeaturedItem> items) {
+        productJdbcRepository.updateFeaturedBatch(items);
+    }
 
     public List<ProductHomeDTO> findHomeProducts() {
         List<ProductHomeDTO> homeProducts = productRepository.findHomeProducts();

@@ -1,11 +1,14 @@
 package com.commerce.repository;
 
+import java.sql.Types;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Repository;
+
+import com.commerce.dto.FeaturedItem;
 
 import lombok.RequiredArgsConstructor;
 
@@ -24,7 +27,6 @@ public class ProductJdbcRepository {
 	 *   ...
 	 * ) t ON p.product_id = t.product_id
 	 * SET p.stock = p.stock - t.qty
-	 *
 	 *
 	 * 반드시 transactional 안에서 사용할 것.
 	 */
@@ -81,5 +83,25 @@ public class ProductJdbcRepository {
 		return updated;
 	}
 
+	// 홈 노출 여부 수정
+	public void updateFeaturedBatch(List<FeaturedItem> items) {
 
+		String sql = """
+				update product
+				set featured = ?, featured_rank = ?
+				where product_id = ?
+			""";
+
+		jdbcTemplate.batchUpdate(sql, items, 500, (ps, it) -> {
+			ps.setBoolean(1, Boolean.TRUE.equals(it.getFeatured()));
+
+			if (it.getFeaturedRank() == null) {
+				ps.setNull(2, Types.INTEGER);
+			} else {
+				ps.setInt(2, it.getFeaturedRank());
+			}
+			ps.setLong(3, it.getProductId());
+
+		});
+	}
 }

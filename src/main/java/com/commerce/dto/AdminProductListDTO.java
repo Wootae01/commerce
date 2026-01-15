@@ -16,4 +16,6 @@ public class AdminProductListDTO {
 	private String mainImageUrl;
 	private LocalDateTime createdAt;
 
+	private boolean featured;
+	private Integer featuredRank;
 }

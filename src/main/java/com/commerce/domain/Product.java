@@ -3,11 +3,16 @@ package com.commerce.domain;
 import java.util.ArrayList;
 import java.util.List;
 
-import org.hibernate.validator.constraints.Range;
-
-import jakarta.persistence.*;
-import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.NotNull;
+import jakarta.persistence.CascadeType;
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.FetchType;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
+import jakarta.persistence.OneToMany;
 import lombok.Getter;
 
 @Entity
@@ -26,16 +31,15 @@ public class Product extends BaseEntity{
     @OneToMany(mappedBy = "product", orphanRemoval = true, cascade = CascadeType.ALL)
     private List<Image> images = new ArrayList<>();
 
-    @NotNull
-    @Range(min = 100, max = 1000000000)
     private int price;
 
-    @NotBlank
     private String name;
-
-    @NotNull
     private int stock;
     private String description;
+
+    private boolean featured = false;
+    private Integer featuredRank;
+
 
     public Product() {}
 
@@ -45,10 +49,6 @@ public class Product extends BaseEntity{
         this.name = name;
         this.stock = stock;
         this.description = description;
-    }
-
-    public void increaseStock(int quantity) {
-        this.stock = this.stock + quantity;
     }
 
     public void update(int price, int stock, String name, String description) {

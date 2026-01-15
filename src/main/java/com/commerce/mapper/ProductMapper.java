@@ -30,15 +30,6 @@ public class ProductMapper {
 		return product;
 	}
 
-	public ProductDTO toDTO(Product product) {
-		ProductDTO dto = new ProductDTO();
-		dto.setName(product.getName());
-		dto.setPrice(product.getPrice());
-		dto.setStock(product.getStock());
-		dto.setDescription(product.getDescription());
-		return dto;
-	}
-
 	public List<AdminProductListDTO> toAdminResponseDTO(List<Product> products) {
 		List<AdminProductListDTO> result = new ArrayList<>();
 
@@ -57,6 +48,9 @@ public class ProductMapper {
 		dto.setCreatedAt(product.getCreatedAt());
 		dto.setMainImageUrl(
 			productImageUtil.getMainImageUrl(product));
+
+		dto.setFeatured(product.isFeatured());
+		dto.setFeaturedRank(product.getFeaturedRank());
 
 		return dto;
 	}
