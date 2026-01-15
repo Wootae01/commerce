@@ -5,6 +5,7 @@ import java.util.List;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 
 import com.commerce.dto.ProductHomeDTO;
 import com.commerce.service.ProductService;
@@ -21,13 +22,21 @@ public class HomeController {
 
     // 홈화면
     @GetMapping("/")
-    public String home(Model model) {
+    public String home(@RequestParam(defaultValue = "featured") String tab, Model model) {
 
-        List<ProductHomeDTO> homeProducts = productService.findHomeProducts();
-        log.info("home products: {}", homeProducts);
-        if (!homeProducts.isEmpty()) {
-            model.addAttribute("products", homeProducts);
+        List<ProductHomeDTO> homeProducts = null;
+        switch(tab) {
+            case "popular" -> homeProducts = productService.findPopularProductHome(30, 20);
+            case "all" -> homeProducts = productService.findHomeProducts();
+            case "featured" -> homeProducts = productService.findFeaturedProducts();
+            default -> {
+                tab = "featured";
+                homeProducts = productService.findFeaturedProducts();
+            }
         }
+
+        model.addAttribute("products", homeProducts);
+        model.addAttribute("tab", tab);
 
         return "home";
     }

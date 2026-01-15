@@ -37,4 +37,22 @@ public interface ProductRepository extends JpaRepository<Product, Long> {
 		""")
 	List<ProductHomeDTO> findHomeProducts();
 
+
+	@Query("""
+			select distinct new com.commerce.dto.ProductHomeDTO(p.id, i.storeFileName, p.name, p.price)
+			from Product p
+			left join p.images i on i.isMain = true
+			where p.id in :productIds
+		""")
+	List<ProductHomeDTO> findHomeProductsByIds(List<Long> productIds);
+
+	@Query("""
+			select new com.commerce.dto.ProductHomeDTO(p.id, i.storeFileName, p.name, p.price)
+			from Product p
+			left join p.images i on i.isMain = true
+			where p.featured = true
+			order by p.featuredRank asc
+		""")
+	List<ProductHomeDTO> findHomeProductsByFeatured();
+
 }

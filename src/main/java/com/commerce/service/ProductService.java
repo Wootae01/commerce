@@ -1,26 +1,34 @@
 package com.commerce.service;
 
+import java.io.IOException;
+import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.NoSuchElementException;
+
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.stereotype.Service;
+import org.springframework.web.multipart.MultipartFile;
+
 import com.commerce.domain.Image;
 import com.commerce.domain.Product;
+import com.commerce.domain.enums.OrderStatus;
 import com.commerce.dto.FeaturedItem;
 import com.commerce.dto.ProductHomeDTO;
 import com.commerce.dto.ProductResponseDTO;
+import com.commerce.dto.ProductSoldRow;
 import com.commerce.repository.ImageRepository;
+import com.commerce.repository.OrderProductRepository;
 import com.commerce.repository.ProductJdbcRepository;
 import com.commerce.repository.ProductRepository;
 import com.commerce.storage.FileStorage;
 import com.commerce.storage.UploadFile;
 
 import lombok.RequiredArgsConstructor;
-
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.stereotype.Service;
-import org.springframework.web.multipart.MultipartFile;
-
-import java.io.IOException;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.NoSuchElementException;
 
 @Service
 @RequiredArgsConstructor
@@ -30,22 +38,66 @@ public class ProductService {
     private final ImageRepository imageRepository;
     private final FileStorage fileStorage;
     private final ProductJdbcRepository productJdbcRepository;
+    private final OrderProductRepository orderProductRepository;
 
     @Value("${app.image.default-path}")
     private String defaultImagePath;
 
+    // 관리자가 등록한 홈 product 반환
+    public List<ProductHomeDTO> findFeaturedProducts() {
+        List<ProductHomeDTO> dtos = productRepository.findHomeProductsByFeatured();
+        setDefaultImageUrl(dtos);
+        return dtos;
+    }
+
+    // 인기 상품 찾기 판매량 기준
+    //  days: 최근 며칠 기준, limit : 상품 개수
+    public List<ProductHomeDTO> findPopularProductHome(int days, int limit) {
+        List<OrderStatus> statuses = List.of(OrderStatus.PAID, OrderStatus.PREPARING, OrderStatus.SHIPPING,
+            OrderStatus.DELIVERED);
+        LocalDateTime since = LocalDateTime.now().minusDays(days);
+
+        List<ProductSoldRow> popularProducts = orderProductRepository.findPopularProducts(statuses, since,
+            PageRequest.of(0, limit));
+
+        if (popularProducts.isEmpty()) {
+            return List.of();
+        }
+
+        List<Long> productIds = popularProducts.stream().map(p -> p.productId()).toList();
+
+        // dto 가져오기
+        List<ProductHomeDTO> dtos = productRepository.findHomeProductsByIds(productIds);
+
+        // 판매량 순 정렬
+        Map<Long, Long> order = new HashMap<>();
+        for (ProductSoldRow row : popularProducts) {
+            order.put(row.productId(), row.quantity());
+        }
+
+        dtos.stream().sorted(Comparator.comparing(dto -> order.getOrDefault(dto.getId(), Long.MAX_VALUE)));
+        setDefaultImageUrl(dtos);
+        return dtos;
+    }
+
+    // 홈에 보여줄 상품 업데이트 featured update
     public void updateFeatured(List<FeaturedItem> items) {
         productJdbcRepository.updateFeaturedBatch(items);
     }
 
+    // 모든 상품 반환
     public List<ProductHomeDTO> findHomeProducts() {
         List<ProductHomeDTO> homeProducts = productRepository.findHomeProducts();
+        setDefaultImageUrl(homeProducts);
+        return homeProducts;
+    }
+
+    private void setDefaultImageUrl(List<ProductHomeDTO> homeProducts) {
         for (ProductHomeDTO homeProduct : homeProducts) {
             if (homeProduct.getMainImageUrl() == null || homeProduct.getMainImageUrl().isEmpty()) {
                 homeProduct.setMainImageUrl(defaultImagePath);
             }
         }
-        return homeProducts;
     }
 
     public Image findImageById(Long imageId) {
