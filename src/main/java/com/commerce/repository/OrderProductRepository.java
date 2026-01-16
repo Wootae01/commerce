@@ -9,30 +9,26 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import com.commerce.domain.OrderProduct;
-import com.commerce.domain.User;
 import com.commerce.domain.enums.OrderStatus;
-import com.commerce.dto.OrderListRow;
+import com.commerce.dto.OrderItemRow;
 import com.commerce.dto.ProductSoldRow;
 
 public interface OrderProductRepository extends JpaRepository<OrderProduct, Long> {
 	@Query("""
-    select new com.commerce.dto.OrderListRow(
-        o.orderNumber,
-        o.createdAt,
-        o.orderStatus,
-        o.finalPrice,
-        p.id,
-        p.name,
-        op.quantity,
-        op.price
-    )
-    from OrderProduct op
-    join op.order o
-    join op.product p
-    where o.user = :user
-    order by o.createdAt desc
-""")
-	List<OrderListRow> findOrderListRows(@Param("user") User user);
+		    select new com.commerce.dto.OrderItemRow(
+		        o.id,
+		        p.id,
+		        p.name,
+		        op.quantity,
+		        op.price
+		    )
+		    from OrderProduct op
+		    join op.order o
+		    join op.product p
+		    where o.id in :orderIds
+		    order by o.createdAt desc
+		""")
+	List<OrderItemRow> findOrderItemsByOrderIds(@Param("orderIds") List<Long> orderIds);
 
 	@Query("select op from OrderProduct op join fetch op.product where op.order.id = :orderId")
 	List<OrderProduct> findOrderProductByOrderIdWithProduct(Long orderId);

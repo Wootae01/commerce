@@ -11,8 +11,10 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import com.commerce.domain.Orders;
+import com.commerce.domain.User;
 import com.commerce.domain.enums.OrderStatus;
 import com.commerce.domain.enums.PaymentType;
+import com.commerce.dto.OrderHeaderRow;
 
 public interface OrderRepository extends JpaRepository<Orders, Long> {
 
@@ -49,5 +51,17 @@ public interface OrderRepository extends JpaRepository<Orders, Long> {
 		@Param("paymentType") PaymentType paymentType,
 		Pageable pageable
 	);
+
+	@Query(value = """
+    select new com.commerce.dto.OrderHeaderRow(
+        o.id, o.orderNumber, o.createdAt, o.orderStatus, o.finalPrice
+    )
+    from Orders o
+    where o.user = :user
+    order by o.createdAt desc
+""", countQuery = """
+    select count(o) from Orders o where o.user = :user
+""")
+	Page<OrderHeaderRow> findOrderHeaders(@Param("user") User user, Pageable pageable);
 
 }

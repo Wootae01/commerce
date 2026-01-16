@@ -13,6 +13,7 @@ import java.util.stream.Collectors;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -28,7 +29,8 @@ import com.commerce.domain.enums.OrderType;
 import com.commerce.dto.AdminOrderSearchCond;
 import com.commerce.dto.OrderCartProductRow;
 import com.commerce.dto.OrderCreateRequestDTO;
-import com.commerce.dto.OrderListRow;
+import com.commerce.dto.OrderHeaderRow;
+import com.commerce.dto.OrderItemRow;
 import com.commerce.dto.OrderProductResponseDTO;
 import com.commerce.dto.OrderProductRow;
 import com.commerce.dto.OrderResponseDTO;
@@ -64,20 +66,32 @@ public class OrderService {
 
 	// 주문 리스트 반환
 	@Transactional(readOnly = true)
-	public List<OrderResponseDTO> findOrderList(User user) {
+	public Page<OrderResponseDTO> findOrderList(User user, Pageable pageable) {
 
-		List<OrderListRow> orderListRows = orderProductRepository.findOrderListRows(user);
+		// 주문 단위 페이징
+		Page<OrderHeaderRow> orderHeaders = orderRepository.findOrderHeaders(user, pageable);
+		List<OrderHeaderRow> headers = orderHeaders.getContent();
+		if (headers.isEmpty()) {
+			return new PageImpl<>(List.of(), pageable, orderHeaders.getTotalElements());
+		}
 
-		// product id 수집
-		List<Long> productIds = orderListRows.stream()
-			.map(OrderListRow::productId)
+		// 주문 아이템 조회
+		List<Long> orderIds = headers.stream()
+			.map(OrderHeaderRow::orderId)
+			.toList();
+
+		List<OrderItemRow> orderItemRows = orderProductRepository.findOrderItemsByOrderIds(orderIds);
+
+
+		// 이미지 조회
+		List<Long> productIds = orderItemRows.stream()
+			.map(OrderItemRow::productId)
 			.distinct()
 			.toList();
 
-		// product main image 수집
 		List<ProductMainImageRow> mainImages = productRepository.findMainImages(productIds);
 
-		// productId, mainImageUrl map 생성
+		// productId -> mainImageUrl
 		Map<Long, String> mainUrlByProductId = mainImages.stream()
 			.collect(Collectors.toMap(
 				ProductMainImageRow::productId,
@@ -87,29 +101,41 @@ public class OrderService {
 				(a, b) -> a // 혹시 중복 키 나오면 첫 값 유지
 			));
 
-		// orderNumber OrderResponseDTO 묶음
-		Map<String, OrderResponseDTO> byOrderNumber = new LinkedHashMap<>();
-
-		for (OrderListRow r : orderListRows) {
-			OrderResponseDTO orderDto = byOrderNumber.computeIfAbsent(r.orderNumber(), k ->
+		//  orderId -> OrderResponseDTO. 헤더 기준으로 먼저 만들어 순서 보장
+		Map<Long, OrderResponseDTO> byOrderId = new LinkedHashMap<>();
+		for (OrderHeaderRow h : orderHeaders) {
+			byOrderId.put(
+				h.orderId(),
 				new OrderResponseDTO(
-					r.orderNumber(),
-					r.orderDate(),
-					r.orderStatus(),
+					h.orderNumber(),
+					h.orderDate(),
+					h.orderStatus(),
 					new ArrayList<>(),
-					r.totalPrice()
-				)
-			);
-
-			String imageUrl = mainUrlByProductId.getOrDefault(r.productId(), imageDefaultPath);
-
-			orderDto.getProductDTOS().add(
-				new OrderProductResponseDTO(r.productId(), r.productName(), r.quantity(), r.price(), imageUrl
+					h.finalPrice()
 				)
 			);
 		}
 
-		return new ArrayList<>(byOrderNumber.values());
+		// 아이템 붙이기
+		for (OrderItemRow r : orderItemRows) {
+			OrderResponseDTO orderDto = byOrderId.get(r.orderId());
+			if (orderDto == null) continue;
+
+			String imageUrl = mainUrlByProductId.getOrDefault(r.productId(), imageDefaultPath);
+
+			orderDto.getProductDTOS().add(
+				new OrderProductResponseDTO(
+					r.productId(),
+					r.productName(),
+					r.quantity(),
+					r.price(),
+					imageUrl
+				)
+			);
+		}
+		List<OrderResponseDTO> result = new ArrayList<>(byOrderId.values());
+
+		return new PageImpl<>(result, pageable, orderHeaders.getTotalElements());
 	}
 
 	// 주문 삭제

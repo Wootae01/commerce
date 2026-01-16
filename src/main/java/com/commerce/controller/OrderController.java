@@ -3,11 +3,14 @@ package com.commerce.controller;
 import java.util.List;
 
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 
 import com.commerce.domain.CartProduct;
 import com.commerce.domain.DeliveryPolicy;
@@ -98,10 +101,11 @@ public class OrderController {
 
 
     @GetMapping("/list")
-    public String viewOrderList(Model model) {
+    public String viewOrderList(@RequestParam(defaultValue = "0") int page, Model model) {
         User user = securityUtil.getCurrentUser();
-        List<OrderResponseDTO> dtos = orderService.findOrderList(user);
-        model.addAttribute("orders", dtos);
+        int size = 10; // page 사이즈
+        Page<OrderResponseDTO> dtoPage = orderService.findOrderList(user, PageRequest.of(page, size));
+        model.addAttribute("page", dtoPage);
 
         return "order-list";
     }
