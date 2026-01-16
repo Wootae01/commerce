@@ -100,7 +100,7 @@
 
             <li class="page-item" th:classappend="${page.first} ? ' disabled' : ''">
                 <a class="page-link"
-                   th:href="@{/(tab='all', page=${page.number - 1 }, size=${page.size})}">«</a>
+                   th:href="@{/(tab='all', page=${page.number - 1 })}">«</a>
             </li>
 
             <li class="page-item"
@@ -108,12 +108,12 @@
                 th:classappend="${i == page.number} ? ' active' : ''">
                 <a class="page-link"
                    th:text="${i + 1}"
-                   th:href="@{/(tab='all', page=${i}, size=${page.size})}"></a>
+                   th:href="@{/(tab='all', page=${i})}"></a>
             </li>
 
             <li class="page-item" th:classappend="${page.last} ? ' disabled' : ''">
                 <a class="page-link"
-                   th:href="@{/(tab='all', page=${page.number+1}, size=${page.size})}">»</a>
+                   th:href="@{/(tab='all', page=${page.number+1})}">»</a>
             </li>
 
         </ul>

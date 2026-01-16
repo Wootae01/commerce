@@ -59,4 +59,14 @@ public interface ProductRepository extends JpaRepository<Product, Long> {
 		""")
 	List<ProductHomeDTO> findHomeProductsByFeatured();
 
+	// 메인 이미지는 상품당 1개임
+	@Query(value = """
+				select p from Product p
+				join fetch p.images i
+				where i.isMain = true
+		""", countQuery = """
+		select count(p) from Product p
+		""")
+	Page<Product> findAllWithMainImage(Pageable pageable);
+
 }

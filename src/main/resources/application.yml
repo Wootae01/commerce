@@ -40,7 +40,7 @@ management:
 
 file:
   dir: ${FILE_DIR:./uploads/}
-  url-path: ${FILE_URL_PATH:/uploads/}
+  url-path: #${FILE_URL_PATH:/uploads/}
 
 logging:
   level:

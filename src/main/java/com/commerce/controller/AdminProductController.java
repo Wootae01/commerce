@@ -3,6 +3,8 @@ package com.commerce.controller;
 import java.io.IOException;
 import java.util.List;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.validation.BindingResult;
@@ -40,10 +42,16 @@ public class AdminProductController {
 	private final SecurityUtil securityUtil;
 
 	@GetMapping
-	public String productManagement(Model model) {
-		List<Product> products = productService.findAll();
+	public String productManagement(@RequestParam(defaultValue = "0") int page, Model model) {
+		int size = 20; // 페이지 사이즈
+		page = Math.max(0, page);
+
+		Page<Product> all = productService.findAll(PageRequest.of(page, size));
+		List<Product> products = all.getContent();
+
 		List<AdminProductListDTO> dtoList = productMapper.toAdminResponseDTO(products);
 		model.addAttribute("products", dtoList);
+		model.addAttribute("page", all);
 		return "admin/products";
 	}
 

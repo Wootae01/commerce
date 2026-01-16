@@ -25,6 +25,24 @@ WITH RECURSIVE seq(n) AS (
 SELECT n*1000, 1000000, 1, CONCAT('상품', n), n, NOW(), NOW()
 FROM seq;
 
+-- 이미지 삽입
+INSERT INTO image (product_id, upload_file_name, store_file_name, is_main, img_order, created_at, updated_at)
+SELECT
+    p.product_id,
+    'test-main_image',
+    '/images/default.png',
+    1,
+    0,
+    NOW(),
+    NOW()
+FROM product p
+WHERE NOT EXISTS (
+    SELECT 1
+    FROM image i
+    WHERE i.product_id = p.product_id
+      AND i.is_main = 1
+);
+
 -- order 50개 삽입
 INSERT INTO orders (
     order_number, payment_key, user_id, final_price, order_name,

@@ -125,6 +125,10 @@ public class ProductService {
         return productRepository.findAll();
     }
 
+    public Page<Product> findAll(Pageable pageable) {
+        return productRepository.findAllWithMainImage(pageable);
+    }
+
     // 상품 등록
     public Product saveProduct(Product product, MultipartFile mainFile, List<MultipartFile> files) throws IOException {
 
@@ -133,6 +137,9 @@ public class ProductService {
             UploadFile uploadFile = fileStorage.storeImage(mainFile);
 
             Image mainImage = Image.createMainImage(uploadFile);
+            product.addImage(mainImage);
+        } else {
+            Image mainImage = Image.createMainImage(new UploadFile("", defaultImagePath));
             product.addImage(mainImage);
         }
 
