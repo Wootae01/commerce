@@ -216,7 +216,72 @@
 
             </div>
         </form>
+        <nav aria-label="Page navigation"
+             class="mt-3"
+             th:if="${page != null and page.totalPages > 1}"
+             th:with="
+               kw=${param.keyword},
+               sd=${param.startDate},
+               ed=${param.endDate},
+               os=${param.orderStatus},
+               pt=${param.paymentType},
+               cur=${page.number},
+               last=${page.totalPages - 1},
+               start=${T(java.lang.Math).max(1, cur - 2)},
+               end=${T(java.lang.Math).min(last - 1, cur + 2)}
+     ">
 
+            <ul class="pagination justify-content-center mb-0">
+
+                <!-- Prev -->
+                <li class="page-item" th:classappend="${page.first} ? ' disabled' : ''">
+                    <a class="page-link"
+                       th:href="@{/admin/orders(page=${cur - 1}, keyword=${kw}, startDate=${sd}, endDate=${ed}, orderStatus=${os}, paymentType=${pt})}">«</a>
+                </li>
+
+                <!-- First page (1) -->
+                <li class="page-item" th:classappend="${cur == 0} ? ' active' : ''">
+                    <a class="page-link"
+                       th:text="1"
+                       th:href="@{/admin/orders(page=0, keyword=${kw}, startDate=${sd}, endDate=${ed}, orderStatus=${os}, paymentType=${pt})}"></a>
+                </li>
+
+                <!-- Left ellipsis -->
+                <li class="page-item disabled" th:if="${cur > 3}">
+                    <span class="page-link">…</span>
+                </li>
+
+                <!-- Middle window (start ~ end) -->
+                <li class="page-item"
+                    th:if="${page.totalPages > 2}"
+                    th:each="i : ${#numbers.sequence(start, end)}"
+                    th:classappend="${i == cur} ? ' active' : ''">
+                    <a class="page-link"
+                       th:text="${i + 1}"
+                       th:href="@{/admin/orders(page=${i}, keyword=${kw}, startDate=${sd}, endDate=${ed}, orderStatus=${os}, paymentType=${pt})}"></a>
+                </li>
+
+                <!-- Right ellipsis -->
+                <li class="page-item disabled" th:if="${cur < last - 3}">
+                    <span class="page-link">…</span>
+                </li>
+
+                <!-- Last page (totalPages) -->
+                <li class="page-item" th:if="${page.totalPages > 1}"
+                    th:classappend="${cur == last} ? ' active' : ''">
+                    <a class="page-link"
+                       th:text="${page.totalPages}"
+                       th:href="@{/admin/orders(page=${last}, keyword=${kw}, startDate=${sd}, endDate=${ed}, orderStatus=${os}, paymentType=${pt})}"></a>
+                </li>
+
+                <!-- Next -->
+                <li class="page-item" th:classappend="${page.last} ? ' disabled' : ''">
+                    <a class="page-link"
+                       th:href="@{/admin/orders(page=${cur+1}, keyword=${kw}, startDate=${sd}, endDate=${ed}, orderStatus=${os}, paymentType=${pt})}">»</a>
+                </li>
+
+            </ul>
+        </nav>
     </div>
 
 </div>

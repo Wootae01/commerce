@@ -4,6 +4,8 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -40,10 +42,12 @@ public interface OrderRepository extends JpaRepository<Orders, Long> {
 		and (:endDateTime is null or o.createdAt <= :endDateTime)
 		order by o.createdAt desc
 	""")
-	List<Orders> searchAdminOrders(@Param("keyword") String keyword,
+	Page<Orders> searchAdminOrders(@Param("keyword") String keyword,
 		@Param("startDateTime") LocalDateTime startDateTime,
 		@Param("endDateTime") LocalDateTime endDateTime,
 		@Param("orderStatus") OrderStatus orderStatus,
-		@Param("paymentType") PaymentType paymentType);
+		@Param("paymentType") PaymentType paymentType,
+		Pageable pageable
+	);
 
 }

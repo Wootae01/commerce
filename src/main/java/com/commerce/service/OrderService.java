@@ -12,6 +12,8 @@ import java.util.UUID;
 import java.util.stream.Collectors;
 
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -124,7 +126,7 @@ public class OrderService {
 		}
 	}
 
-	public List<Orders> getOrderList(AdminOrderSearchCond cond) {
+	public Page<Orders> getOrderList(AdminOrderSearchCond cond, Pageable pageable) {
 		LocalDateTime start = null;
 		LocalDateTime end = null;
 		if (cond.getStartDate() != null) {
@@ -134,7 +136,7 @@ public class OrderService {
 			end = cond.getEndDate().atTime(LocalTime.MAX);
 		}
 		return orderRepository.searchAdminOrders(cond.getKeyword(), start, end,
-			cond.getOrderStatus(), cond.getPaymentType());
+			cond.getOrderStatus(), cond.getPaymentType(), pageable);
 	}
 
 	public Orders findByOrderNumber(String orderNumber) {

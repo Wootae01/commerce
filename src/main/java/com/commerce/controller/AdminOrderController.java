@@ -2,6 +2,8 @@ package com.commerce.controller;
 
 import java.util.List;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -29,15 +31,18 @@ public class AdminOrderController {
 	private final OrderMapper orderMapper;
 
 	@GetMapping
-	public String orderList(AdminOrderSearchCond cond, Model model) {
+	public String orderList(AdminOrderSearchCond cond, @RequestParam(defaultValue = "0") int page, Model model) {
+		page = Math.max(page, 0);
 		log.info("search cond => keyword={}, status={}, paymentType={}, start={}, end={}",
 			cond.getKeyword(), cond.getOrderStatus(), cond.getPaymentType(),
 			cond.getStartDate(), cond.getEndDate());
 
 		// 1. 모든 주문 찾아서 dto로 변환
-		List<Orders> orders = orderService.getOrderList(cond);
-		List<AdminOrderListResponseDTO> dtos = orderMapper.toAdminOrderListResponseDTOS(orders);
+		int size = 20; // page size
+		Page<Orders> pageOrder = orderService.getOrderList(cond, PageRequest.of(page, size));
+		List<AdminOrderListResponseDTO> dtos = orderMapper.toAdminOrderListResponseDTOS(pageOrder.getContent());
 		model.addAttribute("orders", dtos);
+		model.addAttribute("page", pageOrder);
 
 		return "admin/order-list";
 	}
