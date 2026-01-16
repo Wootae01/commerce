@@ -28,11 +28,12 @@ public interface OrderRepository extends JpaRepository<Orders, Long> {
 
 	@Query("""
 		select o from Orders o
+		 join fetch o.user u
 		where(:orderStatus is null or o.orderStatus = :orderStatus)
 		and (:paymentType is null or o.paymentType =:paymentType)
 		and (:keyword is null 
 			or o.orderNumber like concat('%', :keyword, '%')
-			or o.user.name like concat('%', :keyword, '%')
+			or u.name like concat('%', :keyword, '%')
 			or o.receiverPhone like concat('%', :keyword, '%')
 			) 	
 		and (:startDateTime is null or o.createdAt >= :startDateTime)

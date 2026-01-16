@@ -12,6 +12,7 @@ import com.commerce.domain.OrderProduct;
 import com.commerce.domain.Orders;
 import com.commerce.domain.Product;
 import com.commerce.domain.User;
+import com.commerce.domain.enums.PaymentType;
 import com.commerce.dto.AdminOrderListResponseDTO;
 import com.commerce.dto.OrderDetailResponseDTO;
 import com.commerce.dto.OrderItemDTO;
@@ -43,11 +44,13 @@ public class OrderMapper {
 	}
 
 	public AdminOrderListResponseDTO toAdminOrderListResponseDTO(Orders order) {
+		PaymentType paymentType = order.getPaymentType();
+
 		AdminOrderListResponseDTO dto = AdminOrderListResponseDTO.builder()
 			.id(order.getId())
 			.buyerName(order.getUser().getName())
 			.orderPhone(order.getReceiverPhone())
-			.paymentType(order.getPaymentType().getText())
+			.paymentType(paymentType == null ? PaymentType.UNKNOWN.getText() : paymentType.getText())
 			.orderDate(order.getCreatedAt())
 			.orderNumber(order.getOrderNumber())
 			.orderStatus(order.getOrderStatus())

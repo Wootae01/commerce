@@ -1,10 +1,5 @@
 package com.commerce.domain.enums;
 
-import java.util.Arrays;
-
-import lombok.Getter;
-
-@Getter
 public enum PaymentType {
     CARD("카드"),
     VIRTUAL_ACCOUNT("가상계좌"),
@@ -20,6 +15,13 @@ public enum PaymentType {
 
     PaymentType(String text) {
         this.text = text;
+    }
+
+    public String getText() {
+        if (text == null) {
+            return UNKNOWN.text;
+        }
+        return this.text;
     }
 
     public static PaymentType fromTossMethod(String method) {
