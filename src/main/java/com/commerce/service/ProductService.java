@@ -10,7 +10,9 @@ import java.util.Map;
 import java.util.NoSuchElementException;
 
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -86,10 +88,17 @@ public class ProductService {
     }
 
     // 모든 상품 반환
-    public List<ProductHomeDTO> findHomeProducts() {
-        List<ProductHomeDTO> homeProducts = productRepository.findHomeProducts();
-        setDefaultImageUrl(homeProducts);
-        return homeProducts;
+    public Page<ProductHomeDTO> findHomeProducts(Pageable pageable) {
+        Page<ProductHomeDTO> page = productRepository.findHomeProducts(pageable);
+
+        return page.map(dto -> {
+            if (dto.getMainImageUrl() == null || dto.getMainImageUrl().isBlank()) {
+                dto.setMainImageUrl(defaultImagePath);
+            }
+
+            return dto;
+        });
+
     }
 
     private void setDefaultImageUrl(List<ProductHomeDTO> homeProducts) {

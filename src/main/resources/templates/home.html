@@ -93,13 +93,32 @@
         <span th:if="${tab}=='all'">상품이 없습니다.</span>
     </div>
 
-    <!-- 전체 탭에서만 '더보기' 노출(선택) -->
-    <div class="d-flex justify-content-end mt-2" th:if="${tab}=='all'">
-        <a class="btn btn-outline-dark btn-sm" href="/products">더보기</a>
-    </div>
+    <nav aria-label="Page navigation"
+         class="mt-3"
+         th:if="${tab=='all' and page != null and page.totalPages > 1}">
+        <ul class="pagination justify-content-center mb-0">
 
+            <li class="page-item" th:classappend="${page.first} ? ' disabled' : ''">
+                <a class="page-link"
+                   th:href="@{/(tab='all', page=${page.number - 1 }, size=${page.size})}">«</a>
+            </li>
+
+            <li class="page-item"
+                th:each="i : ${#numbers.sequence(0, page.totalPages - 1)}"
+                th:classappend="${i == page.number} ? ' active' : ''">
+                <a class="page-link"
+                   th:text="${i + 1}"
+                   th:href="@{/(tab='all', page=${i}, size=${page.size})}"></a>
+            </li>
+
+            <li class="page-item" th:classappend="${page.last} ? ' disabled' : ''">
+                <a class="page-link"
+                   th:href="@{/(tab='all', page=${page.number+1}, size=${page.size})}">»</a>
+            </li>
+
+        </ul>
+    </nav>
 </main>
 
-<!-- pill JS 필요 없음. (Bootstrap CSS만 써도 됨) -->
 </body>
 </html>

@@ -3,7 +3,6 @@ package com.commerce.repository;
 import java.time.LocalDateTime;
 import java.util.List;
 
-import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
@@ -43,7 +42,7 @@ public interface OrderProductRepository extends JpaRepository<OrderProduct, Long
 	  from OrderProduct op
 	  join op.order o
 	  where o.orderStatus in :statuses
-		and o.createdAt >= :since
+		and o.approvedAt >= :since
 	  group by op.product.id
 	  order by sum(op.quantity) desc
 	""")

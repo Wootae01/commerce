@@ -2,6 +2,8 @@ package com.commerce.repository;
 
 import java.util.List;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
@@ -17,9 +19,7 @@ public interface ProductRepository extends JpaRepository<Product, Long> {
 	@Query("update Product p set p.stock = p.stock - :quantity where p.id = :id and p.stock > :quantity")
 	int decreaseStock(Long id, int quantity);
 
-	@Modifying
-	@Query("update Product p set p.stock = p.stock + :quantity where p.id =:id")
-	int increaseStock(Long id, int quantity);
+
 
 	@Query("""
 	  select new com.commerce.dto.ProductMainImageRow(p.id, i.storeFileName)
@@ -30,19 +30,23 @@ public interface ProductRepository extends JpaRepository<Product, Long> {
 	""")
 	List<ProductMainImageRow> findMainImages(@Param("productIds") List<Long> productIds);
 
-	@Query("""
+	@Query(value = """
 			select distinct new com.commerce.dto.ProductHomeDTO(p.id, i.storeFileName, p.name, p.price)
 			from Product p
 			left join p.images i on i.isMain = true
-		""")
-	List<ProductHomeDTO> findHomeProducts();
+		""",
+		countQuery = """
+				select count(p) from Product p
+			""")
+	Page<ProductHomeDTO> findHomeProducts(Pageable pageable);
 
 
 	@Query("""
-			select distinct new com.commerce.dto.ProductHomeDTO(p.id, i.storeFileName, p.name, p.price)
+			select new com.commerce.dto.ProductHomeDTO(p.id, i.storeFileName, p.name, p.price)
 			from Product p
 			left join p.images i on i.isMain = true
 			where p.id in :productIds
+			order by p.createdAt desc 
 		""")
 	List<ProductHomeDTO> findHomeProductsByIds(List<Long> productIds);
 
