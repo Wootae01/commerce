@@ -1,7 +1,10 @@
 package com.commerce.controller;
 
+import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
 import java.util.List;
 
+import org.apache.tomcat.util.buf.UriUtil;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Controller;
@@ -10,6 +13,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.util.UriUtils;
 
 import com.commerce.domain.Orders;
 import com.commerce.domain.enums.OrderStatus;
@@ -44,6 +48,9 @@ public class AdminOrderController {
 		model.addAttribute("orders", dtos);
 		model.addAttribute("page", pageOrder);
 
+		String qs = buildQs(cond);
+		model.addAttribute("qs", qs);
+
 		return "admin/order-list";
 	}
 
@@ -56,6 +63,27 @@ public class AdminOrderController {
 		orderService.changeStatus(orderIds, status);
 
 		return "redirect:/admin/orders";
+	}
+
+	private static String buildQs(AdminOrderSearchCond cond) {
+		List<String> parts = new ArrayList<>();
+		if (cond.getKeyword() != null && !cond.getKeyword().isBlank()) {
+			parts.add("keyword=" + UriUtils.encodeQueryParam(cond.getKeyword(), StandardCharsets.UTF_8));
+		}
+		if (cond.getStartDate() != null) {
+			parts.add("startDate=" + cond.getStartDate()); // yyyy-MM-dd면 그대로 OK
+		}
+		if (cond.getEndDate() != null) {
+			parts.add("endDate=" + cond.getEndDate());
+		}
+		if (cond.getOrderStatus() != null) {
+			parts.add("orderStatus=" + cond.getOrderStatus().name());
+		}
+		if (cond.getPaymentType() != null) {
+			parts.add("paymentType=" + cond.getPaymentType().name());
+		}
+
+		return String.join("&", parts);
 	}
 
 }

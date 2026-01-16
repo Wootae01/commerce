@@ -37,7 +37,6 @@ public class HomeController {
             case "all" -> {
                 Page<ProductHomeDTO> result = productService.findHomeProducts(PageRequest.of(page, size));
                 model.addAttribute("page", result);
-
                 homeProducts = result.getContent();
             }
             case "featured" -> homeProducts = productService.findFeaturedProducts();

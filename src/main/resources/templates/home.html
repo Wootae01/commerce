@@ -93,31 +93,9 @@
         <span th:if="${tab}=='all'">상품이 없습니다.</span>
     </div>
 
-    <nav aria-label="Page navigation"
-         class="mt-3"
-         th:if="${tab=='all' and page != null and page.totalPages > 1}">
-        <ul class="pagination justify-content-center mb-0">
+    <!-- pagination -->
+    <div th:replace="~{fragments/pagination :: pager('/', ${page}, 'tab=' + ${tab})}"></div>
 
-            <li class="page-item" th:classappend="${page.first} ? ' disabled' : ''">
-                <a class="page-link"
-                   th:href="@{/(tab='all', page=${page.number - 1 })}">«</a>
-            </li>
-
-            <li class="page-item"
-                th:each="i : ${#numbers.sequence(0, page.totalPages - 1)}"
-                th:classappend="${i == page.number} ? ' active' : ''">
-                <a class="page-link"
-                   th:text="${i + 1}"
-                   th:href="@{/(tab='all', page=${i})}"></a>
-            </li>
-
-            <li class="page-item" th:classappend="${page.last} ? ' disabled' : ''">
-                <a class="page-link"
-                   th:href="@{/(tab='all', page=${page.number+1})}">»</a>
-            </li>
-
-        </ul>
-    </nav>
 </main>
 
 </body>
