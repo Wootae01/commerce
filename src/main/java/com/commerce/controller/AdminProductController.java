@@ -104,7 +104,7 @@ public class AdminProductController {
 			updatedProduct.setMainImageUrl(original.getMainImageUrl());
 			updatedProduct.setImages(original.getImages());
 			model.addAttribute("productId", id);
-			return "admin/product-edit";
+			return "redirect:admin/product-edit";
 		}
 
 		productService.updateProduct(id, updatedProduct, deleteImageIds, mainFile, files);

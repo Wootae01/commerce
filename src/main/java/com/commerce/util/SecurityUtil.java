@@ -54,12 +54,10 @@ public class SecurityUtil {
 	}
 
 	private boolean hasRole(Authentication auth, RoleType role) {
+		if (auth == null) return false;
 
-		for (GrantedAuthority grantedAuthority : auth.getAuthorities()) {
-			if (grantedAuthority.equals(role.name())) return true;
-		}
-
-		return false;
+		return auth.getAuthorities().stream()
+			.anyMatch(a -> role.name().equals(a.getAuthority()));
 	}
 
 	private Authentication getAuthentication() {
