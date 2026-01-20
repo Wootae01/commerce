@@ -22,8 +22,9 @@ public class ProductController {
     // 상품 상세 검색
     @GetMapping("/{id}")
     public String getProductDetail(@PathVariable Long id, Model model) {
-        Product product = productService.findById(id);
+        Product product = productService.findByIdWithImage(id);
         ProductDetailDTO dto = productMapper.toProductDetailDTO(product);
+
         model.addAttribute("product", dto);
         return "product-detail";
     }

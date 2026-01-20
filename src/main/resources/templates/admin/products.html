@@ -69,11 +69,11 @@
                     </thead>
 
                     <tbody>
-                    <tr th:each="product, stat : ${products}">
+                    <tr th:each="product, stat : ${page.content}">
                         <td th:text="${product.id}"></td>
 
                         <td>
-                            <img th:src="@{${product.mainImageUrl}}"
+                            <img th:src="${product.mainImageUrl}"
                                  alt="상품 대표 이미지"
                                  class="rounded thumb">
                         </td>

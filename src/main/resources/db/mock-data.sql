@@ -2,7 +2,8 @@ create database if not exists commerce;
 use commerce;
 
 INSERT INTO admin(username, role, password)
-VALUES ("admin", "ROLE_ADMIN", "$2a$10$33jAxhxoVRtTN4ybMoSkB.ZY2jqjcx/8o2FyhgnrrDJlTkvLRF0Ji")
+SELECT "admin", "ROLE_ADMIN", "$2a$10$33jAxhxoVRtTN4ybMoSkB.ZY2jqjcx/8o2FyhgnrrDJlTkvLRF0Ji"
+    WHERE NOT EXISTS (SELECT 1 FROM admin WHERE username = "admin");
 
 
 -- user 1000명 삽입
@@ -13,16 +14,17 @@ WITH RECURSIVE seq(n) AS (
     SELECT n + 1 FROM seq WHERE n < 999
     )
 SELECT CONCAT('user', n), 'ROLE_USER', NOW(), NOW()
-FROM seq;
+FROM seq
+    WHERE NOT EXISTS(SELECT 1 FROM user)
 
 -- 상품 100개 삽입
-INSERT INTO product (price, stock, admin_id, name, description, created_at, updated_at)
+INSERT INTO product (price, stock, admin_id, name, description, featured, created_at, updated_at)
 WITH RECURSIVE seq(n) AS (
     SELECT 0
     UNION ALL
     SELECT n+1 FROM seq WHERE n < 100
 )
-SELECT n*1000, 1000000, 1, CONCAT('상품', n), n, NOW(), NOW()
+SELECT n*1000, 1000000, 1, CONCAT('상품', n), n, false, NOW(), NOW()
 FROM seq;
 
 -- 이미지 삽입

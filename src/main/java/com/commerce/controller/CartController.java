@@ -1,27 +1,20 @@
 package com.commerce.controller;
 
-import java.util.List;
-
-import org.springframework.stereotype.Controller;
-import org.springframework.ui.Model;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestHeader;
-import org.springframework.web.bind.annotation.RequestMapping;
-
 import com.commerce.domain.Cart;
 import com.commerce.dto.CartProductDTO;
-import com.commerce.repository.CartProductRepository;
 import com.commerce.service.CartService;
-
 import jakarta.validation.constraints.Min;
 import lombok.RequiredArgsConstructor;
+import org.springframework.stereotype.Controller;
+import org.springframework.ui.Model;
+import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
 
 @Controller
 @RequiredArgsConstructor
 @RequestMapping("/cart")
-public class CartController {
+public class 	CartController {
 
 	private final CartService cartService;
 

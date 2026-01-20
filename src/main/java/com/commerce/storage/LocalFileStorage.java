@@ -12,8 +12,11 @@ import org.springframework.web.multipart.MultipartFile;
 @Component
 @Profile(value = "local")
 public class LocalFileStorage implements FileStorage{
+	@Value("${file.url-path}")
+	private String urlPath;
+
 	@Value("${file.dir}")
-	private String fileDir;
+	private String dir;
 
 	@Override
 	public UploadFile storeImage(MultipartFile file) throws IOException {
@@ -29,7 +32,7 @@ public class LocalFileStorage implements FileStorage{
 		String originalFilename = file.getOriginalFilename();
 		String storeFileName = createStoreFileName(originalFilename);
 
-		file.transferTo(new File(getImageUrl(storeFileName)));
+		file.transferTo(new File(dir + storeFileName));
 		return new UploadFile(originalFilename, storeFileName);
 
 	}
@@ -44,7 +47,10 @@ public class LocalFileStorage implements FileStorage{
 
 	@Override
 	public String getImageUrl(String storeName) {
-		return fileDir + storeName;
+		if (storeName.startsWith("/")) {
+			return urlPath + storeName.substring(1);
+		}
+		return urlPath + storeName;
 	}
 
 	private String createStoreFileName(String originalFileName) {

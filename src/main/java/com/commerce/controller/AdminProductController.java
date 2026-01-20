@@ -46,12 +46,9 @@ public class AdminProductController {
 		int size = 20; // 페이지 사이즈
 		page = Math.max(0, page);
 
-		Page<Product> all = productService.findAll(PageRequest.of(page, size));
-		List<Product> products = all.getContent();
+		Page<AdminProductListDTO> pages = productService.findAdminProductListDTO(PageRequest.of(page, size));
 
-		List<AdminProductListDTO> dtoList = productMapper.toAdminResponseDTO(products);
-		model.addAttribute("products", dtoList);
-		model.addAttribute("page", all);
+		model.addAttribute("page", pages);
 		return "admin/products";
 	}
 
@@ -70,6 +67,7 @@ public class AdminProductController {
 		if (bindingResult.hasErrors()) {
 			return "admin/product-new";
 		}
+		log.debug("POST /admin/products/new productDTO={}, mainImage={}, images={}", productDTO, mainFile, files);
 
 		Admin admin = securityUtil.getCurrentAdmin();
 		Product product = productMapper.toEntity(productDTO, admin);
@@ -92,19 +90,20 @@ public class AdminProductController {
 	@PostMapping("/edit/{id}")
 	public String update(@PathVariable Long id, @Validated @ModelAttribute("product") ProductResponseDTO updatedProduct, BindingResult bindingResult,
 		@RequestParam(value = "mainImage", required = false) MultipartFile mainFile,
-		@RequestParam(value = "images", required = false) List<MultipartFile> files,
+		@RequestParam(value = "newImages", required = false) List<MultipartFile> files,
 		@RequestParam(value = "deleteImageIds", required = false) List<Long> deleteImageIds,
 		Model model) throws
 		IOException {
 
 		if (bindingResult.hasErrors()) {
+			log.info("edit product{}", bindingResult);
 			Product product = productService.findById(id);
 			ProductResponseDTO original = productMapper.toProductResponseDTO(product);
 
 			updatedProduct.setMainImageUrl(original.getMainImageUrl());
 			updatedProduct.setImages(original.getImages());
 			model.addAttribute("productId", id);
-			return "redirect:admin/product-edit";
+			return  "redirect:/admin/products/edit/" + id;
 		}
 
 		productService.updateProduct(id, updatedProduct, deleteImageIds, mainFile, files);

@@ -4,6 +4,7 @@ import java.io.IOException;
 import java.time.Duration;
 import java.util.UUID;
 
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Component;
@@ -20,6 +21,7 @@ import software.amazon.awssdk.services.s3.presigner.model.GetObjectPresignReques
 @Component
 @RequiredArgsConstructor
 @Profile(value = {"dev", "prod"})
+@Slf4j
 public class S3FileStorage implements FileStorage {
 
 	private final S3Client s3Client;
@@ -57,9 +59,11 @@ public class S3FileStorage implements FileStorage {
 		return new UploadFile(originalFilename, storeFileName);
 	}
 
+	// S3 private 이미지에 대한 10분짜리 임시 접근 링크 만들어주는 메서드
 	@Override
 	public String getImageUrl(String storeName) {
 
+		log.debug("bucket name: {}", bucket);
 		GetObjectRequest getObjectRequest = GetObjectRequest.builder()
 			.bucket(bucket)
 			.key(storeName)

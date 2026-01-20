@@ -11,6 +11,7 @@ import java.util.NoSuchElementException;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
+import com.commerce.util.ProductImageUtil;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
@@ -57,9 +58,8 @@ public class OrderService {
 	private final OrderProductRepository orderProductRepository;
 	private final OrderProductJdbcRepository orderProductJdbcRepository;
 	private final OrderCartProductJdbcRepository orderCartProductJdbcRepository;
+	private final ProductImageUtil productImageUtil;
 
-	@Value("${file.url-path}")
-	private String baseUrl;
 
 	@Value("${app.image.default-path}")
 	private String imageDefaultPath;
@@ -93,13 +93,11 @@ public class OrderService {
 
 		// productId -> mainImageUrl
 		Map<Long, String> mainUrlByProductId = mainImages.stream()
-			.collect(Collectors.toMap(
-				ProductMainImageRow::productId,
-				r -> (r.storeFileName() == null)
-					? imageDefaultPath
-					: baseUrl + r.storeFileName(),
-				(a, b) -> a // 혹시 중복 키 나오면 첫 값 유지
-			));
+				.collect(Collectors.toMap(
+						ProductMainImageRow::productId,
+						r -> productImageUtil.getImageUrl(r.storeFileName()),
+						(a, b) -> a // 혹시 중복 키 나오면 첫 값 유지
+				));
 
 		//  orderId -> OrderResponseDTO. 헤더 기준으로 먼저 만들어 순서 보장
 		Map<Long, OrderResponseDTO> byOrderId = new LinkedHashMap<>();

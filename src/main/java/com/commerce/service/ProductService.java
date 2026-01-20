@@ -9,6 +9,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
 
+import com.commerce.dto.*;
+import com.commerce.util.ProductImageUtil;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -19,10 +22,6 @@ import org.springframework.web.multipart.MultipartFile;
 import com.commerce.domain.Image;
 import com.commerce.domain.Product;
 import com.commerce.domain.enums.OrderStatus;
-import com.commerce.dto.FeaturedItem;
-import com.commerce.dto.ProductHomeDTO;
-import com.commerce.dto.ProductResponseDTO;
-import com.commerce.dto.ProductSoldRow;
 import com.commerce.repository.ImageRepository;
 import com.commerce.repository.OrderProductRepository;
 import com.commerce.repository.ProductJdbcRepository;
@@ -34,6 +33,7 @@ import lombok.RequiredArgsConstructor;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class ProductService {
 
     private final ProductRepository productRepository;
@@ -42,13 +42,17 @@ public class ProductService {
     private final ProductJdbcRepository productJdbcRepository;
     private final OrderProductRepository orderProductRepository;
 
+    private final ProductImageUtil imageUtil;
     @Value("${app.image.default-path}")
     private String defaultImagePath;
 
     // 관리자가 등록한 홈 product 반환
     public List<ProductHomeDTO> findFeaturedProducts() {
         List<ProductHomeDTO> dtos = productRepository.findHomeProductsByFeatured();
-        setDefaultImageUrl(dtos);
+        for (ProductHomeDTO dto : dtos) {
+            dto.setMainImageUrl(imageUtil.getImageUrl(dto.getMainImageUrl()));
+        }
+
         return dtos;
     }
 
@@ -78,7 +82,10 @@ public class ProductService {
         }
 
         dtos.stream().sorted(Comparator.comparing(dto -> order.getOrDefault(dto.getId(), Long.MAX_VALUE)));
-        setDefaultImageUrl(dtos);
+        for (ProductHomeDTO dto : dtos) {
+            dto.setMainImageUrl(imageUtil.getImageUrl(dto.getMainImageUrl()));
+        }
+
         return dtos;
     }
 
@@ -92,21 +99,10 @@ public class ProductService {
         Page<ProductHomeDTO> page = productRepository.findHomeProducts(pageable);
 
         return page.map(dto -> {
-            if (dto.getMainImageUrl() == null || dto.getMainImageUrl().isBlank()) {
-                dto.setMainImageUrl(defaultImagePath);
-            }
-
+            dto.setMainImageUrl(imageUtil.getImageUrl(dto.getMainImageUrl()));
             return dto;
         });
 
-    }
-
-    private void setDefaultImageUrl(List<ProductHomeDTO> homeProducts) {
-        for (ProductHomeDTO homeProduct : homeProducts) {
-            if (homeProduct.getMainImageUrl() == null || homeProduct.getMainImageUrl().isEmpty()) {
-                homeProduct.setMainImageUrl(defaultImagePath);
-            }
-        }
     }
 
     public Image findImageById(Long imageId) {
@@ -120,13 +116,27 @@ public class ProductService {
                 .orElseThrow(() -> new NoSuchElementException("해당 상품을 찾을 수 없습니다."));
     }
 
-    // 모든 상품 검색
-    public List<Product> findAll() {
-        return productRepository.findAll();
+    public Product findByIdWithImage(Long id) {
+        return productRepository.findByIdWithImage(id)
+                .orElseThrow(() -> new NoSuchElementException("해당 상품을 찾을 수 없습니다."));
     }
 
-    public Page<Product> findAll(Pageable pageable) {
-        return productRepository.findAllWithMainImage(pageable);
+    // 모든 상품 검색
+
+    public Page<AdminProductListDTO> findAdminProductListDTO(Pageable pageable) {
+        Page<AdminProductListDTO> page = productRepository.findAdminProductListDTO(pageable);
+        List<AdminProductListDTO> content = page.getContent();
+
+        // 이미지 url 변경. s3, 로컬에 맞게
+        // default 이미지 경로면 그대로 유지
+        for (AdminProductListDTO dto : content) {
+
+            if (!dto.getMainImageUrl().equals(defaultImagePath)) {
+                String imageUrl = fileStorage.getImageUrl(dto.getMainImageUrl());
+                dto.setMainImageUrl(imageUrl);
+            }
+        }
+        return page;
     }
 
     // 상품 등록

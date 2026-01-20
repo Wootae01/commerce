@@ -1,7 +1,9 @@
 package com.commerce.repository;
 
 import java.util.List;
+import java.util.Optional;
 
+import com.commerce.dto.AdminProductListDTO;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -59,14 +61,20 @@ public interface ProductRepository extends JpaRepository<Product, Long> {
 		""")
 	List<ProductHomeDTO> findHomeProductsByFeatured();
 
-	// 메인 이미지는 상품당 1개임
-	@Query(value = """
-				select p from Product p
-				join fetch p.images i
-				where i.isMain = true
-		""", countQuery = """
-		select count(p) from Product p
+
+	@Query("""
+				select new com.commerce.dto.AdminProductListDTO(p.id, p.name, p.price, p.stock, i.storeFileName, p.createdAt, p.featured, p.featuredRank)
+				from Product p
+				left join p.images i on i.isMain = true
 		""")
-	Page<Product> findAllWithMainImage(Pageable pageable);
+	Page<AdminProductListDTO> findAdminProductListDTO(Pageable pageable);
+
+	@Query("""
+				select p from Product p
+				left join fetch p.images i
+				where p.id = :productId
+			""")
+	Optional<Product> findByIdWithImage(Long productId);
+
 
 }
