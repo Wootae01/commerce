@@ -24,6 +24,9 @@
 <div class="container py-5">
     <h2 class="mb-4 fw-bold text-center">🛒 장바구니</h2>
 
+    <div th:if="${#lists.isEmpty(cartProducts)}" class="alert alert-info text-center">
+        장바구니에 담긴 상품이 없습니다.
+    </div>
 
     <!-- 상품 테이블 -->
     <div class="card shadow-sm">

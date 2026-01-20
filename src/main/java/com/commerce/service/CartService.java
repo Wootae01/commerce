@@ -2,6 +2,7 @@ package com.commerce.service;
 
 import java.util.List;
 import java.util.NoSuchElementException;
+import java.util.Optional;
 
 import com.commerce.util.ProductImageUtil;
 import org.springframework.stereotype.Service;
@@ -44,7 +45,7 @@ public class CartService {
 	public List<CartProductDTO> getCartProductDTOS(Long cartId) {
 		List<CartProductDTO> cartRows = cartProductRepository.findCartRows(cartId);
 		for (CartProductDTO cartRow : cartRows) {
-			// 메인 이미지 없으면 기본 이미지
+
 			String imageUrl = productImageUtil.getImageUrl(cartRow.getMainImageUrl());
 			cartRow.setMainImageUrl(imageUrl);
 		}
@@ -54,10 +55,15 @@ public class CartService {
 	public Cart getCart() {
 		User user = securityUtil.getCurrentUser();
 
-		  Cart cart = cartRepository.findByUser(user)
-			.orElseThrow(() -> new NoSuchElementException("카트가 존재하지 않습니다."));
+		Optional<Cart> optional = cartRepository.findByUser(user);
+		// 카트 존재하지 않으면 새로 생성
+		if (optional.isEmpty()) {
+			Cart cart = new Cart(user);
 
-		return cart;
+			return cartRepository.save(cart);
+		} else {
+			return optional.get();
+		}
 	}
 
 	public List<CartProduct> getSelectedProduct() {
