@@ -90,10 +90,10 @@ public class PayController {
 		BindingResult bindingResult, Model model) {
 
 		if (bindingResult.hasErrors()) {
-			log.warn("orderPrepare validation failed: errorCount={}", bindingResult.getErrorCount());
+			log.info("orderPrepare validation failed: errorCount={}", bindingResult.getErrorCount());
 
 			for (FieldError e : bindingResult.getFieldErrors()) {
-				log.warn("fieldError field={} rejectedValue={} code={} defaultMessage={}",
+				log.info("fieldError field={} rejectedValue={} code={} defaultMessage={}",
 					e.getField(),
 					e.getRejectedValue(),
 					e.getCode(),              // NotBlank, Pattern, typeMismatch 등
@@ -101,7 +101,7 @@ public class PayController {
 			}
 
 			// DTO가 실제로 뭐로 바인딩됐는지도 같이 찍으면 더 확실함
-			log.warn("bound dto={}", dto);
+			log.info("bound dto={}", dto);
 
 			repopulateOrderView(dto, model);
 			return ResponseEntity.badRequest().body(Map.of("message", "입력값 오류"));

@@ -1,21 +1,5 @@
 package com.commerce.service;
 
-import java.time.LocalDateTime;
-import java.time.OffsetDateTime;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.NoSuchElementException;
-import java.util.Objects;
-
-import org.springframework.http.HttpStatus;
-import org.springframework.http.HttpStatusCode;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-import org.springframework.web.reactive.function.client.WebClient;
-import org.springframework.web.reactive.function.client.WebClientResponseException;
-import org.springframework.web.server.ResponseStatusException;
-
 import com.commerce.domain.OrderProduct;
 import com.commerce.domain.Orders;
 import com.commerce.domain.Product;
@@ -24,14 +8,24 @@ import com.commerce.domain.enums.OrderType;
 import com.commerce.domain.enums.PaymentType;
 import com.commerce.dto.CancelResponseDTO;
 import com.commerce.dto.PayConfirmDTO;
-import com.commerce.repository.CartProductRepository;
 import com.commerce.external.TossPaymentClient;
+import com.commerce.repository.CartProductRepository;
 import com.commerce.repository.OrderRepository;
 import com.commerce.repository.ProductRepository;
 import com.fasterxml.jackson.databind.JsonNode;
-
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.HttpStatusCode;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.reactive.function.client.WebClient;
+import org.springframework.web.reactive.function.client.WebClientResponseException;
+import org.springframework.web.server.ResponseStatusException;
+
+import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
+import java.util.*;
 
 @Service
 @RequiredArgsConstructor
@@ -52,19 +46,35 @@ public class PayService {
 		// 1. 주문 상태 확인
 		validateCancelableOrder(order);
 
-		// 2. 토스 요청
-		Map<String, Object> data = new HashMap<>();
-		data.put("cancelReason", cancelReason);
-		JsonNode response = tossPaymentClient.cancel(order.getPaymentKey(), data);
 
-		// 3. 성공 시  상태 변경, 재고 수정
-		order.setOrderStatus(OrderStatus.CANCELED);
-		paymentTxService.updateStock(order.getId(), true);
+		// paymenKey 가 없고, order 상태가 ready 이면  결제를 하지 않은 order
+		String paymentKey = order.getPaymentKey();
+		if ((paymentKey == null || paymentKey.isEmpty())) {
+			if (order.getOrderStatus() == OrderStatus.READY) {
+				paymentTxService.changeOrderStatus(order, OrderStatus.CANCELED);
+				return new CancelResponseDTO(true, orderNumber, LocalDateTime.now(), 0, "결제 안함", null);
 
-		// 4. dto 반환
-		String method = response.path("method").asText(); // 결제 수단
-		int cancelAmount = response.path("cancels").path(0).path("cancelAmount").asInt(); // 취소 금액
-		return new CancelResponseDTO(true, orderNumber, LocalDateTime.now(), cancelAmount, method, null);
+			} else { // 이 경우는 존재하면 안되는 경우...
+				log.warn("paymeny key가 없어 주문을 취소할 수 없습니다. orderNumber={}", orderNumber);
+				throw new IllegalStateException("현재 상태에서는 주문 취소를할 수 없습니다.");
+			}
+
+		} else {
+			// 2. 토스 요청
+			Map<String, Object> data = new HashMap<>();
+			data.put("cancelReason", cancelReason);
+			JsonNode response = tossPaymentClient.cancel(order.getPaymentKey(), data);
+
+			// 3. 성공 시  상태 변경, 재고 수정
+			order.setOrderStatus(OrderStatus.CANCELED);
+			paymentTxService.updateStock(order.getId(), true);
+
+			// 4. dto 반환
+			String method = response.path("method").asText(); // 결제 수단
+			int cancelAmount = response.path("cancels").path(0).path("cancelAmount").asInt(); // 취소 금액
+			return new CancelResponseDTO(true, orderNumber, LocalDateTime.now(), cancelAmount, method, null);
+		}
+
 	}
 
 	private void validateCancelableOrder(Orders order) {
@@ -75,10 +85,6 @@ public class PayService {
 			throw new IllegalStateException("현재 상태에서는 주문 취소를할 수 없습니다.");
 		}
 
-		if (order.getPaymentKey() == null || order.getPaymentKey().isBlank()) {
-			log.info("주문 취소 실패: paymentKey가 없어 주문 취소를 할 수 없습니다.");
-			throw new IllegalStateException("paymentKey가 없어 주문 취소를 할 수 없습니다.");
-		}
 	}
 
 	public void confirm(PayConfirmDTO req, Long userId) {

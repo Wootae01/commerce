@@ -82,4 +82,9 @@ public class PaymentTxService {
 			}
 		}
 	}
+
+	@Transactional
+	public void changeOrderStatus(Orders order, OrderStatus orderStatus) {
+		order.setOrderStatus(orderStatus);
+	}
 }
