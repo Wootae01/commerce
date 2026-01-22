@@ -1,6 +1,7 @@
 package com.commerce.service;
 
 import java.io.IOException;
+import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -11,11 +12,15 @@ import java.util.NoSuchElementException;
 
 import com.commerce.dto.*;
 import com.commerce.util.ProductImageUtil;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -41,19 +46,56 @@ public class ProductService {
     private final FileStorage fileStorage;
     private final ProductJdbcRepository productJdbcRepository;
     private final OrderProductRepository orderProductRepository;
+    private final RedisTemplate<String, String> redisTemplate;
+    private final ObjectMapper objectMapper;
 
     private final ProductImageUtil imageUtil;
+
     @Value("${app.image.default-path}")
     private String defaultImagePath;
 
+    private final String CACHE_KEY_PREFIX = "commerce:product";
+    private final Duration FEATURED_TTL = Duration.ofHours(24);
+
     // 관리자가 등록한 홈 product 반환
     public List<ProductHomeDTO> findFeaturedProducts() {
-        List<ProductHomeDTO> dtos = productRepository.findHomeProductsByFeatured();
-        for (ProductHomeDTO dto : dtos) {
+        String cacheKey = CACHE_KEY_PREFIX + ":home:featured";
+
+        List<ProductHomeDTO> dtoList = readFeaturedFromCache(cacheKey);
+
+        // 캐시 미스인 경우 db 조회
+        if (dtoList == null) {
+            dtoList = productRepository.findHomeProductsByFeatured();
+            writeToCache(cacheKey, dtoList, FEATURED_TTL);
+        }
+
+        for (ProductHomeDTO dto : dtoList) {
             dto.setMainImageUrl(imageUtil.getImageUrl(dto.getMainImageUrl()));
         }
 
-        return dtos;
+        return dtoList;
+    }
+    // 캐시에서 featured 읽기
+    private List<ProductHomeDTO> readFeaturedFromCache(String cacheKey) {
+        String serialized = redisTemplate.opsForValue().get(cacheKey);
+        if (serialized == null) return null;
+
+        try {
+            return objectMapper.readValue(serialized, new TypeReference<>() {});
+        } catch (JsonProcessingException e) {
+            log.warn("캐시 역직렬화 실패. cacheKey={}, 캐시 삭제", cacheKey, e);
+            redisTemplate.delete(cacheKey);
+            return null;
+        }
+    }
+
+    // 캐시 쓰기
+    private void writeToCache(String cacheKey, List<ProductHomeDTO> dtoList, Duration ttl) {
+        try {
+            redisTemplate.opsForValue().set(cacheKey, objectMapper.writeValueAsString(dtoList), ttl);
+        } catch (JsonProcessingException ex) {
+            log.warn("fallback 캐시 저장 실패. cacheKey={}", cacheKey, ex);
+        }
     }
 
     // 인기 상품 찾기 판매량 기준
@@ -70,7 +112,7 @@ public class ProductService {
             return List.of();
         }
 
-        List<Long> productIds = popularProducts.stream().map(p -> p.productId()).toList();
+        List<Long> productIds = popularProducts.stream().map(ProductSoldRow::productId).toList();
 
         // dto 가져오기
         List<ProductHomeDTO> dtos = productRepository.findHomeProductsByIds(productIds);
@@ -81,8 +123,8 @@ public class ProductService {
             order.put(row.productId(), row.quantity());
         }
 
-        dtos.stream().sorted(Comparator.comparing(dto -> order.getOrDefault(dto.getId(), Long.MAX_VALUE)));
-        for (ProductHomeDTO dto : dtos) {
+        List<ProductHomeDTO> sorted = dtos.stream().sorted(Comparator.comparing(dto -> order.getOrDefault(dto.getId(), Long.MAX_VALUE))).toList();
+        for (ProductHomeDTO dto : sorted) {
             dto.setMainImageUrl(imageUtil.getImageUrl(dto.getMainImageUrl()));
         }
 

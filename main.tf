@@ -194,83 +194,95 @@ resource "aws_instance" "app" {
     volume_type = "gp3"
   }
 
-  user_data = <<-EOF
-              #!/bin/bash
-              set -e
+    user_data = <<-EOF
+                #!/bin/bash
+                set -e
 
-              # SSM Agent 설치
-              sudo snap install amazon-ssm-agent --classic
-              sudo systemctl start snap.amazon-ssm-agent.amazon-ssm-agent.service
-              sudo systemctl enable snap.amazon-ssm-agent.amazon-ssm-agent.service
+                # SSM Agent 설치
+                sudo snap install amazon-ssm-agent --classic
+                sudo systemctl start snap.amazon-ssm-agent.amazon-ssm-agent.service
+                sudo systemctl enable snap.amazon-ssm-agent.amazon-ssm-agent.service
 
-              # AWS CLI 설치
-              sudo apt-get update
-              sudo apt-get install -y unzip
-              curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
-              unzip awscliv2.zip
-              sudo ./aws/install
+                # AWS CLI 설치
+                sudo apt-get update
+                sudo apt-get install -y unzip
+                curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
+                unzip awscliv2.zip
+                sudo ./aws/install
 
-              # Docker 설치 및 실행
-              sudo apt-get install -y ca-certificates curl gnupg
-              sudo install -m 0755 -d /etc/apt/keyrings
-              curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /etc/apt/keyrings/docker.gpg
-              sudo chmod a+r /etc/apt/keyrings/docker.gpg
-              echo "deb [arch="$(dpkg --print-architecture)" signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu "$(. /etc/os-release && echo "$VERSION_CODENAME")" stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
-              sudo apt-get update
-              sudo apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
-              sudo usermod -aG docker ubuntu
-              sudo systemctl start docker
-              sudo systemctl enable docker
+                # Docker 설치 및 실행
+                sudo apt-get install -y ca-certificates curl gnupg
+                sudo install -m 0755 -d /etc/apt/keyrings
+                curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /etc/apt/keyrings/docker.gpg
+                sudo chmod a+r /etc/apt/keyrings/docker.gpg
+                echo "deb [arch="$(dpkg --print-architecture)" signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu "$(. /etc/os-release && echo "$VERSION_CODENAME")" stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
+                sudo apt-get update
+                sudo apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+                sudo usermod -aG docker ubuntu
+                sudo systemctl start docker
+                sudo systemctl enable docker
 
-              # Docker Compose 설치
-              sudo curl -L "https://github.com/docker/compose/releases/download/v2.20.0/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
-              sudo chmod +x /usr/local/bin/docker-compose
+                # Docker Compose 설치
+                sudo curl -L "https://github.com/docker/compose/releases/download/v2.20.0/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
+                sudo chmod +x /usr/local/bin/docker-compose
 
-              # CloudWatch Agent 설치 및 설정
-              sudo wget https://s3.amazonaws.com/amazoncloudwatch-agent/ubuntu/amd64/latest/amazon-cloudwatch-agent.deb
-              sudo dpkg -i amazon-cloudwatch-agent.deb
+                # Docker 네트워크 생성 (없으면 생성)
+                docker network create monitoring || true
 
-              # CloudWatch Agent 설정
-              sudo mkdir -p /opt/aws/amazon-cloudwatch-agent/etc/
-              sudo bash -c 'cat > /opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json' << 'EOT'
-              {
-                "agent": {
-                  "metrics_collection_interval": 60,
-                  "run_as_user": "root"
-                },
-                "metrics": {
-                  "append_dimensions": {
-                    "InstanceId": "$${aws:InstanceId}",
-                    "InstanceType": "$${aws:InstanceType}",
-                    "AutoScalingGroupName": "$${aws:AutoScalingGroupName}"
+                # Redis 컨테이너 실행 (항상 유지)
+                docker rm -f redis || true
+                docker run -d \
+                  --name redis \
+                  --network monitoring \
+                  --restart unless-stopped \
+                  redis:7-alpine \
+                  redis-server --maxmemory 128mb --maxmemory-policy allkeys-lru
+
+                # CloudWatch Agent 설치 및 설정
+                sudo wget https://s3.amazonaws.com/amazoncloudwatch-agent/ubuntu/amd64/latest/amazon-cloudwatch-agent.deb
+                sudo dpkg -i amazon-cloudwatch-agent.deb
+
+                # CloudWatch Agent 설정
+                sudo mkdir -p /opt/aws/amazon-cloudwatch-agent/etc/
+                sudo bash -c 'cat > /opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json' << 'EOT'
+                {
+                  "agent": {
+                    "metrics_collection_interval": 60,
+                    "run_as_user": "root"
                   },
-                  "metrics_collected": {
-                    "mem": {
-                      "measurement": [
-                        "mem_used_percent"
-                      ],
-                      "metrics_collection_interval": 60
+                  "metrics": {
+                    "append_dimensions": {
+                      "InstanceId": "$${aws:InstanceId}",
+                      "InstanceType": "$${aws:InstanceType}",
+                      "AutoScalingGroupName": "$${aws:AutoScalingGroupName}"
                     },
-                    "swap": {
-                      "measurement": [
-                        "swap_used_percent"
-                      ]
+                    "metrics_collected": {
+                      "mem": {
+                        "measurement": [
+                          "mem_used_percent"
+                        ],
+                        "metrics_collection_interval": 60
+                      },
+                      "swap": {
+                        "measurement": [
+                          "swap_used_percent"
+                        ]
+                      }
                     }
                   }
                 }
-              }
-              EOT
+                EOT
 
-              # CloudWatch Agent 시작
-              sudo /opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl -a fetch-config -m ec2 -s -c file:/opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json
-              sudo systemctl start amazon-cloudwatch-agent
-              sudo systemctl enable amazon-cloudwatch-agent
-              EOF
+                # CloudWatch Agent 시작
+                sudo /opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl -a fetch-config -m ec2 -s -c file:/opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json
+                sudo systemctl start amazon-cloudwatch-agent
+                sudo systemctl enable amazon-cloudwatch-agent
+                EOF
 
-  tags = {
-    Name = "commerce-app"
+    tags = {
+      Name = "commerce-app"
+    }
   }
-}
 
 # 탄력적 IP
 resource "aws_eip" "app" {
@@ -590,7 +602,7 @@ resource "aws_s3_bucket_server_side_encryption_configuration" "app" {
 # /public 이미지는 누구든 접근 가능
 resource "aws_s3_bucket_policy" "public_read" {
   bucket = aws_s3_bucket.app.id
-
+  depends_on = [aws_s3_account_public_access_block.account]
   policy = jsonencode({
     Version = "2012-10-17"
     Statement = [

@@ -71,7 +71,7 @@ services:
     image: grafana/grafana
     container_name: grafana
     ports:
-      - "3001:3000"
+      - "3000:3000"
     environment:
       - GF_SECURITY_ADMIN_USER=admin
       - GF_SECURITY_ADMIN_PASSWORD=admin
@@ -83,6 +83,22 @@ services:
       resources:
         limits:
           cpus: '0.5'
+          memory: 512M
+
+  # Redis
+  redis:
+    image: redis:7.0
+    container_name: redis-server
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - monitoring
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
           memory: 512M
 
   wiremock:
@@ -102,3 +118,4 @@ networks:
 volumes:
   mysql_data:
   grafana_data:
+  redis_data:
