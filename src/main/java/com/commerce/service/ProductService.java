@@ -22,6 +22,9 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.web.multipart.MultipartFile;
 
 import com.commerce.domain.Image;
@@ -54,19 +57,18 @@ public class ProductService {
     @Value("${app.image.default-path}")
     private String defaultImagePath;
 
-    private final String CACHE_KEY_PREFIX = "commerce:product";
+    private static final String FEATURED_CACHE_KEY = "commerce:product:home:featured";
     private final Duration FEATURED_TTL = Duration.ofHours(24);
 
     // 관리자가 등록한 홈 product 반환
     public List<ProductHomeDTO> findFeaturedProducts() {
-        String cacheKey = CACHE_KEY_PREFIX + ":home:featured";
 
-        List<ProductHomeDTO> dtoList = readFeaturedFromCache(cacheKey);
+        List<ProductHomeDTO> dtoList = readFeaturedFromCache(FEATURED_CACHE_KEY);
 
         // 캐시 미스인 경우 db 조회
-        if (dtoList == null) {
+        if (dtoList == null || dtoList.isEmpty()) {
             dtoList = productRepository.findHomeProductsByFeatured();
-            writeToCache(cacheKey, dtoList, FEATURED_TTL);
+            writeToCache(FEATURED_CACHE_KEY, dtoList, FEATURED_TTL);
         }
 
         for (ProductHomeDTO dto : dtoList) {
@@ -132,8 +134,19 @@ public class ProductService {
     }
 
     // 홈에 보여줄 상품 업데이트 featured update
+    @Transactional
     public void updateFeatured(List<FeaturedItem> items) {
         productJdbcRepository.updateFeaturedBatch(items);
+
+        // 트랜잭션 커밋 후 캐시 무효화
+        TransactionSynchronizationManager.registerSynchronization(
+                new TransactionSynchronization() {
+                    @Override
+                    public void afterCommit() {
+                        redisTemplate.delete(FEATURED_CACHE_KEY);
+                    }
+                }
+        );
     }
 
     // 모든 상품 반환
