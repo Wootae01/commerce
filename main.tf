@@ -559,12 +559,21 @@ resource "random_id" "suffix" {
   byte_length = 4
 }
 
+# s3 public 으로 설정
+resource "aws_s3_account_public_access_block" "account" {
+  block_public_acls       = true
+  ignore_public_acls      = true
+  block_public_policy     = false
+  restrict_public_buckets = false
+}
+
 resource "aws_s3_bucket_public_access_block" "bucket-access-block" {
   bucket = aws_s3_bucket.app.id
   block_public_acls       = true
   ignore_public_acls      = true
-  block_public_policy     = true
-  restrict_public_buckets = true
+
+  block_public_policy     = false
+  restrict_public_buckets = false
 }
 
 # 기본 암호화(SSE-S3)
@@ -577,6 +586,24 @@ resource "aws_s3_bucket_server_side_encryption_configuration" "app" {
     }
   }
 }
+
+# /public 이미지는 누구든 접근 가능
+resource "aws_s3_bucket_policy" "public_read" {
+  bucket = aws_s3_bucket.app.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect: "Allow"
+        Principal: "*"
+        Action: "s3:GetObject"
+        Resource: "${aws_s3_bucket.app.arn}/public/*"
+      }
+    ]
+  })
+}
+
 
 # EC2 권한 추가
 resource "aws_iam_role_policy" "s3_policy" {

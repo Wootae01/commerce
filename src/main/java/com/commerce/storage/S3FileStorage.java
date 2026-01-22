@@ -1,22 +1,17 @@
 package com.commerce.storage;
 
-import java.io.IOException;
-import java.time.Duration;
-import java.util.UUID;
-
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Component;
 import org.springframework.web.multipart.MultipartFile;
-
-import lombok.RequiredArgsConstructor;
 import software.amazon.awssdk.core.sync.RequestBody;
 import software.amazon.awssdk.services.s3.S3Client;
-import software.amazon.awssdk.services.s3.model.GetObjectRequest;
 import software.amazon.awssdk.services.s3.model.PutObjectRequest;
-import software.amazon.awssdk.services.s3.presigner.S3Presigner;
-import software.amazon.awssdk.services.s3.presigner.model.GetObjectPresignRequest;
+
+import java.io.IOException;
+import java.util.UUID;
 
 @Component
 @RequiredArgsConstructor
@@ -25,7 +20,6 @@ import software.amazon.awssdk.services.s3.presigner.model.GetObjectPresignReques
 public class S3FileStorage implements FileStorage {
 
 	private final S3Client s3Client;
-	private final S3Presigner s3Presigner;
 
 	@Value("${aws.s3.bucket}")
 	private String bucket;
@@ -44,7 +38,7 @@ public class S3FileStorage implements FileStorage {
 
 		String originalFilename = file.getOriginalFilename();
 		String ext = extractExt(file.getOriginalFilename());
-		String storeFileName = "images/" + UUID.randomUUID() + ext;
+		String storeFileName = "public/images/" + UUID.randomUUID() + ext;
 
 		// 메타 정보 생성
 		PutObjectRequest req = PutObjectRequest.builder()
@@ -63,18 +57,7 @@ public class S3FileStorage implements FileStorage {
 	@Override
 	public String getImageUrl(String storeName) {
 
-		log.debug("bucket name: {}", bucket);
-		GetObjectRequest getObjectRequest = GetObjectRequest.builder()
-			.bucket(bucket)
-			.key(storeName)
-			.build();
-
-		GetObjectPresignRequest presignRequest = GetObjectPresignRequest.builder()
-			.signatureDuration(Duration.ofMinutes(10))
-			.getObjectRequest(getObjectRequest)
-			.build();
-
-		return s3Presigner.presignGetObject(presignRequest).url().toString();
+		return "https://" + bucket + ".s3.ap-northeast-2.amazonaws.com/" + storeName;
 	}
 
 	@Override
