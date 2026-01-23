@@ -101,6 +101,19 @@ services:
           cpus: '1'
           memory: 512M
 
+  # Redis Exporter
+  redis_exporter:
+    image: oliver006/redis_exporter
+    container_name: redis_exporter
+    ports:
+      - "9121:9121"
+    command:
+      - '--redis.addr=redis://redis:6379'
+    depends_on:
+      - redis
+    networks:
+      - monitoring
+
   wiremock:
     image: wiremock/wiremock:latest
     container_name: wiremock
