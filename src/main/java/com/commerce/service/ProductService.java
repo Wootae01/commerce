@@ -1,20 +1,18 @@
 package com.commerce.service;
 
-import java.io.IOException;
-import java.time.Duration;
-import java.time.LocalDateTime;
-import java.util.ArrayList;
-import java.util.Comparator;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.NoSuchElementException;
-
+import com.commerce.domain.Image;
+import com.commerce.domain.Product;
+import com.commerce.domain.enums.OrderStatus;
 import com.commerce.dto.*;
+import com.commerce.repository.ImageRepository;
+import com.commerce.repository.OrderProductRepository;
+import com.commerce.repository.ProductJdbcRepository;
+import com.commerce.repository.ProductRepository;
+import com.commerce.storage.FileStorage;
+import com.commerce.storage.UploadFile;
 import com.commerce.util.ProductImageUtil;
-import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
@@ -27,17 +25,10 @@ import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.web.multipart.MultipartFile;
 
-import com.commerce.domain.Image;
-import com.commerce.domain.Product;
-import com.commerce.domain.enums.OrderStatus;
-import com.commerce.repository.ImageRepository;
-import com.commerce.repository.OrderProductRepository;
-import com.commerce.repository.ProductJdbcRepository;
-import com.commerce.repository.ProductRepository;
-import com.commerce.storage.FileStorage;
-import com.commerce.storage.UploadFile;
-
-import lombok.RequiredArgsConstructor;
+import java.io.IOException;
+import java.time.Duration;
+import java.time.LocalDateTime;
+import java.util.*;
 
 @Service
 @RequiredArgsConstructor
@@ -49,55 +40,48 @@ public class ProductService {
     private final FileStorage fileStorage;
     private final ProductJdbcRepository productJdbcRepository;
     private final OrderProductRepository orderProductRepository;
+    private final CacheService cacheService;
     private final RedisTemplate<String, String> redisTemplate;
-    private final ObjectMapper objectMapper;
-
     private final ProductImageUtil imageUtil;
 
     @Value("${app.image.default-path}")
     private String defaultImagePath;
 
     private static final String FEATURED_CACHE_KEY = "commerce:product:home:featured";
-    private final Duration FEATURED_TTL = Duration.ofHours(24);
+    private final Duration FEATURED_TTL = Duration.ofHours(24 * 7); // 7일
+    private final Duration NULL_TTL = Duration.ofMinutes(2);
 
     // 관리자가 등록한 홈 product 반환
     public List<ProductHomeDTO> findFeaturedProducts() {
 
-        List<ProductHomeDTO> dtoList = readFeaturedFromCache(FEATURED_CACHE_KEY);
+        List<ProductHomeDTO> dtoList;
 
-        // 캐시 미스인 경우 db 조회
-        if (dtoList == null || dtoList.isEmpty()) {
+        // 1. 캐시 조회
+        Optional<List<ProductHomeDTO>> optional = cacheService.get(FEATURED_CACHE_KEY, new TypeReference<>() {});
+
+        // 2. 캐시 미스인 경우 db 조회
+
+        if (optional.isEmpty()) {
             dtoList = productRepository.findHomeProductsByFeatured();
-            writeToCache(FEATURED_CACHE_KEY, dtoList, FEATURED_TTL);
+
+            // db 조회 후 값 비어 있는 경우 빈 리스트 저장. cache penetration 방지
+            if (dtoList == null || dtoList.isEmpty()) {
+                dtoList = Collections.emptyList();
+                cacheService.set(FEATURED_CACHE_KEY, dtoList, NULL_TTL);
+            } else {
+                cacheService.set(FEATURED_CACHE_KEY, dtoList, FEATURED_TTL);
+            }
+
+        } else {
+            dtoList = optional.get();
         }
 
+        // 3. 이미지 url 처리
         for (ProductHomeDTO dto : dtoList) {
             dto.setMainImageUrl(imageUtil.getImageUrl(dto.getMainImageUrl()));
         }
 
         return dtoList;
-    }
-    // 캐시에서 featured 읽기
-    private List<ProductHomeDTO> readFeaturedFromCache(String cacheKey) {
-        String serialized = redisTemplate.opsForValue().get(cacheKey);
-        if (serialized == null) return null;
-
-        try {
-            return objectMapper.readValue(serialized, new TypeReference<>() {});
-        } catch (JsonProcessingException e) {
-            log.warn("캐시 역직렬화 실패. cacheKey={}, 캐시 삭제", cacheKey, e);
-            redisTemplate.delete(cacheKey);
-            return null;
-        }
-    }
-
-    // 캐시 쓰기
-    private void writeToCache(String cacheKey, List<ProductHomeDTO> dtoList, Duration ttl) {
-        try {
-            redisTemplate.opsForValue().set(cacheKey, objectMapper.writeValueAsString(dtoList), ttl);
-        } catch (JsonProcessingException ex) {
-            log.warn("fallback 캐시 저장 실패. cacheKey={}", cacheKey, ex);
-        }
     }
 
     // 인기 상품 찾기 판매량 기준
@@ -195,7 +179,8 @@ public class ProductService {
     }
 
     // 상품 등록
-    public Product saveProduct(Product product, MultipartFile mainFile, List<MultipartFile> files) throws IOException {
+    @Transactional
+    public void saveProduct(Product product, MultipartFile mainFile, List<MultipartFile> files) throws IOException {
 
         // 대표 이미지 등록
         if (mainFile != null && !mainFile.isEmpty()) {
@@ -226,10 +211,11 @@ public class ProductService {
             }
         }
 
-        return productRepository.save(product);
+        productRepository.save(product);
     }
 
     // 상품 삭제
+    @Transactional
     public void deleteProduct(Long id) {
         Product product = productRepository.findById(id)
             .orElseThrow(() -> new NoSuchElementException("해당 상품을 찾을 수 없습니다."));
@@ -243,8 +229,9 @@ public class ProductService {
     }
 
     // 상품 수정
-    public Product updateProduct(Long id, ProductResponseDTO updatedProduct, List<Long> deleteImageIds,
-        MultipartFile mainFile, List<MultipartFile> files) throws IOException {
+    @Transactional
+    public void updateProduct(Long id, ProductResponseDTO updatedProduct, List<Long> deleteImageIds,
+                              MultipartFile mainFile, List<MultipartFile> files) throws IOException {
 
         Product product = productRepository.findById(id)
             .orElseThrow(() -> new NoSuchElementException("해당 상품을 찾을 수 없습니다."));
@@ -273,7 +260,7 @@ public class ProductService {
         if (files != null && !files.isEmpty()) {
             addExtraImages(files, product);
         }
-        return productRepository.save(product);
+        productRepository.save(product);
     }
 
     private void addExtraImages(List<MultipartFile> files, Product product) throws IOException {
