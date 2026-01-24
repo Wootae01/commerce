@@ -48,7 +48,9 @@ public class ProductService {
     private String defaultImagePath;
 
     private static final String FEATURED_CACHE_KEY = "commerce:product:home:featured";
+    private static final String POPULAR_CACHE_KEY = "commerce:product:home:popular";
     private final Duration FEATURED_TTL = Duration.ofHours(24 * 7); // 7일
+    private final Duration POPULAR_TTL = Duration.ofMinutes(30); // 30분
     private final Duration NULL_TTL = Duration.ofMinutes(2);
 
     // 관리자가 등록한 홈 product 반환
@@ -87,34 +89,53 @@ public class ProductService {
     // 인기 상품 찾기 판매량 기준
     //  days: 최근 며칠 기준, limit : 상품 개수
     public List<ProductHomeDTO> findPopularProductHome(int days, int limit) {
+
         List<OrderStatus> statuses = List.of(OrderStatus.PAID, OrderStatus.PREPARING, OrderStatus.SHIPPING,
             OrderStatus.DELIVERED);
         LocalDateTime since = LocalDateTime.now().minusDays(days);
 
-        List<ProductSoldRow> popularProducts = orderProductRepository.findPopularProducts(statuses, since,
-            PageRequest.of(0, limit));
+        List<ProductHomeDTO> dtoList;
+        String cacheKey = POPULAR_CACHE_KEY + ":days" + days + ":top" + limit;
+        // 1. 캐시 조회
+        Optional<List<ProductHomeDTO>> optional = cacheService.get(cacheKey, new TypeReference<>() {});
 
-        if (popularProducts.isEmpty()) {
-            return List.of();
+        // 2. 캐시 미스인 경우
+        if (optional.isEmpty()) {
+
+            // 주문 많은 상품 id 찾기
+            List<ProductSoldRow> popularProducts = orderProductRepository.findPopularProducts(statuses, since,
+                    PageRequest.of(0, limit));
+            List<Long> productIds = popularProducts.stream().map(ProductSoldRow::productId).toList();
+            if (productIds.isEmpty()) {
+                List<ProductHomeDTO> empty = List.of();
+                cacheService.set(cacheKey, empty, NULL_TTL);
+                return empty;
+            }
+            dtoList = productRepository.findHomeProductsByIds(productIds);
+
+            // 판매량 순 정렬
+            Map<Long, Long> quantityMap = new HashMap<>();
+            for (ProductSoldRow row : popularProducts) {
+                quantityMap.put(row.productId(), row.quantity());
+            }
+            dtoList = dtoList.stream()
+                    .sorted(Comparator.<ProductHomeDTO>comparingLong(
+                            dto -> quantityMap.getOrDefault(dto.getId(), 0L)
+                    ).reversed())
+                    .toList();
+
+            // 캐시 설정
+            cacheService.set(cacheKey, dtoList, POPULAR_TTL);
+        } else {
+            dtoList = optional.get();
         }
 
-        List<Long> productIds = popularProducts.stream().map(ProductSoldRow::productId).toList();
-
-        // dto 가져오기
-        List<ProductHomeDTO> dtos = productRepository.findHomeProductsByIds(productIds);
-
-        // 판매량 순 정렬
-        Map<Long, Long> order = new HashMap<>();
-        for (ProductSoldRow row : popularProducts) {
-            order.put(row.productId(), row.quantity());
-        }
-
-        List<ProductHomeDTO> sorted = dtos.stream().sorted(Comparator.comparing(dto -> order.getOrDefault(dto.getId(), Long.MAX_VALUE))).toList();
-        for (ProductHomeDTO dto : sorted) {
+        // 이미지 url 설정
+        for (ProductHomeDTO dto : dtoList) {
             dto.setMainImageUrl(imageUtil.getImageUrl(dto.getMainImageUrl()));
         }
 
-        return dtos;
+        return dtoList;
     }
 
     // 홈에 보여줄 상품 업데이트 featured update
