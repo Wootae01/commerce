@@ -10,6 +10,8 @@ import com.commerce.repository.ProductJdbcRepository;
 import com.commerce.repository.ProductRepository;
 import com.commerce.storage.FileStorage;
 import com.commerce.storage.UploadFile;
+import com.commerce.support.RedisCacheClient;
+import com.commerce.support.RedisDistributedLockProvider;
 import com.commerce.util.ProductImageUtil;
 import com.fasterxml.jackson.core.type.TypeReference;
 import lombok.RequiredArgsConstructor;
@@ -18,7 +20,6 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
-import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionSynchronization;
@@ -29,6 +30,11 @@ import java.io.IOException;
 import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.*;
+import java.util.concurrent.ThreadLocalRandom;
+import java.util.concurrent.TimeUnit;
+
+import static com.commerce.support.ProductCachePolicy.*;
+
 
 @Service
 @RequiredArgsConstructor
@@ -37,45 +43,76 @@ public class ProductService {
 
     private final ProductRepository productRepository;
     private final ImageRepository imageRepository;
-    private final FileStorage fileStorage;
     private final ProductJdbcRepository productJdbcRepository;
     private final OrderProductRepository orderProductRepository;
-    private final CacheService cacheService;
-    private final RedisTemplate<String, String> redisTemplate;
+
+    private final RedisCacheClient redisCacheClient;
+    private final RedisDistributedLockProvider distributedLockProvider;
+
+    private final FileStorage fileStorage;
     private final ProductImageUtil imageUtil;
 
     @Value("${app.image.default-path}")
     private String defaultImagePath;
 
-    private static final String FEATURED_CACHE_KEY = "commerce:product:home:featured";
-    private static final String POPULAR_CACHE_KEY = "commerce:product:home:popular";
-    private final Duration FEATURED_TTL = Duration.ofHours(24 * 7); // 7일
-    private final Duration POPULAR_TTL = Duration.ofMinutes(30); // 30분
-    private final Duration NULL_TTL = Duration.ofMinutes(2);
 
-    // 관리자가 등록한 홈 product 반환
+   /**
+    * 관리자가 등록한 home product 반환
+    * */
     public List<ProductHomeDTO> findFeaturedProducts() {
 
-        List<ProductHomeDTO> dtoList;
+        List<ProductHomeDTO> dtoList = null;
 
         // 1. 캐시 조회
-        Optional<List<ProductHomeDTO>> optional = cacheService.get(FEATURED_CACHE_KEY, new TypeReference<>() {});
+        Optional<List<ProductHomeDTO>> optional = redisCacheClient.get(FEATURED_KEY, new TypeReference<>() {});
 
         // 2. 캐시 미스인 경우 db 조회
-
         if (optional.isEmpty()) {
-            dtoList = productRepository.findHomeProductsByFeatured();
 
-            // db 조회 후 값 비어 있는 경우 빈 리스트 저장. cache penetration 방지
-            if (dtoList == null || dtoList.isEmpty()) {
-                dtoList = Collections.emptyList();
-                cacheService.set(FEATURED_CACHE_KEY, dtoList, NULL_TTL);
-            } else {
-                cacheService.set(FEATURED_CACHE_KEY, dtoList, FEATURED_TTL);
+            for (int i = 0; i < MAX_RETRY; i++) {
+                String token = distributedLockProvider.tryLock(FEATURED_LOCK_KEY, LOCK_TTL_MS);
+
+                // 락 가져오기 실패 시 재시도
+                if (token == null) {
+                    long jitter = ThreadLocalRandom.current().nextLong(RETRY_JITTER_MS);
+                    sleep(jitter);
+                    continue;
+                }
+                // 락 획득한 경우 캐시 다시 확인
+                try {
+                    Optional<List<ProductHomeDTO>> again =
+                            redisCacheClient.get(FEATURED_KEY, new TypeReference<>() {});
+                    if (again.isPresent()) {
+                        dtoList = again.get();
+                        break;
+                    }
+                    dtoList = productRepository.findHomeProductsByFeatured();
+
+                    // cache penetration 방지 (null/empty 는 짧게)
+                    Duration ttl;
+                    if (dtoList == null || dtoList.isEmpty()) {
+                        dtoList = Collections.emptyList();
+                        ttl = NULL_TTL;
+                    } else {
+                        ttl = FEATURED_TTL;
+                    }
+                    redisCacheClient.set(FEATURED_KEY, dtoList, ttl);
+                    break;
+                } finally {
+                    // 락 해제
+                    distributedLockProvider.unlock(FEATURED_LOCK_KEY, token);
+                }
             }
+
+
 
         } else {
             dtoList = optional.get();
+        }
+
+        // MAX_RETRY 회 모두 락 획득에 실패하면 예외 처리
+        if (dtoList == null) {
+            throw new IllegalStateException("Failed to acquire lock after " + MAX_RETRY + " - key=" + FEATURED_LOCK_KEY);
         }
 
         // 3. 이미지 url 처리
@@ -86,8 +123,20 @@ public class ProductService {
         return dtoList;
     }
 
-    // 인기 상품 찾기 판매량 기준
-    //  days: 최근 며칠 기준, limit : 상품 개수
+    private static void sleep(long jitter) {
+        try {
+            TimeUnit.MILLISECONDS.sleep(RETRY_DELAY_MS + jitter);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        }
+    }
+
+    /**
+     * 인기 상품 찾기 판매량 기준
+     * @param days 최근 며칠간의 판매량인지
+     * @param limit 상품 제한 개수
+     * @return 인기 상품
+     */
     public List<ProductHomeDTO> findPopularProductHome(int days, int limit) {
 
         List<OrderStatus> statuses = List.of(OrderStatus.PAID, OrderStatus.PREPARING, OrderStatus.SHIPPING,
@@ -95,9 +144,9 @@ public class ProductService {
         LocalDateTime since = LocalDateTime.now().minusDays(days);
 
         List<ProductHomeDTO> dtoList;
-        String cacheKey = POPULAR_CACHE_KEY + ":days" + days + ":top" + limit;
+        String cacheKey = POPULAR_KEY + ":days" + days + ":top" + limit;
         // 1. 캐시 조회
-        Optional<List<ProductHomeDTO>> optional = cacheService.get(cacheKey, new TypeReference<>() {});
+        Optional<List<ProductHomeDTO>> optional = redisCacheClient.get(cacheKey, new TypeReference<>() {});
 
         // 2. 캐시 미스인 경우
         if (optional.isEmpty()) {
@@ -108,7 +157,7 @@ public class ProductService {
             List<Long> productIds = popularProducts.stream().map(ProductSoldRow::productId).toList();
             if (productIds.isEmpty()) {
                 List<ProductHomeDTO> empty = List.of();
-                cacheService.set(cacheKey, empty, NULL_TTL);
+                redisCacheClient.set(cacheKey, empty, NULL_TTL);
                 return empty;
             }
             dtoList = productRepository.findHomeProductsByIds(productIds);
@@ -125,7 +174,7 @@ public class ProductService {
                     .toList();
 
             // 캐시 설정
-            cacheService.set(cacheKey, dtoList, POPULAR_TTL);
+            redisCacheClient.set(cacheKey, dtoList, POPULAR_TTL);
         } else {
             dtoList = optional.get();
         }
@@ -148,7 +197,7 @@ public class ProductService {
                 new TransactionSynchronization() {
                     @Override
                     public void afterCommit() {
-                        redisTemplate.delete(FEATURED_CACHE_KEY);
+                        redisCacheClient.delete(FEATURED_KEY);
                     }
                 }
         );

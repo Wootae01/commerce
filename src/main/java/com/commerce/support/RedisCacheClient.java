@@ -1,4 +1,4 @@
-package com.commerce.service;
+package com.commerce.support;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
@@ -6,16 +6,16 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.redis.core.RedisTemplate;
-import org.springframework.stereotype.Service;
+import org.springframework.stereotype.Component;
 
 import java.time.Duration;
 import java.util.Optional;
 import java.util.concurrent.ThreadLocalRandom;
 
-@Service
+@Component
 @RequiredArgsConstructor
 @Slf4j
-public class CacheService {
+public class RedisCacheClient {
     private final RedisTemplate<String, String> redisTemplate;
     private final ObjectMapper objectMapper;
 
@@ -41,6 +41,11 @@ public class CacheService {
         } catch (JsonProcessingException ex) {
             log.warn("fallback 캐시 저장 실패. cacheKey={}", cacheKey, ex);
         }
+    }
+
+    // 캐시 삭제
+    public void delete(String cacheKey) {
+        redisTemplate.delete(cacheKey);
     }
 
     // apply jitter
