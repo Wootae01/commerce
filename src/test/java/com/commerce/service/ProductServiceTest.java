@@ -2,6 +2,7 @@ package com.commerce.service;
 
 import com.commerce.config.IntegrationTest;
 import com.commerce.dto.ProductHomeDTO;
+import com.commerce.repository.OrderProductRepository;
 import com.commerce.repository.ProductRepository;
 import com.commerce.support.ProductCachePolicy;
 import lombok.extern.slf4j.Slf4j;
@@ -10,6 +11,7 @@ import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
 
 import java.time.LocalTime;
@@ -31,6 +33,9 @@ public class ProductServiceTest {
 
     @MockitoSpyBean
     private ProductRepository productRepository;
+
+    @MockitoBean
+    private OrderProductRepository orderProductRepository;
 
     private static final int LOOP_COUNT = 300;
 
@@ -67,6 +72,43 @@ public class ProductServiceTest {
         Mockito.verify(productRepository, Mockito.times(1))
                 .findHomeProductsByFeatured();
     }
+
+    @Test
+    @DisplayName("관리자 설정한 인기 상품 분산락 테스트")
+    public void PopularProductLockTest() throws InterruptedException {
+        int days = 7;
+        int limit = 20;
+        redisTemplate.delete(ProductCachePolicy.PREFIX_POPULAR_KEY + ":days" + days + ":top" + limit); // 캐시 삭제
+
+        ExecutorService executor = getExecutor();
+        CountDownLatch readyLatch = new CountDownLatch(LOOP_COUNT);
+        CountDownLatch fireLatch = new CountDownLatch(1);
+        CountDownLatch doneLatch = new CountDownLatch(LOOP_COUNT);
+
+        for (int i = 0; i < LOOP_COUNT; i++) {
+            executor.submit(() -> {
+                try {
+                    readyLatch.countDown();
+                    fireLatch.await(); // 모든 스레드가 준비될때까지 대기
+                   productService.findPopularProductHome(7, 20);
+                } catch (Exception e) {
+                    log.info("", e);
+                    throw new RuntimeException(e);
+                } finally {
+                    doneLatch.countDown();
+                }
+            });
+        }
+
+        // 모든 스레드 준비 후 동시에 발사
+        readyLatch.await();
+        fireLatch.countDown();
+        doneLatch.await();
+
+        Mockito.verify(orderProductRepository, Mockito.times(1))
+                .findPopularProducts(Mockito.anyList(), Mockito.any(), Mockito.any());
+    }
+
 
     private ExecutorService getExecutor() {
         ExecutorService executor = Executors.newFixedThreadPool(300);

@@ -70,7 +70,7 @@ public class ProductService {
         if (optional.isEmpty()) {
 
             for (int i = 0; i < MAX_RETRY; i++) {
-                String token = distributedLockProvider.tryLock(FEATURED_LOCK_KEY, LOCK_TTL_MS);
+                String token = distributedLockProvider.tryLock(FEATURED_LOCK_KEY, FEATURED_LOCK_TTL_MS);
 
                 // 락 가져오기 실패 시 재시도
                 if (token == null) {
@@ -110,9 +110,11 @@ public class ProductService {
             dtoList = optional.get();
         }
 
-        // MAX_RETRY 회 모두 락 획득에 실패하면 예외 처리
+        // MAX_RETRY 회 모두 락 획득에 실패하면 빈 리스트 반환
         if (dtoList == null) {
-            throw new IllegalStateException("Failed to acquire lock after " + MAX_RETRY + " - key=" + FEATURED_LOCK_KEY);
+            log.warn("featured cache lock contention: failed to acquire lock (retries={}, key={})",
+                    MAX_RETRY, FEATURED_LOCK_KEY);
+            dtoList = Collections.emptyList();
         }
 
         // 3. 이미지 url 처리
@@ -143,42 +145,76 @@ public class ProductService {
             OrderStatus.DELIVERED);
         LocalDateTime since = LocalDateTime.now().minusDays(days);
 
-        List<ProductHomeDTO> dtoList;
-        String cacheKey = POPULAR_KEY + ":days" + days + ":top" + limit;
+        List<ProductHomeDTO> dtoList = null;
+        String cacheKey = PREFIX_POPULAR_KEY + ":days" + days + ":top" + limit;
+        String lockKey = PREFIX_POPULAR_LOCK_KEY + ":days" + days + ":top" + limit;
+
         // 1. 캐시 조회
         Optional<List<ProductHomeDTO>> optional = redisCacheClient.get(cacheKey, new TypeReference<>() {});
 
         // 2. 캐시 미스인 경우
         if (optional.isEmpty()) {
+            // 락 획득
+            for (int i = 0; i < MAX_RETRY; i++) {
 
-            // 주문 많은 상품 id 찾기
-            List<ProductSoldRow> popularProducts = orderProductRepository.findPopularProducts(statuses, since,
-                    PageRequest.of(0, limit));
-            List<Long> productIds = popularProducts.stream().map(ProductSoldRow::productId).toList();
-            if (productIds.isEmpty()) {
-                List<ProductHomeDTO> empty = List.of();
-                redisCacheClient.set(cacheKey, empty, NULL_TTL);
-                return empty;
+                String token = distributedLockProvider.tryLock(lockKey, POPULAR_LOCK_TTL_MS);
+                if (token == null) {
+                    long jitter = ThreadLocalRandom.current().nextLong(RETRY_JITTER_MS);
+                    sleep(jitter);
+                    continue;
+                }
+                // 락 획득한 경우 캐시 다시 확인
+                try {
+                    Optional<List<ProductHomeDTO>> again = redisCacheClient.get(cacheKey, new TypeReference<>() {});
+
+                    // 캐시 재조회 시 존재하면
+                    if (again.isPresent()) {
+                        dtoList = again.get();
+                        break;
+                    }
+
+                    // 존재하지 않으면 db 조회
+                    // 주문 많은 상품 id 찾기
+                    List<ProductSoldRow> popularProducts = orderProductRepository.findPopularProducts(statuses, since,
+                            PageRequest.of(0, limit));
+                    List<Long> productIds = popularProducts.stream().map(ProductSoldRow::productId).toList();
+                    if (productIds.isEmpty()) {
+                        dtoList = List.of();
+                        redisCacheClient.set(cacheKey, dtoList, NULL_TTL);
+                        break;
+                    }
+
+                    dtoList = productRepository.findHomeProductsByIds(productIds);
+
+                    // 판매량 순 정렬
+                    Map<Long, Long> quantityMap = new HashMap<>();
+                    for (ProductSoldRow row : popularProducts) {
+                        quantityMap.put(row.productId(), row.quantity());
+                    }
+                    dtoList = dtoList.stream()
+                            .sorted(Comparator.<ProductHomeDTO>comparingLong(
+                                    dto -> quantityMap.getOrDefault(dto.getId(), 0L)
+                            ).reversed())
+                            .toList();
+
+                    // 캐시 설정
+                    redisCacheClient.set(cacheKey, dtoList, POPULAR_TTL);
+                    break;
+                } finally {
+                    distributedLockProvider.unlock(lockKey, token);
+                }
             }
-            dtoList = productRepository.findHomeProductsByIds(productIds);
 
-            // 판매량 순 정렬
-            Map<Long, Long> quantityMap = new HashMap<>();
-            for (ProductSoldRow row : popularProducts) {
-                quantityMap.put(row.productId(), row.quantity());
-            }
-            dtoList = dtoList.stream()
-                    .sorted(Comparator.<ProductHomeDTO>comparingLong(
-                            dto -> quantityMap.getOrDefault(dto.getId(), 0L)
-                    ).reversed())
-                    .toList();
-
-            // 캐시 설정
-            redisCacheClient.set(cacheKey, dtoList, POPULAR_TTL);
         } else {
             dtoList = optional.get();
         }
 
+        // 락 획득 못한 경우 빈 리스트 반환
+        if (dtoList == null) {
+            log.warn("popular cache lock contention: failed to acquire lock (retries={}, key={})",
+                    MAX_RETRY, lockKey);
+            dtoList = Collections.emptyList();
+        }
         // 이미지 url 설정
         for (ProductHomeDTO dto : dtoList) {
             dto.setMainImageUrl(imageUtil.getImageUrl(dto.getMainImageUrl()));
