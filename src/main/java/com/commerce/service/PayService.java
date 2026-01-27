@@ -44,47 +44,35 @@ public class PayService {
 	public CancelResponseDTO cancel(String orderNumber, String cancelReason) {
 		Orders order = orderService.findByOrderNumber(orderNumber);
 
-		// 1. 주문 상태 확인
-		validateCancelableOrder(order);
+		// 1. 주문 잠금 + 상태 전이 (→ CANCEL_REQUESTED) - 동시 취소 요청 방지
+		String paymentKey = paymentTxService.beginCancel(order.getId());
 
+		// paymentKey 없으면 결제를 하지 않은 주문 — 바로 취소
+		if (paymentKey == null || paymentKey.isEmpty()) {
+			paymentTxService.applyCancelSuccess(order.getId(), false);
+			return new CancelResponseDTO(true, orderNumber, LocalDateTime.now(), 0, "결제 안함", null);
+		}
 
-		// paymenKey 가 없고, order 상태가 ready 이면  결제를 하지 않은 order
-		String paymentKey = order.getPaymentKey();
-		if ((paymentKey == null || paymentKey.isEmpty())) {
-			if (order.getOrderStatus() == OrderStatus.READY) {
-				paymentTxService.changeOrderStatus(order, OrderStatus.CANCELED);
-				return new CancelResponseDTO(true, orderNumber, LocalDateTime.now(), 0, "결제 안함", null);
-
-			} else { // 이 경우는 존재하면 안되는 경우...
-				log.warn("paymeny key가 없어 주문을 취소할 수 없습니다. orderNumber={}", orderNumber);
-				throw new IllegalStateException("현재 상태에서는 주문 취소를할 수 없습니다.");
-			}
-
-		} else {
-			// 2. 토스 요청
+		// 2. 토스 취소 요청
+		JsonNode response;
+		try {
 			Map<String, Object> data = new HashMap<>();
 			data.put("cancelReason", cancelReason);
-			JsonNode response = tossPaymentClient.cancel(order.getPaymentKey(), data);
-
-			// 3. 성공 시 상태 변경 + 재고 복원 (단일 트랜잭션)
-			paymentTxService.applyCancelSuccess(order.getId());
-
-			// 4. dto 반환
-			String method = response.path("method").asText(); // 결제 수단
-			int cancelAmount = response.path("cancels").path(0).path("cancelAmount").asInt(); // 취소 금액
-			return new CancelResponseDTO(true, orderNumber, LocalDateTime.now(), cancelAmount, method, null);
+			response = tossPaymentClient.cancel(paymentKey, data);
+		} catch (Exception e) {
+			// 토스 취소 실패 — 주문 상태 복원
+			log.error("토스 취소 실패, 주문 상태 복원: orderNumber={}", orderNumber, e);
+			paymentTxService.revertCancelRequest(order.getId());
+			throw e;
 		}
 
-	}
+		// 3. 취소 성공 — 상태 변경 + 재고 복원 (단일 트랜잭션)
+		paymentTxService.applyCancelSuccess(order.getId(), true);
 
-	private void validateCancelableOrder(Orders order) {
-		// 1. 주문 상태 확인
-		OrderStatus status = order.getOrderStatus();
-		if (!(status == OrderStatus.PAID || status == OrderStatus.READY)) {
-			log.info("현재 상태에서는 주문 취소를할 수 없습니다.");
-			throw new IllegalStateException("현재 상태에서는 주문 취소를할 수 없습니다.");
-		}
-
+		// 4. dto 반환
+		String method = response.path("method").asText(); // 결제 수단
+		int cancelAmount = response.path("cancels").path(0).path("cancelAmount").asInt(); // 취소 금액
+		return new CancelResponseDTO(true, orderNumber, LocalDateTime.now(), cancelAmount, method, null);
 	}
 
 	public void confirm(PayConfirmDTO req, Long userId) {

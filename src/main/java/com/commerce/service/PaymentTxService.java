@@ -50,20 +50,60 @@ public class PaymentTxService {
 		productJdbcRepository.updateStock(qtyByProductId, isIncrease);
 	}
 
-	// 주문 취소 처리: 상태 변경 + 재고 복원을 하나의 트랜잭션으로 처리
+	// 취소 시작: 주문 잠금 + CANCEL_REQUESTED 전이 (동시 취소 요청 방지)
 	@Transactional
-	public void applyCancelSuccess(Long orderId) {
-		Orders order = orderRepository.findById(orderId)
+	public String beginCancel(Long orderId) {
+		Orders order = orderRepository.findByIdWithLock(orderId)
 			.orElseThrow(() -> new NoSuchElementException("해당 주문이 존재하지 않습니다."));
+
+		OrderStatus status = order.getOrderStatus();
+		if (!(status == OrderStatus.PAID || status == OrderStatus.READY)) {
+			throw new IllegalStateException("현재 상태에서는 주문 취소를할 수 없습니다.");
+		}
+
+		order.setOrderStatus(OrderStatus.CANCEL_REQUESTED);
+		return order.getPaymentKey();
+	}
+
+	// 취소 완료: 상태 변경 + 선택적 재고 복원
+	@Transactional
+	public void applyCancelSuccess(Long orderId, boolean restoreStock) {
+		Orders order = orderRepository.findByIdWithLock(orderId)
+			.orElseThrow(() -> new NoSuchElementException("해당 주문이 존재하지 않습니다."));
+
+		if (order.getOrderStatus() != OrderStatus.CANCEL_REQUESTED) {
+			log.warn("취소 처리할 수 없는 상태입니다. orderId={}, status={}", orderId, order.getOrderStatus());
+			throw new IllegalStateException("취소 처리할 수 없는 상태입니다.");
+		}
+
 		order.setOrderStatus(OrderStatus.CANCELED);
-		updateStock(orderId, true);
+		if (restoreStock) {
+			updateStock(orderId, true);
+		}
+	}
+
+	// 토스 취소 실패 시 상태 복원
+	@Transactional
+	public void revertCancelRequest(Long orderId) {
+		Orders order = orderRepository.findByIdWithLock(orderId)
+			.orElseThrow(() -> new NoSuchElementException("해당 주문이 존재하지 않습니다."));
+
+		if (order.getOrderStatus() == OrderStatus.CANCEL_REQUESTED) {
+			order.setOrderStatus(OrderStatus.PAID);
+		}
 	}
 
 	// 결제 성공 시 재고 차감, 장바구니 삭제, 결제 일시, 상태 변경
 	@Transactional
 	public void applyPaymentSuccess(String orderNumber, JsonNode tossResponse, Long userId, String paymentKey) {
-		Orders order = orderRepository.findByOrderNumber(orderNumber)
+		Orders order = orderRepository.findByOrderNumberWithLock(orderNumber)
 			.orElseThrow(() -> new NoSuchElementException("해당 주문이 존재하지 않습니다."));
+
+		// 멱등성 보장: 이미 처리된 주문이면 중복 처리 방지
+		if (order.getOrderStatus() != OrderStatus.READY) {
+			log.warn("이미 처리된 주문입니다. orderNumber={}, status={}", orderNumber, order.getOrderStatus());
+			throw new IllegalStateException("이미 처리된 주문입니다.");
+		}
 
 		// 결제 수단, paymentKey
 		order.setPaymentType(PaymentType.fromTossMethod(tossResponse.path("method").asText()));
