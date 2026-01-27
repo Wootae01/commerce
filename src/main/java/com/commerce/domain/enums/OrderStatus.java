@@ -7,6 +7,7 @@ public enum OrderStatus {
 	SHIPPING("배송중"),
 	CANCEL_REQUESTED("취소요청"),
 	CANCELED("취소완료"),
+	REFUND_FAILED("환불실패"),
 	DELIVERED("배송완료");
 
 	private final String text;

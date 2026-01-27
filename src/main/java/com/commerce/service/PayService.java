@@ -15,6 +15,7 @@ import com.commerce.repository.ProductRepository;
 import com.fasterxml.jackson.databind.JsonNode;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.dao.InvalidDataAccessApiUsageException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.HttpStatusCode;
 import org.springframework.stereotype.Service;
@@ -101,7 +102,14 @@ public class PayService {
 		log.info("toss confirm ok: {}", tossResponse);
 
 		// 3. 재고 차감, 장바구니 삭제, 결제 일시, 상태 변경
-		paymentTxService.applyPaymentSuccess(req.getOrderId(), tossResponse, userId, req.getPaymentKey());
+		try {
+			paymentTxService.applyPaymentSuccess(req.getOrderId(), tossResponse, userId, req.getPaymentKey());
+		} catch (IllegalStateException | InvalidDataAccessApiUsageException e) {
+			log.warn("재고 부족으로 결제 보상 처리 시작: orderId={}, paymentKey={}",
+				req.getOrderId(), req.getPaymentKey(), e);
+			compensatePayment(req.getOrderId(), req.getPaymentKey());
+			throw new ResponseStatusException(HttpStatus.CONFLICT, "재고가 부족하여 결제가 취소되었습니다.");
+		}
 
 	}
 
@@ -228,6 +236,40 @@ public class PayService {
 		if (order.getFinalPrice() != req.getAmount()) {
 			log.info("결제 금액이 일치하지 않습니다. orderFinalPrice: {}, reqAmount: {}", order.getFinalPrice(), req.getAmount());
 			throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "결제 금액이 일치하지 않습니다");
+		}
+	}
+
+	private void compensatePayment(String orderNumber, String paymentKey) {
+		// Step 1: paymentKey를 먼저 저장 (REQUIRES_NEW) - 이후 실패해도 수동 환불 가능
+		try {
+			paymentTxService.savePaymentKeyAndStatus(orderNumber, paymentKey, OrderStatus.REFUND_FAILED);
+		} catch (Exception e) {
+			log.error("보상 처리 중 paymentKey 저장 실패: orderNumber={}, paymentKey={}",
+				orderNumber, paymentKey, e);
+			throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR,
+				"결제 보상 처리 중 오류가 발생했습니다. 고객센터에 문의해주세요.");
+		}
+
+		// Step 2: 토스 결제 취소
+		try {
+			Map<String, Object> cancelData = new HashMap<>();
+			cancelData.put("cancelReason", "재고 부족으로 인한 자동 취소");
+			tossPaymentClient.cancel(paymentKey, cancelData);
+			log.info("토스 결제 취소 성공: orderNumber={}, paymentKey={}", orderNumber, paymentKey);
+		} catch (Exception e) {
+			log.error("토스 결제 취소 실패 - 수동 환불 필요: orderNumber={}, paymentKey={}",
+				orderNumber, paymentKey, e);
+			throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR,
+				"결제 취소 처리 중 오류가 발생했습니다. 고객센터에 문의해주세요.");
+		}
+
+		// Step 3: 취소 성공 - 주문 상태를 CANCELED로 변경
+		try {
+			paymentTxService.savePaymentKeyAndStatus(orderNumber, paymentKey, OrderStatus.CANCELED);
+			log.info("보상 처리 완료 - 주문 취소: orderNumber={}", orderNumber);
+		} catch (Exception e) {
+			log.error("주문 상태 변경 실패 (환불은 완료됨): orderNumber={}, paymentKey={}",
+				orderNumber, paymentKey, e);
 		}
 	}
 

@@ -8,6 +8,7 @@ import java.util.NoSuchElementException;
 import java.util.stream.Collectors;
 
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.commerce.domain.OrderProduct;
@@ -86,5 +87,14 @@ public class PaymentTxService {
 	@Transactional
 	public void changeOrderStatus(Orders order, OrderStatus orderStatus) {
 		order.setOrderStatus(orderStatus);
+	}
+
+	// 결제 보상 처리용 - 독립 트랜잭션으로 paymentKey와 상태를 저장
+	@Transactional(propagation = Propagation.REQUIRES_NEW)
+	public void savePaymentKeyAndStatus(String orderNumber, String paymentKey, OrderStatus status) {
+		Orders order = orderRepository.findByOrderNumber(orderNumber)
+			.orElseThrow(() -> new NoSuchElementException("해당 주문이 존재하지 않습니다."));
+		order.setPaymentKey(paymentKey);
+		order.setOrderStatus(status);
 	}
 }
