@@ -113,9 +113,13 @@ public class OrderController {
     @GetMapping("/detail/{orderNumber}")
     public String orderDetail(@PathVariable String orderNumber, Model model) {
         Orders order = orderService.findByOrderNumber(orderNumber);
-        User user = order.getUser();
+        User currentUser = securityUtil.getCurrentUser();
 
-        OrderDetailResponseDTO dto = orderMapper.toOrderDetailResponseDTO(order, user);
+        if (!order.getUser().getId().equals(currentUser.getId())) {
+            throw new org.springframework.security.access.AccessDeniedException("접근 권한이 없습니다.");
+        }
+
+        OrderDetailResponseDTO dto = orderMapper.toOrderDetailResponseDTO(order, currentUser);
         model.addAttribute("order", dto);
         return "order-list-detail";
     }
