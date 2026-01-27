@@ -35,7 +35,7 @@ public class PaymentTxService {
 	private final OrderProductRepository orderProductRepository;
 	private final ProductJdbcRepository productJdbcRepository;
 
-	// 주문 상태 변경, 재고 수정
+	// 재고 수정
 	@Transactional
 	public void updateStock(Long orderId, boolean isIncrease) {
 
@@ -48,6 +48,15 @@ public class PaymentTxService {
 			));
 
 		productJdbcRepository.updateStock(qtyByProductId, isIncrease);
+	}
+
+	// 주문 취소 처리: 상태 변경 + 재고 복원을 하나의 트랜잭션으로 처리
+	@Transactional
+	public void applyCancelSuccess(Long orderId) {
+		Orders order = orderRepository.findById(orderId)
+			.orElseThrow(() -> new NoSuchElementException("해당 주문이 존재하지 않습니다."));
+		order.setOrderStatus(OrderStatus.CANCELED);
+		updateStock(orderId, true);
 	}
 
 	// 결제 성공 시 재고 차감, 장바구니 삭제, 결제 일시, 상태 변경

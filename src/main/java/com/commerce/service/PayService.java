@@ -66,9 +66,8 @@ public class PayService {
 			data.put("cancelReason", cancelReason);
 			JsonNode response = tossPaymentClient.cancel(order.getPaymentKey(), data);
 
-			// 3. 성공 시  상태 변경, 재고 수정
-			order.setOrderStatus(OrderStatus.CANCELED);
-			paymentTxService.updateStock(order.getId(), true);
+			// 3. 성공 시 상태 변경 + 재고 복원 (단일 트랜잭션)
+			paymentTxService.applyCancelSuccess(order.getId());
 
 			// 4. dto 반환
 			String method = response.path("method").asText(); // 결제 수단
