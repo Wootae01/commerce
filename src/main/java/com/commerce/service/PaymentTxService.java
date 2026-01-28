@@ -2,6 +2,7 @@ package com.commerce.service;
 
 import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
+import java.time.format.DateTimeParseException;
 import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
@@ -114,7 +115,13 @@ public class PaymentTxService {
 
 		LocalDateTime approvedAt = null;
 		if (approvedAtStr != null && !approvedAtStr.isBlank()) {
-			approvedAt = OffsetDateTime.parse(approvedAtStr).toLocalDateTime();
+			try {
+				approvedAt = OffsetDateTime.parse(approvedAtStr).toLocalDateTime();
+			} catch (DateTimeParseException e) {
+				log.warn("Invalid approvedAt from Toss. value={}", approvedAtStr, e);
+				approvedAt =LocalDateTime.now();
+			}
+
 		}
 
 		order.setApprovedAt(approvedAt);
