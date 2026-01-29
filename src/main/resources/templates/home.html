@@ -39,7 +39,7 @@
             <h3 class="fw-bold mb-0">상품</h3>
             <div class="text-secondary small">관리자픽 / 인기 / 전체</div>
         </div>
-        <a class="text-decoration-none" href="/products">전체보기 →</a>
+        <a class="text-decoration-none" href="/products/search">전체보기 →</a>
     </div>
 
     <!-- 탭 (서버 라우팅: /?tab=featured|popular|all) -->
@@ -56,13 +56,6 @@
                th:href="@{/(tab='popular')}"
                th:classappend="${tab}=='popular' ? ' active' : ''">
                 인기상품
-            </a>
-        </li>
-        <li class="nav-item">
-            <a class="nav-link"
-               th:href="@{/(tab='all')}"
-               th:classappend="${tab}=='all' ? ' active' : ''">
-                전체상품
             </a>
         </li>
     </ul>
@@ -90,7 +83,6 @@
 
         <span th:if="${tab}=='featured'">현재 관리자픽 상품이 없습니다.</span>
         <span th:if="${tab}=='popular'">현재 인기상품 데이터가 없습니다.</span>
-        <span th:if="${tab}=='all'">상품이 없습니다.</span>
     </div>
 
     <!-- pagination -->

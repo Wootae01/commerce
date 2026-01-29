@@ -1,19 +1,15 @@
 package com.commerce.controller;
 
-import java.util.List;
-
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageRequest;
+import com.commerce.dto.ProductHomeDTO;
+import com.commerce.service.ProductService;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 
-import com.commerce.dto.ProductHomeDTO;
-import com.commerce.service.ProductService;
-
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
+import java.util.List;
 
 @Controller
 @RequiredArgsConstructor
@@ -24,21 +20,13 @@ public class HomeController {
 
     // 홈화면
     @GetMapping("/")
-    public String home(@RequestParam(defaultValue = "featured") String tab,
-        @RequestParam(defaultValue = "0") int page,
-        Model model) {
+    public String home(@RequestParam(defaultValue = "featured") String tab, Model model) {
 
-        List<ProductHomeDTO> homeProducts = null;
+        List<ProductHomeDTO> homeProducts;
         int size = 20; // page size 개수
 
         switch(tab) {
             case "popular" -> homeProducts = productService.findPopularProductHome(30, size);
-
-            case "all" -> {
-                Page<ProductHomeDTO> result = productService.findHomeProducts(PageRequest.of(page, size));
-                model.addAttribute("page", result);
-                homeProducts = result.getContent();
-            }
             case "featured" -> homeProducts = productService.findFeaturedProducts();
             default -> {
                 tab = "featured";

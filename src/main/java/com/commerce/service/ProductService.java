@@ -3,6 +3,7 @@ package com.commerce.service;
 import com.commerce.domain.Image;
 import com.commerce.domain.Product;
 import com.commerce.domain.enums.OrderStatus;
+import com.commerce.domain.enums.ProductSortType;
 import com.commerce.dto.*;
 import com.commerce.repository.ImageRepository;
 import com.commerce.repository.OrderProductRepository;
@@ -239,17 +240,6 @@ public class ProductService {
         );
     }
 
-    // 모든 상품 반환
-    public Page<ProductHomeDTO> findHomeProducts(Pageable pageable) {
-        Page<ProductHomeDTO> page = productRepository.findHomeProducts(pageable);
-
-        return page.map(dto -> {
-            dto.setMainImageUrl(imageUtil.getImageUrl(dto.getMainImageUrl()));
-            return dto;
-        });
-
-    }
-
     public Image findImageById(Long imageId) {
         return imageRepository.findById(imageId)
             .orElseThrow();
@@ -400,4 +390,32 @@ public class ProductService {
         product.addImage(mainImage);
     }
 
+    public Page<ProductHomeDTO> searchProducts(ProductSearchRequest request, Pageable pageable) {
+        String keyword = request.hasKeyword()  ? request.getKeyword() : null;
+        Integer minPrice = request.hasMinPrice() ? request.getMinPrice() : null;
+        Integer maxPrice = request.hasMaxPrice() ? request.getMaxPrice() : null;
+
+        Page<ProductHomeDTO> page;
+        // 판매량 순 정렬
+        if (request.getSortType() == ProductSortType.BEST_SELLING) {
+            page = productRepository.searchProductBySales(
+                    keyword, minPrice, maxPrice, request.getSalesPeriod().getStartDate(),
+                    pageable);
+
+        } else {
+            // 일반 정렬
+            Pageable sortedPageable = PageRequest.of(
+                    pageable.getPageNumber(),
+                    pageable.getPageSize(),
+                    request.getSortType().getSort()
+            );
+            page = productRepository.searchProducts(keyword, minPrice, maxPrice, sortedPageable);
+
+        }
+        // 이미지 url 처리
+        return page.map(dto -> {
+            dto.setMainImageUrl(imageUtil.getImageUrl(dto.getMainImageUrl()));
+            return dto;
+        });
+    }
 }

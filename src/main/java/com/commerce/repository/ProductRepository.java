@@ -1,5 +1,6 @@
 package com.commerce.repository;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
@@ -76,5 +77,39 @@ public interface ProductRepository extends JpaRepository<Product, Long> {
 			""")
 	Optional<Product> findByIdWithImage(Long productId);
 
+	@Query(value = """
+		select new com.commerce.dto.ProductHomeDTO(p.id, i.storeFileName, p.name, p.price, p.createdAt)
+		from Product p
+		left join p.images i on i.isMain = true
+		where (:keyword is null or p.name like %:keyword%)
+		and (:minPrice is null or p.price >= :minPrice)
+		and (:maxPrice is null or p.price <= :maxPrice)
+		group by p.id, i.storeFileName, p.name, p.price, p.createdAt
+""", countQuery = """
+	select count(distinct p) from Product p
+		where (:keyword is null or p.name like %:keyword%)
+		and (:minPrice is null or p.price >= :minPrice)
+		and (:maxPrice is null or p.price <= :maxPrice)
+""")
+	Page<ProductHomeDTO> searchProducts(String keyword, Integer minPrice, Integer maxPrice, Pageable pageable);
 
+	@Query(value = """
+	select new com.commerce.dto.ProductHomeDTO(p.id, i.storeFileName, p.name, p.price, p.createdAt)
+	from Product p
+	left join p.images i on i.isMain = true
+	left join OrderProduct op on op.product = p and op.createdAt >= :since
+	where (:keyword is null or p.name like %:keyword%)
+		and (:minPrice is null or p.price >= :minPrice)
+		and (:maxPrice is null or p.price <= :maxPrice)
+	group by p.id, i.storeFileName, p.name, p.price, p.createdAt
+	order by coalesce(sum(op.quantity), 0) desc
+""", countQuery = """
+select count(distinct p) from Product p
+		where (:keyword is null or p.name like %:keyword%)
+		and (:minPrice is null or p.price >= :minPrice)
+		and (:maxPrice is null or p.price <= :maxPrice)
+""")
+	Page<ProductHomeDTO> searchProductBySales(String keyword, Integer minPrice,
+											  Integer maxPrice, LocalDateTime since,
+											  Pageable pageable);
 }
