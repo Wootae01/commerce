@@ -28,6 +28,7 @@
     FROM seq;
 
     -- 이미지 삽입
+    -- 메인 이미지
     INSERT INTO image (product_id, upload_file_name, store_file_name, is_main, img_order, created_at, updated_at)
     SELECT
         p.product_id,
@@ -44,6 +45,23 @@
         WHERE i.product_id = p.product_id
           AND i.is_main = 1
     );
+    -- 서브 이미지
+    INSERT INTO image (product_id, upload_file_name, store_file_name, is_main, img_order, created_at, updated_at)
+    WITH RECURSIVE seq(n) AS (
+        SELECT 0
+        UNION ALL
+        SELECT n+1 FROM seq WHERE n < 3
+    )
+    SELECT
+        p.product_id,
+        CONCAT('test-sub-', seq.n),
+        '/images/default.png',
+        0,
+        0,
+        NOW(),
+        NOW()
+    FROM product p
+    cross join seq;
 
     -- order 50개 삽입
     INSERT INTO orders (
