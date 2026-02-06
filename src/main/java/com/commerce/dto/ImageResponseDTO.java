@@ -9,11 +9,9 @@ import lombok.Setter;
 public class ImageResponseDTO {
 	private Long id;
 	private String url;
-	private boolean isMain;
 
-	public ImageResponseDTO(Long id, String url, boolean isMain) {
+	public ImageResponseDTO(Long id, String url) {
 		this.id = id;
 		this.url = url;
-		this.isMain = isMain;
 	}
 }

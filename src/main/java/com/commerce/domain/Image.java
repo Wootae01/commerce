@@ -28,16 +28,14 @@ public class Image extends BaseEntity {
 	private String uploadFileName; // 사용자가 업로드한 파일 이름
 	private String storeFileName;  // 서버에서 저장한 파일 이름
 
-	private boolean isMain;
 	private int imgOrder;			// 순서
 
 	public Image() {}
 
 	@Builder
-	private Image(String uploadFileName, String storeFileName, boolean isMain, int imgOrder) {
+	private Image(String uploadFileName, String storeFileName, int imgOrder) {
 		this.uploadFileName = uploadFileName;
 		this.storeFileName = storeFileName;
-		this.isMain = isMain;
 		this.imgOrder = imgOrder;
 	}
 
@@ -45,7 +43,6 @@ public class Image extends BaseEntity {
 		return Image.builder()
 			.uploadFileName(uploadFile.getUploadFileName())
 			.storeFileName(uploadFile.getStoreFileName())
-			.isMain(true)
 			.imgOrder(0)
 			.build();
 	}
@@ -54,7 +51,6 @@ public class Image extends BaseEntity {
 		return Image.builder()
 			.uploadFileName(uploadFile.getUploadFileName())
 			.storeFileName(uploadFile.getStoreFileName())
-			.isMain(false)
 			.imgOrder(order)
 			.build();
 	}

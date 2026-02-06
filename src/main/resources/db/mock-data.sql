@@ -28,27 +28,36 @@
     FROM seq;
 
     -- 이미지 삽입
-    -- 메인 이미지
-    INSERT INTO image (product_id, upload_file_name, store_file_name, is_main, img_order, created_at, updated_at)
+    -- 메인 이미지 삽입 (product_id로 추적)
+    INSERT INTO image (product_id, upload_file_name, store_file_name, img_order, created_at, updated_at)
     SELECT
         p.product_id,
         'test-main_image',
         '/images/default.png',
-        1,
         0,
         NOW(),
         NOW()
     FROM product p
-    WHERE NOT EXISTS (
-        SELECT 1
+    WHERE p.main_image_id IS NULL
+      AND NOT EXISTS (
+        SELECT 1 FROM image i WHERE i.product_id = p.product_id AND i.img_order = 0
+    );
+
+    -- 상품에 메인 이미지 연결 (img_order = 0인 이미지를 main_image_id로 설정)
+    UPDATE product p
+    SET p.main_image_id = (
+        SELECT i.image_id
         FROM image i
         WHERE i.product_id = p.product_id
-          AND i.is_main = 1
-    );
+          AND i.img_order = 0
+        LIMIT 1
+    )
+    WHERE p.main_image_id IS NULL;
+
     -- 서브 이미지
-    INSERT INTO image (product_id, upload_file_name, store_file_name, is_main, img_order, created_at, updated_at)
+    INSERT INTO image (product_id, upload_file_name, store_file_name, img_order, created_at, updated_at)
     WITH RECURSIVE seq(n) AS (
-        SELECT 0
+        SELECT 1
         UNION ALL
         SELECT n+1 FROM seq WHERE n < 3
     )
@@ -56,12 +65,15 @@
         p.product_id,
         CONCAT('test-sub-', seq.n),
         '/images/default.png',
-        0,
-        0,
+        seq.n,
         NOW(),
         NOW()
     FROM product p
-    cross join seq;
+    CROSS JOIN seq
+    WHERE NOT EXISTS (
+        SELECT 1 FROM image i
+        WHERE i.product_id = p.product_id AND i.img_order = seq.n
+    );
 
     -- order 50개 삽입
     INSERT INTO orders (

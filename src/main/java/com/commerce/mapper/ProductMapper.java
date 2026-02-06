@@ -65,8 +65,7 @@ public class ProductMapper {
 		dto.setMainImageUrl(productImageUtil.getMainImageUrl(product));
 		dto.setImages(
 			product.getImages().stream()
-				.filter(image -> image.isMain() == false)
-				.map(image -> new ImageResponseDTO(image.getId(), baseUrl + image.getStoreFileName(), image.isMain()))
+				.map(image -> new ImageResponseDTO(image.getId(), baseUrl + image.getStoreFileName()))
 				.toList()
 		);
 		return dto;

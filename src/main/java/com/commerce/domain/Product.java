@@ -28,6 +28,10 @@ public class Product extends BaseEntity{
     @JoinColumn(name = "admin_id")
     private Admin admin;
 
+    @ManyToOne(fetch = FetchType.LAZY, cascade = CascadeType.ALL)
+    @JoinColumn(name = "main_image_id")
+    private Image mainImage;
+
     @OneToMany(mappedBy = "product", orphanRemoval = true, cascade = CascadeType.ALL)
     private List<Image> images = new ArrayList<>();
 
@@ -61,5 +65,9 @@ public class Product extends BaseEntity{
     public void addImage(Image image) {
         images.add(image);
         image.setProduct(this);
+    }
+
+    public void setMainImage(Image mainImage) {
+        this.mainImage = mainImage;
     }
 }

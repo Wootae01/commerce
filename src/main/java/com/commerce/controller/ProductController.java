@@ -43,7 +43,7 @@ public class ProductController {
         // 정렬 ( 낮은 가격, 높은 가격 순, 판매량 순(최근 일주일, 한달, 6개월)
         // keyword 검색, 가격 필터 minPrice, maxPrice 사이
 
-        int size = 20;
+        int size = 21;
         Page<ProductHomeDTO> result = productService.searchProducts(request, PageRequest.of(page, size));
 
         model.addAttribute("products", result.getContent());

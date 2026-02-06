@@ -23,7 +23,6 @@ public class ProductImageUtil {
 
 	public List<String> getSubImagesUrl(Product product) {
 		return product.getImages().stream()
-				.filter(image -> !image.isMain())
 				.map(image -> {
 					if (!image.getStoreFileName().equals(imageDefaultPath)) {
 						return fileStorage.getImageUrl(image.getStoreFileName());
@@ -34,16 +33,14 @@ public class ProductImageUtil {
 	}
 
 	public String getMainImageUrl(Product product) {
-		return product.getImages().stream()
-			.filter(Image::isMain)
-			.findFirst()
-			.map(image -> {
-				if (!image.getStoreFileName().equals(imageDefaultPath)) {
-					return fileStorage.getImageUrl(image.getStoreFileName());
-				}
-				return image.getStoreFileName();
-			})
-			.orElse(imageDefaultPath);
+		Image mainImage = product.getMainImage();
+		if (mainImage == null) {
+			return imageDefaultPath;
+		}
+		if (!mainImage.getStoreFileName().equals(imageDefaultPath)) {
+			return fileStorage.getImageUrl(mainImage.getStoreFileName());
+		}
+		return mainImage.getStoreFileName();
 	}
 
 	public String getImageUrl(String url) {

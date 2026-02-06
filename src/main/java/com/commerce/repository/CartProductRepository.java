@@ -32,12 +32,12 @@ public interface CartProductRepository extends JpaRepository<CartProduct, Long> 
 		)
 		from CartProduct cp
 		join cp.product p
-		left join p.images mi on mi.isMain = true
+		left join p.mainImage mi
 		where cp.cart.id = :cartId
 		""")
 	List<CartProductDTO> findCartRows(Long cartId);
 
-	@Query("select cp from CartProduct cp join fetch cp.product where cp.id in  (:cartProductIds)")
+	@Query("select cp from CartProduct cp join fetch cp.product p left join fetch p.mainImage where cp.id in (:cartProductIds)")
 	List<CartProduct> findAllByIdWithProduct(List<Long> cartProductIds);
 
 	@Query("""
@@ -49,8 +49,8 @@ public interface CartProductRepository extends JpaRepository<CartProduct, Long> 
 				mi.storeFileName,
 				p.name
 			) from CartProduct cp
-			join cp.product p 
-			left join p.images mi on mi.isMain = true
+			join cp.product p
+			left join p.mainImage mi
 			where cp.id in (:cartProductIds)
 		""")
 	List<OrderItemDTO> findOrderItemDTO(List<Long> cartProductIds);

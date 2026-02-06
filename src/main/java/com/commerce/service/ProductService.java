@@ -283,10 +283,10 @@ public class ProductService {
             UploadFile uploadFile = fileStorage.storeImage(mainFile);
 
             Image mainImage = Image.createMainImage(uploadFile);
-            product.addImage(mainImage);
+            product.setMainImage(mainImage);
         } else {
             Image mainImage = Image.createMainImage(new UploadFile("", defaultImagePath));
-            product.addImage(mainImage);
+            product.setMainImage(mainImage);
         }
 
         // 서브 이미지 등록
@@ -316,6 +316,13 @@ public class ProductService {
         Product product = productRepository.findById(id)
             .orElseThrow(() -> new NoSuchElementException("해당 상품을 찾을 수 없습니다."));
 
+        // 대표 이미지 삭제
+        Image mainImage = product.getMainImage();
+        if (mainImage != null) {
+            fileStorage.delete(mainImage.getStoreFileName());
+        }
+
+        // 서브 이미지 삭제
         List<Image> images = product.getImages();
         for (Image image : images) {
             fileStorage.delete(image.getStoreFileName());
@@ -368,7 +375,7 @@ public class ProductService {
         }
 
         // 이미지 객체 생성, 연관관계 설정
-        int order = product.getImages().size();
+        int order = product.getImages().size() + 1;  // 서브 이미지는 1부터 시작
         for (UploadFile uploadFile : uploadFiles) {
             Image image = Image.createSubImage(uploadFile, order++);
             product.addImage(image);
@@ -376,18 +383,16 @@ public class ProductService {
     }
 
     private void replaceMainImage(MultipartFile mainFile, Product product) throws IOException {
-        product.getImages().stream()
-            .filter(Image::isMain)
-            .findFirst()
-            .ifPresent(image -> {
-                fileStorage.delete(image.getStoreFileName());
-                product.getImages().remove(image);
-            });
+        // 기존 대표 이미지 삭제
+        Image oldMainImage = product.getMainImage();
+        if (oldMainImage != null) {
+            fileStorage.delete(oldMainImage.getStoreFileName());
+        }
 
         // 새 대표 이미지 저장
         UploadFile uploadFile = fileStorage.storeImage(mainFile);
-        Image mainImage = Image.createMainImage(uploadFile);
-        product.addImage(mainImage);
+        Image newMainImage = Image.createMainImage(uploadFile);
+        product.setMainImage(newMainImage);
     }
 
     public Page<ProductHomeDTO> searchProducts(ProductSearchRequest request, Pageable pageable) {

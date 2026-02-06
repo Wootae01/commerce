@@ -68,7 +68,8 @@
 
 				.authorizeHttpRequests(auth -> auth
 					.requestMatchers("/", "/home", "/login/**", "/oauth2/**", "/uploads/**",
-						"/products/*", "/error/**", "/actuator/health", "/actuator/prometheus", "/images/**"
+						"/products/*", "/error/**", "/actuator/health", "/actuator/prometheus", "/images/**",
+							"/favicon.ico"
 					).permitAll()
 					.anyRequest().authenticated())
 				.logout(logout -> logout
@@ -105,7 +106,8 @@
 
 				.authorizeHttpRequests(auth -> auth
 					.requestMatchers("/", "/home", "/login/**", "/oauth2/**", "/uploads/**",
-						"/products/*", "/error/**", "/actuator/health", "/actuator/prometheus", "/images/**"
+						"/products/*", "/error/**", "/actuator/health", "/actuator/prometheus", "/images/**",
+							"/favicon.ico"
 					).permitAll()
 					.anyRequest().authenticated()
 				)

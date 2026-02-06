@@ -37,6 +37,7 @@ public interface OrderRepository extends JpaRepository<Orders, Long> {
 			select o from Orders o
 			join fetch o.orderProducts op
 			join fetch op.product p
+			left join fetch p.mainImage
 			where o.id = :orderId
 	""")
 	Optional<Orders> findByOrderNumberWithProduct(Long orderId);
