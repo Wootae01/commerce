@@ -65,7 +65,6 @@ public class OrderService {
 	private String imageDefaultPath;
 
 	// 주문 리스트 반환
-	@Transactional(readOnly = true)
 	public Page<OrderResponseDTO> findOrderList(User user, Pageable pageable) {
 
 		// 주문 단위 페이징

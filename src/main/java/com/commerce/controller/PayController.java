@@ -128,7 +128,7 @@ public class PayController {
 
 	}
 
-	@RequestMapping(value = "/confirm")
+	@PostMapping(value = "/confirm")
 	@ResponseBody
 	public ResponseEntity<?> confirmPayment(@RequestBody PayConfirmDTO req){
 		log.info("confirm req: orderId={}, paymentKey={}, amount={}",
@@ -139,7 +139,7 @@ public class PayController {
 		return ResponseEntity.ok(Map.of("ok", true));
 	}
 
-	@RequestMapping(value = "/confirm/before")
+	//@RequestMapping(value = "/confirm/before")
 	@ResponseBody
 	public ResponseEntity<?> confirmPayment_before(@RequestBody PayConfirmDTO req){
 		log.info("confirm req: orderId={}, paymentKey={}, amount={}",

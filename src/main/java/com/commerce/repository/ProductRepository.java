@@ -4,6 +4,8 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
+import com.commerce.domain.enums.OrderStatus;
+
 import com.commerce.dto.AdminProductListDTO;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -96,7 +98,8 @@ public interface ProductRepository extends JpaRepository<Product, Long> {
 	select new com.commerce.dto.ProductHomeDTO(p.id, mi.storeFileName, p.name, p.price, p.createdAt)
 	from Product p
 	left join p.mainImage mi
-	left join OrderProduct op on op.product = p and op.createdAt >= :since
+	left join OrderProduct op on op.product = p
+	left join op.order o on o.orderStatus in :statuses and o.approvedAt >= :since
 	where (:keyword is null or p.name like %:keyword%)
 		and (:minPrice is null or p.price >= :minPrice)
 		and (:maxPrice is null or p.price <= :maxPrice)
@@ -110,5 +113,6 @@ public interface ProductRepository extends JpaRepository<Product, Long> {
 """)
 	Page<ProductHomeDTO> searchProductBySales(String keyword, Integer minPrice,
 											  Integer maxPrice, LocalDateTime since,
+											  List<OrderStatus> statuses,
 											  Pageable pageable);
 }

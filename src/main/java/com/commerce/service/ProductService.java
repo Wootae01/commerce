@@ -403,9 +403,11 @@ public class ProductService {
         Page<ProductHomeDTO> page;
         // 판매량 순 정렬
         if (request.getSortType() == ProductSortType.BEST_SELLING) {
+            List<OrderStatus> statuses = List.of(OrderStatus.PAID, OrderStatus.PREPARING,
+                    OrderStatus.SHIPPING, OrderStatus.DELIVERED);
             page = productRepository.searchProductBySales(
                     keyword, minPrice, maxPrice, request.getSalesPeriod().getStartDate(),
-                    pageable);
+                    statuses, pageable);
 
         } else {
             // 일반 정렬
