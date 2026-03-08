@@ -1,9 +1,9 @@
 package com.commerce.service;
 
 import java.util.List;
-import java.util.NoSuchElementException;
 import java.util.Optional;
 
+import com.commerce.exception.EntityNotFoundException;
 import com.commerce.util.ProductImageUtil;
 import org.springframework.stereotype.Service;
 
@@ -70,7 +70,7 @@ public class CartService {
 
 		User user = securityUtil.getCurrentUser();
 		Cart cart = cartRepository.findByUser(user)
-				.orElseThrow(() -> new NoSuchElementException("카트가 존재하지 않습니다."));
+				.orElseThrow(() -> new EntityNotFoundException("카트가 존재하지 않습니다."));
 
 		List<CartProduct> cartProducts = cart.getCartProducts();
 
@@ -81,7 +81,7 @@ public class CartService {
 
 	public void addCart(Long productId, int quantity) {
 		Product product = productRepository.findById(productId)
-			.orElseThrow(() -> new NoSuchElementException("해당 상품이 존재하지 않습니다."));
+			.orElseThrow(() -> new EntityNotFoundException("해당 상품이 존재하지 않습니다."));
 
 		User user = securityUtil.getCurrentUser();
 

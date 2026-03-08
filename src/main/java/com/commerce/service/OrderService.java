@@ -7,7 +7,7 @@ import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.NoSuchElementException;
+import com.commerce.exception.EntityNotFoundException;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
@@ -164,7 +164,7 @@ public class OrderService {
 
 	public Orders findByOrderNumber(String orderNumber) {
 		return orderRepository.findByOrderNumber(orderNumber)
-			.orElseThrow(() -> new NoSuchElementException("해당 주문이 존재하지 않습니다."));
+			.orElseThrow(() -> new EntityNotFoundException("해당 주문이 존재하지 않습니다."));
 	}
 
 	@Transactional

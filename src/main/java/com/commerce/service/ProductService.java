@@ -9,6 +9,7 @@ import com.commerce.repository.ImageRepository;
 import com.commerce.repository.OrderProductRepository;
 import com.commerce.repository.ProductJdbcRepository;
 import com.commerce.repository.ProductRepository;
+import com.commerce.exception.EntityNotFoundException;
 import com.commerce.storage.FileStorage;
 import com.commerce.storage.UploadFile;
 import com.commerce.support.RedisCacheClient;
@@ -248,12 +249,12 @@ public class ProductService {
     // id로 상품 검색
     public Product findById(Long id) {
         return productRepository.findById(id)
-                .orElseThrow(() -> new NoSuchElementException("해당 상품을 찾을 수 없습니다."));
+                .orElseThrow(() -> new EntityNotFoundException("해당 상품을 찾을 수 없습니다."));
     }
 
     public Product findByIdWithImage(Long id) {
         return productRepository.findByIdWithImage(id)
-                .orElseThrow(() -> new NoSuchElementException("해당 상품을 찾을 수 없습니다."));
+                .orElseThrow(() -> new EntityNotFoundException("해당 상품을 찾을 수 없습니다."));
     }
 
     // 모든 상품 검색
@@ -314,7 +315,7 @@ public class ProductService {
     @Transactional
     public void deleteProduct(Long id) {
         Product product = productRepository.findById(id)
-            .orElseThrow(() -> new NoSuchElementException("해당 상품을 찾을 수 없습니다."));
+            .orElseThrow(() -> new EntityNotFoundException("해당 상품을 찾을 수 없습니다."));
 
         // 대표 이미지 삭제
         Image mainImage = product.getMainImage();
@@ -337,7 +338,7 @@ public class ProductService {
                               MultipartFile mainFile, List<MultipartFile> files) throws IOException {
 
         Product product = productRepository.findById(id)
-            .orElseThrow(() -> new NoSuchElementException("해당 상품을 찾을 수 없습니다."));
+            .orElseThrow(() -> new EntityNotFoundException("해당 상품을 찾을 수 없습니다."));
         product.update(
             updatedProduct.getPrice(),
             updatedProduct.getStock(),

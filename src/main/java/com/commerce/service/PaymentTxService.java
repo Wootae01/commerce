@@ -5,7 +5,7 @@ import java.time.OffsetDateTime;
 import java.time.format.DateTimeParseException;
 import java.util.List;
 import java.util.Map;
-import java.util.NoSuchElementException;
+import com.commerce.exception.EntityNotFoundException;
 import java.util.stream.Collectors;
 
 import org.springframework.stereotype.Service;
@@ -55,7 +55,7 @@ public class PaymentTxService {
 	@Transactional
 	public String beginCancel(Long orderId) {
 		Orders order = orderRepository.findByIdWithLock(orderId)
-			.orElseThrow(() -> new NoSuchElementException("해당 주문이 존재하지 않습니다."));
+			.orElseThrow(() -> new EntityNotFoundException("해당 주문이 존재하지 않습니다."));
 
 		OrderStatus status = order.getOrderStatus();
 		if (!(status == OrderStatus.PAID || status == OrderStatus.READY)) {
@@ -70,7 +70,7 @@ public class PaymentTxService {
 	@Transactional
 	public void applyCancelSuccess(Long orderId, boolean restoreStock) {
 		Orders order = orderRepository.findByIdWithLock(orderId)
-			.orElseThrow(() -> new NoSuchElementException("해당 주문이 존재하지 않습니다."));
+			.orElseThrow(() -> new EntityNotFoundException("해당 주문이 존재하지 않습니다."));
 
 		if (order.getOrderStatus() != OrderStatus.CANCEL_REQUESTED) {
 			log.warn("취소 처리할 수 없는 상태입니다. orderId={}, status={}", orderId, order.getOrderStatus());
@@ -87,7 +87,7 @@ public class PaymentTxService {
 	@Transactional
 	public void revertCancelRequest(Long orderId) {
 		Orders order = orderRepository.findByIdWithLock(orderId)
-			.orElseThrow(() -> new NoSuchElementException("해당 주문이 존재하지 않습니다."));
+			.orElseThrow(() -> new EntityNotFoundException("해당 주문이 존재하지 않습니다."));
 
 		if (order.getOrderStatus() == OrderStatus.CANCEL_REQUESTED) {
 			order.setOrderStatus(OrderStatus.PAID);
@@ -98,7 +98,7 @@ public class PaymentTxService {
 	@Transactional
 	public void applyPaymentSuccess(String orderNumber, JsonNode tossResponse, Long userId, String paymentKey) {
 		Orders order = orderRepository.findByOrderNumberWithLock(orderNumber)
-			.orElseThrow(() -> new NoSuchElementException("해당 주문이 존재하지 않습니다."));
+			.orElseThrow(() -> new EntityNotFoundException("해당 주문이 존재하지 않습니다."));
 
 		// 멱등성 보장: 이미 처리된 주문이면 중복 처리 방지
 		if (order.getOrderStatus() != OrderStatus.READY) {
@@ -149,7 +149,7 @@ public class PaymentTxService {
 	@Transactional(propagation = Propagation.REQUIRES_NEW)
 	public void savePaymentKeyAndStatus(String orderNumber, String paymentKey, OrderStatus status) {
 		Orders order = orderRepository.findByOrderNumber(orderNumber)
-			.orElseThrow(() -> new NoSuchElementException("해당 주문이 존재하지 않습니다."));
+			.orElseThrow(() -> new EntityNotFoundException("해당 주문이 존재하지 않습니다."));
 		order.setPaymentKey(paymentKey);
 		order.setOrderStatus(status);
 	}

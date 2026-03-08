@@ -8,6 +8,7 @@ import com.commerce.domain.enums.OrderType;
 import com.commerce.domain.enums.PaymentType;
 import com.commerce.dto.CancelResponseDTO;
 import com.commerce.dto.PayConfirmDTO;
+import com.commerce.exception.EntityNotFoundException;
 import com.commerce.external.TossPaymentClient;
 import com.commerce.repository.CartProductRepository;
 import com.commerce.repository.OrderRepository;
@@ -197,7 +198,7 @@ public class PayService {
 	public void validatePayment(PayConfirmDTO req, Long userId) {
 		// 1, 주문 조회
 		Orders order = orderRepository.findByOrderNumber(req.getOrderId())
-			.orElseThrow(() -> new NoSuchElementException("해당 주문이 존재하지 않습니다."));
+			.orElseThrow(() -> new EntityNotFoundException("해당 주문이 존재하지 않습니다."));
 
 		log.info("order loaded: orderNumber={}, status={}, finalPrice={}",
 			order.getOrderNumber(), order.getOrderStatus(), order.getFinalPrice());

@@ -4,8 +4,7 @@ import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Map;
-import java.util.NoSuchElementException;
-
+import com.commerce.exception.EntityNotFoundException;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
@@ -118,7 +117,7 @@ public class PayController {
 				return ResponseEntity.badRequest().body(Map.of("message", "잘못된 요청"));
 			}
 
-		} catch (IllegalArgumentException | NoSuchElementException e) {
+		} catch (IllegalArgumentException | EntityNotFoundException e) {
 			return ResponseEntity.badRequest().body(Map.of("message", e.getMessage()));
 		}
 
