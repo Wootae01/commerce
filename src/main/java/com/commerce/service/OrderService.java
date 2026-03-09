@@ -7,7 +7,9 @@ import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import com.commerce.exception.BusinessException;
 import com.commerce.exception.EntityNotFoundException;
+import org.springframework.http.HttpStatus;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
@@ -287,7 +289,7 @@ public class OrderService {
 			Product product = cartProduct.getProduct();
 			// 재고 부족한 경우
 			if (product.getStock() - cartProduct.getQuantity() < 0) {
-				throw new RuntimeException("재고가 부족합니다.");
+				throw new BusinessException("재고가 부족합니다.", HttpStatus.BAD_REQUEST);
 			}
 		}
 	}
@@ -295,7 +297,7 @@ public class OrderService {
 	private static void validateStock(Product product, int quantity) {
 		int stock = product.getStock();
 		if (stock - quantity < 0) {
-			throw new RuntimeException("재고가 부족합니다.");
+			throw new BusinessException("재고가 부족합니다.", HttpStatus.BAD_REQUEST);
 		}
 	}
 

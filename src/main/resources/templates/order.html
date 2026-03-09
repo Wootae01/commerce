@@ -263,7 +263,8 @@
                 });
 
                 if(!res.ok) {
-                    alert("주문 준비 실패");
+                    const error = await res.json();
+                    alert(error.message || "주문 준비 실패");
                     return;
                 }
 

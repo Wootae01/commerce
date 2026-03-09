@@ -34,7 +34,7 @@ public class GlobalExceptionHandler {
         return errorView(HttpStatus.FORBIDDEN.value(), "접근 권한 없음", "해당 페이지에 접근할 권한이 없습니다.");
     }
 
-    @ExceptionHandler(Exception.class)
+@ExceptionHandler(Exception.class)
     public ModelAndView handleException(Exception e, HttpServletResponse response) {
         log.error("Unhandled exception", e);
         response.setStatus(HttpStatus.INTERNAL_SERVER_ERROR.value());

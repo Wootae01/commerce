@@ -1,6 +1,8 @@
 package com.commerce.util;
 
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.authentication.AnonymousAuthenticationToken;
+import org.springframework.security.authentication.AuthenticationCredentialsNotFoundException;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -35,7 +37,7 @@ public class SecurityUtil {
 			String username = extractUsername(auth);
 			return adminService.findByUsername(username);
 		}
-		throw new RuntimeException("관리자 로그인 상태가 아닙니다.");
+		throw new AccessDeniedException("관리자 로그인 상태가 아닙니다.");
 	}
 
 	private String extractUsername(Authentication auth) {
@@ -49,7 +51,7 @@ public class SecurityUtil {
 		} else if (principal instanceof UserDetails userDetails) {
 			return userDetails.getUsername();
 		}
-		throw new RuntimeException("지원하지 않는 principle 타입: " + principal.getClass());
+		throw new IllegalStateException("지원하지 않는 principle 타입: " + principal.getClass());
 
 	}
 
@@ -64,7 +66,7 @@ public class SecurityUtil {
 		Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
 
 		if (authentication == null || authentication instanceof AnonymousAuthenticationToken) {
-			throw new RuntimeException("로그인 상태가 아닙니다.");
+			throw new AuthenticationCredentialsNotFoundException("로그인 상태가 아닙니다.");
 		}
 		return authentication;
 	}

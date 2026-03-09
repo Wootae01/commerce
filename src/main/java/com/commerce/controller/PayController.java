@@ -4,6 +4,7 @@ import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Map;
+import com.commerce.exception.BusinessException;
 import com.commerce.exception.EntityNotFoundException;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Controller;
@@ -117,7 +118,7 @@ public class PayController {
 				return ResponseEntity.badRequest().body(Map.of("message", "잘못된 요청"));
 			}
 
-		} catch (IllegalArgumentException | EntityNotFoundException e) {
+		} catch (IllegalArgumentException | EntityNotFoundException | BusinessException e) {
 			return ResponseEntity.badRequest().body(Map.of("message", e.getMessage()));
 		}
 
