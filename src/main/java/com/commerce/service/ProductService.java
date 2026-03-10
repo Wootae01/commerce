@@ -12,8 +12,7 @@ import com.commerce.repository.ProductRepository;
 import com.commerce.exception.EntityNotFoundException;
 import com.commerce.storage.FileStorage;
 import com.commerce.storage.UploadFile;
-import com.commerce.support.RedisCacheClient;
-import com.commerce.support.RedisDistributedLockProvider;
+import com.commerce.template.CacheTemplate;
 import com.commerce.util.ProductImageUtil;
 import com.fasterxml.jackson.core.type.TypeReference;
 import lombok.RequiredArgsConstructor;
@@ -32,8 +31,6 @@ import java.io.IOException;
 import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.*;
-import java.util.concurrent.ThreadLocalRandom;
-import java.util.concurrent.TimeUnit;
 
 import static com.commerce.support.ProductCachePolicy.*;
 
@@ -48,8 +45,7 @@ public class ProductService {
     private final ProductJdbcRepository productJdbcRepository;
     private final OrderProductRepository orderProductRepository;
 
-    private final RedisCacheClient redisCacheClient;
-    private final RedisDistributedLockProvider distributedLockProvider;
+    private final CacheTemplate cacheTemplate;
 
     private final FileStorage fileStorage;
     private final ProductImageUtil imageUtil;
@@ -63,76 +59,19 @@ public class ProductService {
     * */
     public List<ProductHomeDTO> findFeaturedProducts() {
 
-        List<ProductHomeDTO> dtoList = null;
-
-        // 1. 캐시 조회
-        Optional<List<ProductHomeDTO>> optional = redisCacheClient.get(FEATURED_KEY, new TypeReference<>() {});
-
-        // 2. 캐시 미스인 경우 db 조회
-        if (optional.isEmpty()) {
-
-            for (int i = 0; i < MAX_RETRY; i++) {
-                String token = distributedLockProvider.tryLock(FEATURED_LOCK_KEY, FEATURED_LOCK_TTL_MS);
-
-                // 락 가져오기 실패 시 재시도
-                if (token == null) {
-                    long jitter = ThreadLocalRandom.current().nextLong(RETRY_JITTER_MS);
-                    sleep(jitter);
-                    continue;
-                }
-                // 락 획득한 경우 캐시 다시 확인
-                try {
-                    Optional<List<ProductHomeDTO>> again =
-                            redisCacheClient.get(FEATURED_KEY, new TypeReference<>() {});
-                    if (again.isPresent()) {
-                        dtoList = again.get();
-                        break;
-                    }
-                    dtoList = productRepository.findHomeProductsByFeatured();
-
-                    // cache penetration 방지 (null/empty 는 짧게)
-                    Duration ttl;
-                    if (dtoList == null || dtoList.isEmpty()) {
-                        dtoList = Collections.emptyList();
-                        ttl = NULL_TTL;
-                    } else {
-                        ttl = FEATURED_TTL;
-                    }
-                    redisCacheClient.set(FEATURED_KEY, dtoList, ttl);
-                    break;
-                } finally {
-                    // 락 해제
-                    distributedLockProvider.unlock(FEATURED_LOCK_KEY, token);
-                }
-            }
+        // 캐시에서 조회
+        List<ProductHomeDTO> dtoList = cacheTemplate.execute(
+                FEATURED_KEY, FEATURED_LOCK_KEY, FEATURED_LOCK_TTL_MS, FEATURED_TTL,
+                new TypeReference<List<ProductHomeDTO>>() {},
+                productRepository::findHomeProductsByFeatured);
 
 
-
-        } else {
-            dtoList = optional.get();
-        }
-
-        // MAX_RETRY 회 모두 락 획득에 실패하면 빈 리스트 반환
-        if (dtoList == null) {
-            log.warn("featured cache lock contention: failed to acquire lock (retries={}, key={})",
-                    MAX_RETRY, FEATURED_LOCK_KEY);
-            dtoList = Collections.emptyList();
-        }
-
-        // 3. 이미지 url 처리
+        // 이미지 url 처리
         for (ProductHomeDTO dto : dtoList) {
             dto.setMainImageUrl(imageUtil.getImageUrl(dto.getMainImageUrl()));
         }
 
         return dtoList;
-    }
-
-    private static void sleep(long jitter) {
-        try {
-            TimeUnit.MILLISECONDS.sleep(RETRY_DELAY_MS + jitter);
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-        }
     }
 
     /**
@@ -147,77 +86,35 @@ public class ProductService {
             OrderStatus.DELIVERED);
         LocalDateTime since = LocalDateTime.now().minusDays(days);
 
-        List<ProductHomeDTO> dtoList = null;
         String cacheKey = PREFIX_POPULAR_KEY + ":days" + days + ":top" + limit;
         String lockKey = PREFIX_POPULAR_LOCK_KEY + ":days" + days + ":top" + limit;
 
-        // 1. 캐시 조회
-        Optional<List<ProductHomeDTO>> optional = redisCacheClient.get(cacheKey, new TypeReference<>() {});
+        // 캐시에서 조회
 
-        // 2. 캐시 미스인 경우
-        if (optional.isEmpty()) {
-            // 락 획득
-            for (int i = 0; i < MAX_RETRY; i++) {
+        List<ProductHomeDTO> dtoList = cacheTemplate.execute(cacheKey, lockKey, POPULAR_LOCK_TTL_MS, POPULAR_TTL,
+                new TypeReference<List<ProductHomeDTO>>() {},
+                () -> {
+                    // 인기 상품 조회
+                    List<ProductSoldRow> popularProducts = orderProductRepository.findPopularProducts(
+                            statuses, since, PageRequest.of(0, limit));
 
-                String token = distributedLockProvider.tryLock(lockKey, POPULAR_LOCK_TTL_MS);
-                if (token == null) {
-                    long jitter = ThreadLocalRandom.current().nextLong(RETRY_JITTER_MS);
-                    sleep(jitter);
-                    continue;
-                }
-                // 락 획득한 경우 캐시 다시 확인
-                try {
-                    Optional<List<ProductHomeDTO>> again = redisCacheClient.get(cacheKey, new TypeReference<>() {});
-
-                    // 캐시 재조회 시 존재하면
-                    if (again.isPresent()) {
-                        dtoList = again.get();
-                        break;
-                    }
-
-                    // 존재하지 않으면 db 조회
-                    // 주문 많은 상품 id 찾기
-                    List<ProductSoldRow> popularProducts = orderProductRepository.findPopularProducts(statuses, since,
-                            PageRequest.of(0, limit));
+                    // 상품 id만 뽑고
                     List<Long> productIds = popularProducts.stream().map(ProductSoldRow::productId).toList();
-                    if (productIds.isEmpty()) {
-                        dtoList = List.of();
-                        redisCacheClient.set(cacheKey, dtoList, NULL_TTL);
-                        break;
-                    }
+                    if (productIds.isEmpty()) return List.of();
 
-                    dtoList = productRepository.findHomeProductsByIds(productIds);
-
-                    // 판매량 순 정렬
                     Map<Long, Long> quantityMap = new HashMap<>();
                     for (ProductSoldRow row : popularProducts) {
                         quantityMap.put(row.productId(), row.quantity());
                     }
-                    dtoList = dtoList.stream()
+                    // 홈화면 상품 조회 후 판매량 순 정렬
+                    return productRepository.findHomeProductsByIds(productIds).stream()
                             .sorted(Comparator.<ProductHomeDTO>comparingLong(
                                     dto -> quantityMap.getOrDefault(dto.getId(), 0L)
                             ).reversed())
                             .toList();
+                });
 
-                    // 캐시 설정
-                    redisCacheClient.set(cacheKey, dtoList, POPULAR_TTL);
-                    break;
-                } finally {
-                    distributedLockProvider.unlock(lockKey, token);
-                }
-            }
-
-        } else {
-            dtoList = optional.get();
-        }
-
-        // 락 획득 못한 경우 빈 리스트 반환
-        if (dtoList == null) {
-            log.warn("popular cache lock contention: failed to acquire lock (retries={}, key={})",
-                    MAX_RETRY, lockKey);
-            dtoList = Collections.emptyList();
-        }
-        // 이미지 url 설정
+        // 이미지 url 처리
         for (ProductHomeDTO dto : dtoList) {
             dto.setMainImageUrl(imageUtil.getImageUrl(dto.getMainImageUrl()));
         }
@@ -235,7 +132,7 @@ public class ProductService {
                 new TransactionSynchronization() {
                     @Override
                     public void afterCommit() {
-                        redisCacheClient.delete(FEATURED_KEY);
+                        cacheTemplate.delete(FEATURED_KEY);
                     }
                 }
         );
