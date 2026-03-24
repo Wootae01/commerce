@@ -1,0 +1,137 @@
+package com.commerce.order.controller;
+
+import java.util.List;
+
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.stereotype.Controller;
+import org.springframework.ui.Model;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+
+import com.commerce.cart.domain.CartProduct;
+import com.commerce.product.domain.DeliveryPolicy;
+import com.commerce.order.domain.Orders;
+import com.commerce.product.domain.Product;
+import com.commerce.user.domain.User;
+import com.commerce.common.enums.OrderType;
+import com.commerce.order.dto.OrderCreateRequestDTO;
+import com.commerce.order.dto.OrderDetailResponseDTO;
+import com.commerce.order.dto.OrderItemDTO;
+import com.commerce.order.dto.OrderPriceDTO;
+import com.commerce.order.dto.OrderResponseDTO;
+import com.commerce.order.dto.OrderMapper;
+import com.commerce.cart.service.CartService;
+import com.commerce.order.service.OrderService;
+import com.commerce.product.service.ProductService;
+import com.commerce.common.util.SecurityUtil;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+
+@Controller
+@RequestMapping("/orders")
+@RequiredArgsConstructor
+@Slf4j
+public class OrderController {
+
+    private final CartService cartService;
+    private final SecurityUtil securityUtil;
+    private final OrderService orderService;
+    private final OrderMapper orderMapper;
+    private final ProductService productService;
+
+    @Value("${toss.payments.client-key}")
+    private String tossClientKey;
+
+    @GetMapping("/cart")
+    public String cartOrder(Model model) {
+        // 1. cartProduct에서 선택한 상품 찾고 모델에 담기
+        List<CartProduct> cartProducts = cartService.getSelectedProduct();
+        List<OrderItemDTO> dto = orderMapper.toOrderItemDTOFromCart(cartProducts);
+        model.addAttribute("orderItems", dto);
+
+        // 2. 사용자 기본 정보 모델에 담기
+        User user = securityUtil.getCurrentUser();
+        OrderCreateRequestDTO orderDTO = setBasicUserInfo(user);
+        orderDTO.setOrderType(OrderType.CART);
+        model.addAttribute("orderForm", orderDTO);
+
+        // 3. 주문 가격
+        int totalPrice = cartService.getTotalPrice(cartProducts);
+        int deliveryFee = DeliveryPolicy.DELIVERY_FEE;
+        OrderPriceDTO orderPriceDTO = new OrderPriceDTO(totalPrice, deliveryFee, totalPrice + deliveryFee);
+        model.addAttribute("orderPrice", orderPriceDTO);
+
+        // 토스 클라이언트 키
+        model.addAttribute("tossClientKey", tossClientKey);
+
+        return "order";
+    }
+
+
+    @GetMapping("/buy-now")
+    public String buyNow(Long productId, int quantity, Model model) {
+        // 1. 상품 정보 담기
+        Product product = productService.findById(productId);
+        OrderItemDTO dto = orderMapper.toOrderItemDTOFromCart(product,quantity);
+        model.addAttribute("orderItems", List.of(dto));
+
+        // 2. 사용자 기본 정보 모델에 담기
+        User user = securityUtil.getCurrentUser();
+        OrderCreateRequestDTO orderDTO = setBasicUserInfo(user);
+        orderDTO.setOrderType(OrderType.BUY_NOW);
+        orderDTO.setProductId(productId);
+        orderDTO.setQuantity(quantity);
+        model.addAttribute("orderForm", orderDTO);
+
+        // 3. 주문 가격
+        int totalPrice = product.getPrice() * quantity;
+        int deliveryFee = DeliveryPolicy.DELIVERY_FEE;
+        OrderPriceDTO orderPriceDTO = new OrderPriceDTO(totalPrice, deliveryFee, totalPrice + deliveryFee);
+        model.addAttribute("orderPrice", orderPriceDTO);
+
+        // 토스 클라이언트 키
+        model.addAttribute("tossClientKey", tossClientKey);
+
+        return "order";
+    }
+
+
+    @GetMapping("/list")
+    public String viewOrderList(@RequestParam(defaultValue = "0") int page, Model model) {
+        User user = securityUtil.getCurrentUser();
+        int size = 10; // page 사이즈
+        Page<OrderResponseDTO> dtoPage = orderService.findOrderList(user, PageRequest.of(page, size));
+        model.addAttribute("page", dtoPage);
+
+        return "order-list";
+    }
+
+    @GetMapping("/detail/{orderNumber}")
+    public String orderDetail(@PathVariable String orderNumber, Model model) {
+        Orders order = orderService.findByOrderNumber(orderNumber);
+        User currentUser = securityUtil.getCurrentUser();
+
+        if (!order.getUser().getId().equals(currentUser.getId())) {
+            throw new org.springframework.security.access.AccessDeniedException("접근 권한이 없습니다.");
+        }
+
+        OrderDetailResponseDTO dto = orderMapper.toOrderDetailResponseDTO(order, currentUser);
+        model.addAttribute("order", dto);
+        return "order-list-detail";
+    }
+
+
+    private OrderCreateRequestDTO setBasicUserInfo(User user) {
+        OrderCreateRequestDTO orderDTO = new OrderCreateRequestDTO();
+        orderDTO.setAddress(user.getAddress());
+        orderDTO.setPhone(user.getPhone());
+        orderDTO.setName(user.getName());
+        orderDTO.setCustomerKey(user.getCustomerPaymentKey());
+        return orderDTO;
+    }
+
+}
