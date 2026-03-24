@@ -1,0 +1,80 @@
+package com.commerce.product.dto;
+
+import java.util.ArrayList;
+import java.util.List;
+
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.stereotype.Component;
+
+import com.commerce.admin.domain.Admin;
+import com.commerce.product.domain.Product;
+import com.commerce.admin.dto.AdminProductListDTO;
+import com.commerce.common.util.ProductImageUtil;
+
+import lombok.RequiredArgsConstructor;
+
+@Component
+@RequiredArgsConstructor
+public class ProductMapper {
+
+	@Value("${file.url-path}")
+	private String baseUrl;
+	private final ProductImageUtil productImageUtil;
+
+	public Product toEntity(ProductDTO dto, Admin admin) {
+		Product product = new Product(admin, dto.getPrice(), dto.getName(), dto.getStock(), dto.getDescription());
+		return product;
+	}
+
+	public List<AdminProductListDTO> toAdminResponseDTO(List<Product> products) {
+		List<AdminProductListDTO> result = new ArrayList<>();
+
+		for (Product product : products) {
+			result.add(toAdminResponseDTO(product));
+		}
+		return result;
+	}
+
+	public AdminProductListDTO toAdminResponseDTO(Product product) {
+		AdminProductListDTO dto = new AdminProductListDTO();
+		dto.setId(product.getId());
+		dto.setName(product.getName());
+		dto.setPrice(product.getPrice());
+		dto.setStock(product.getStock());
+		dto.setCreatedAt(product.getCreatedAt());
+		dto.setMainImageUrl(
+			productImageUtil.getMainImageUrl(product));
+
+		dto.setFeatured(product.isFeatured());
+		dto.setFeaturedRank(product.getFeaturedRank());
+
+		return dto;
+	}
+
+	public ProductResponseDTO toProductResponseDTO(Product product) {
+		ProductResponseDTO dto = new ProductResponseDTO();
+		dto.setId(product.getId());
+		dto.setName(product.getName());
+		dto.setPrice(product.getPrice());
+		dto.setStock(product.getStock());
+		dto.setCreatedAt(product.getCreatedAt());
+		dto.setMainImageUrl(productImageUtil.getMainImageUrl(product));
+		dto.setImages(
+			product.getImages().stream()
+				.map(image -> new ImageResponseDTO(image.getId(), baseUrl + image.getStoreFileName()))
+				.toList()
+		);
+		return dto;
+	}
+
+
+	public ProductDetailDTO toProductDetailDTO(Product product) {
+		String mainImageUrl = productImageUtil.getMainImageUrl(product);
+		List<String> images = productImageUtil.getSubImagesUrl(product);
+
+		return new ProductDetailDTO(
+			product.getId(), product.getPrice(), product.getName(), mainImageUrl, images, product.getDescription());
+	}
+
+
+}
