@@ -1,10 +1,11 @@
 package com.commerce.service;
 
 import com.commerce.config.IntegrationTest;
-import com.commerce.dto.ProductHomeDTO;
-import com.commerce.repository.OrderProductRepository;
-import com.commerce.repository.ProductRepository;
-import com.commerce.support.ProductCachePolicy;
+import com.commerce.product.dto.ProductHomeDTO;
+import com.commerce.order.repository.OrderProductRepository;
+import com.commerce.product.repository.ProductRepository;
+import com.commerce.common.support.ProductCachePolicy;
+import com.commerce.product.service.ProductService;
 import lombok.extern.slf4j.Slf4j;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;

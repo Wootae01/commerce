@@ -22,16 +22,18 @@ import org.springframework.transaction.support.TransactionTemplate;
 import org.wiremock.spring.EnableWireMock;
 
 import com.commerce.config.IntegrationTest;
-import com.commerce.domain.Orders;
-import com.commerce.domain.Product;
-import com.commerce.domain.User;
-import com.commerce.domain.enums.OrderType;
-import com.commerce.domain.enums.RoleType;
-import com.commerce.dto.OrderCreateRequestDTO;
-import com.commerce.dto.PayConfirmDTO;
-import com.commerce.repository.ProductRepository;
-import com.commerce.repository.UserRepository;
-import com.commerce.util.SecurityUtil;
+import com.commerce.order.domain.Orders;
+import com.commerce.product.domain.Product;
+import com.commerce.user.domain.User;
+import com.commerce.common.enums.OrderType;
+import com.commerce.common.enums.RoleType;
+import com.commerce.order.dto.OrderCreateRequestDTO;
+import com.commerce.payment.dto.PayConfirmDTO;
+import com.commerce.product.repository.ProductRepository;
+import com.commerce.user.repository.UserRepository;
+import com.commerce.common.util.SecurityUtil;
+import com.commerce.payment.service.PayService;
+import com.commerce.order.service.OrderService;
 
 import lombok.extern.slf4j.Slf4j;
 
