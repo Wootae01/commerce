@@ -1,39 +1,42 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="ko" xmlns:th="http://www.thymeleaf.org">
 <head>
     <meta charset="UTF-8">
     <title>Title</title>
 </head>
 <body>
 <div th:fragment="adminHeader">
-    <nav class="navbar navbar-expand-lg bg-body-tertiary">
-        <div class="container-fluid">
-            <a class="navbar-brand" href="/admin/dashboard">관리자 Dashboard</a>
-            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarSupportedContent" aria-controls="navbarSupportedContent" aria-expanded="false" aria-label="Toggle navigation">
+    <nav class="navbar navbar-expand-lg navbar-dark shadow-sm" style="background-color: #1a1a2e;">
+        <div class="container-fluid px-4">
+            <a class="navbar-brand fw-bold fs-5" href="/admin/dashboard" style="letter-spacing:-0.5px;">
+                Commerce<span style="color:#4d9fff;">.</span>
+                <span class="badge ms-2 fw-normal" style="background:rgba(77,159,255,0.2); color:#4d9fff; font-size:0.65rem; border-radius:6px; padding:3px 8px;">ADMIN</span>
+            </a>
+
+            <button class="navbar-toggler border-0" type="button"
+                    data-bs-toggle="collapse" data-bs-target="#adminNavbar"
+                    aria-controls="adminNavbar" aria-expanded="false" aria-label="Toggle navigation">
                 <span class="navbar-toggler-icon"></span>
             </button>
-            <div class="collapse navbar-collapse" id="navbarSupportedContent">
-                <ul class="navbar-nav ms-auto mb-2 mb-lg-0">
-                    <li class="nav-item">
-                        <a class="nav-link" href="/admin/products">상품 관리</a>
-                    </li>
 
+            <div class="collapse navbar-collapse" id="adminNavbar">
+                <ul class="navbar-nav ms-auto mb-2 mb-lg-0 align-items-lg-center gap-1">
                     <li class="nav-item">
-                        <a class="nav-link" href="/admin/orders">주문 관리</a>
+                        <a class="nav-link px-3" href="/admin/products">상품 관리</a>
                     </li>
-
                     <li class="nav-item">
-                        <a class="nav-link" href="/login">문의 관리</a>
+                        <a class="nav-link px-3" href="/admin/orders">주문 관리</a>
                     </li>
-
-                    <li class="nav-item">
-                        <a class="nav-link" href="/login">통계</a>
+                    <li class="nav-item ms-1">
+                        <a href="/" class="btn btn-sm px-3"
+                           style="background:rgba(255,255,255,0.1); color:#fff; border:1px solid rgba(255,255,255,0.2); border-radius:8px;">
+                            사이트로 이동
+                        </a>
                     </li>
                 </ul>
             </div>
         </div>
     </nav>
 </div>
-
 </body>
 </html>

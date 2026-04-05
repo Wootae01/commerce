@@ -40,14 +40,7 @@
 
         <div class="mb-3">
             <label class="form-label">옵션</label>
-            <div id="optionList">
-                <div class="d-flex gap-2 mb-2 option-row">
-                    <input type="text" name="productOptionDTOList[0].name" placeholder="옵션명 (예: M+블랙)" class="form-control">
-                    <input type="number" name="productOptionDTOList[0].stock" placeholder="재고" class="form-control" style="width: 120px;">
-                    <input type="number" name="productOptionDTOList[0].additionalPrice" placeholder="추가금액" class="form-control" style="width: 120px;">
-                    <button type="button" class="btn btn-outline-danger" onclick="removeOption(this)">삭제</button>
-                </div>
-            </div>
+            <div id="optionList"></div>
             <button type="button" class="btn btn-outline-secondary btn-sm mt-1" onclick="addOption()">+ 옵션 추가</button>
         </div>
 

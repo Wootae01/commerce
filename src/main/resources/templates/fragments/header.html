@@ -7,48 +7,57 @@
 </head>
 <body>
 <div th:fragment="siteHeader">
-    <nav class="navbar navbar-expand-lg bg-body-tertiary">
-        <div class="container-fluid">
-            <a class="navbar-brand" href="/">Commerce</a>
-            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarSupportedContent" aria-controls="navbarSupportedContent" aria-expanded="false" aria-label="Toggle navigation">
+    <nav class="navbar navbar-expand-lg navbar-dark shadow-sm" style="background-color: #1a1a2e;">
+        <div class="container">
+            <!-- 브랜드 -->
+            <a class="navbar-brand fw-bold fs-4" href="/" style="letter-spacing:-0.5px;">
+                Commerce<span style="color:#0d6efd;">.</span>
+            </a>
+
+            <button class="navbar-toggler border-0" type="button"
+                    data-bs-toggle="collapse" data-bs-target="#navbarMain"
+                    aria-controls="navbarMain" aria-expanded="false" aria-label="Toggle navigation">
                 <span class="navbar-toggler-icon"></span>
             </button>
-            <div class="collapse navbar-collapse" id="navbarSupportedContent">
+
+            <div class="collapse navbar-collapse" id="navbarMain">
                 <!-- 검색 -->
-                <form class="d-flex" role="search" th:action="@{/products/search}" method="get">
-                    <input class="form-control me-2" type="search" name="keyword" placeholder="상품 검색" aria-label="Search"/>
-                    <button class="btn btn-outline-success" type="submit">검색</button>
+                <form class="d-flex mx-auto my-2 my-lg-0"
+                      style="width:100%; max-width:380px;"
+                      role="search" th:action="@{/products/search}" method="get">
+                    <div class="input-group">
+                        <input class="form-control border-0"
+                               style="background:rgba(255,255,255,0.12); color:#fff; border-radius:8px 0 0 8px;"
+                               type="search" name="keyword" placeholder="상품 검색...">
+                        <button class="btn px-3" type="submit"
+                                style="background:#4d9fff; color:#fff; border-radius:0 8px 8px 0;">검색</button>
+                    </div>
                 </form>
 
-                <ul class="navbar-nav ms-auto mb-2 mb-lg-0">
-                    <li class="nav-item">
-                        <a class="nav-link" href="#">마이 페이지</a>
-                    </li>
-
-                    <li class="nav-item">
-                        <a class="nav-link" href="/cart">장바구니</a>
+                <!-- 메뉴 -->
+                <ul class="navbar-nav ms-auto mb-2 mb-lg-0 align-items-lg-center gap-1">
+                    <li class="nav-item" sec:authorize="isAuthenticated()">
+                        <a class="nav-link px-2" href="/cart">🛒 장바구니</a>
                     </li>
                     <li class="nav-item" sec:authorize="isAuthenticated()">
-                        <a class="nav-link" href="/orders/list">주문내역</a>
+                        <a class="nav-link px-2" href="/orders/list">📦 주문내역</a>
                     </li>
                     <li class="nav-item" sec:authorize="isAuthenticated()">
-                        <a class="nav-link" href="/user/edit">내 정보 수정</a>
+                        <a class="nav-link px-2" href="/user/edit">👤 내 정보</a>
                     </li>
-
                     <li class="nav-item" sec:authorize="isAnonymous()">
-                        <a class="nav-link" href="/login">로그인 / 회원가입</a>
+                        <a class="btn btn-sm ms-1 px-3" style="background:#4d9fff; color:#fff; border:none; border-radius:8px;" href="/login">로그인</a>
                     </li>
                     <li class="nav-item" sec:authorize="isAuthenticated()">
-                        <form th:action="@{/logout}" method="post">
-                            <button type="submit" class="nav-link btn btn-link text-decoration-none">로그아웃</button>
+                        <form th:action="@{/logout}" method="post" class="d-inline">
+                            <button type="submit"
+                                    class="btn btn-sm ms-1 px-3" style="background:#4d9fff; color:#fff; border:none; border-radius:8px;">로그아웃</button>
                         </form>
                     </li>
                 </ul>
-
             </div>
         </div>
     </nav>
 </div>
-
 </body>
 </html>
