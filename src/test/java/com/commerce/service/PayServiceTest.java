@@ -133,7 +133,7 @@ class PayServiceTest {
 		product = productRepository.save(product);
 
 		// 카트 담기
-		cartService.addCart(product.getId(), quantity);
+		cartService.addCart(product.getId(), null, quantity);
 
 		// 주문 준비
 		OrderCreateRequestDTO dto = new OrderCreateRequestDTO();
