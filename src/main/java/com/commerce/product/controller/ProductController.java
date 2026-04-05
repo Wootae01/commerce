@@ -3,6 +3,7 @@ package com.commerce.product.controller;
 import com.commerce.product.domain.Product;
 import com.commerce.common.enums.ProductSortType;
 import com.commerce.common.enums.SalesPeriod;
+import com.commerce.product.domain.ProductOption;
 import com.commerce.product.dto.ProductDetailDTO;
 import com.commerce.product.dto.ProductHomeDTO;
 import com.commerce.product.dto.ProductSearchRequest;
@@ -18,6 +19,8 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 
+import java.util.List;
+
 @Controller
 @RequiredArgsConstructor
 @RequestMapping("/products")
@@ -30,7 +33,8 @@ public class ProductController {
     @GetMapping("/{id}")
     public String getProductDetail(@PathVariable Long id, Model model) {
         Product product = productService.findByIdWithImage(id);
-        ProductDetailDTO dto = productMapper.toProductDetailDTO(product);
+        List<ProductOption> options = productService.findOptionsByProductId(id);
+        ProductDetailDTO dto = productMapper.toProductDetailDTO(product, options);
 
         model.addAttribute("product", dto);
         return "product-detail";

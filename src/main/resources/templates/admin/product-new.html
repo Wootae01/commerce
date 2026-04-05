@@ -33,12 +33,22 @@
             </div>
         </div>
 
-        <div class="mb-3">
+        <div class="mb-3" id="stockField">
             <label class="form-label">재고</label>
-            <input type="text" th:field="*{stock}" placeholder="수량을 입력하세요" class="form-control" th:errorclass="field-error">
-            <div th:errors="*{stock}" th:errorclass="field-error">
-                재고 오류
+            <input type="number" th:field="*{stock}" placeholder="재고를 입력하세요" class="form-control" min="0">
+        </div>
+
+        <div class="mb-3">
+            <label class="form-label">옵션</label>
+            <div id="optionList">
+                <div class="d-flex gap-2 mb-2 option-row">
+                    <input type="text" name="productOptionDTOList[0].name" placeholder="옵션명 (예: M+블랙)" class="form-control">
+                    <input type="number" name="productOptionDTOList[0].stock" placeholder="재고" class="form-control" style="width: 120px;">
+                    <input type="number" name="productOptionDTOList[0].additionalPrice" placeholder="추가금액" class="form-control" style="width: 120px;">
+                    <button type="button" class="btn btn-outline-danger" onclick="removeOption(this)">삭제</button>
+                </div>
             </div>
+            <button type="button" class="btn btn-outline-secondary btn-sm mt-1" onclick="addOption()">+ 옵션 추가</button>
         </div>
 
         <div class="mb-3">
@@ -61,5 +71,41 @@
 
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        function updateStockVisibility() {
+            const hasOptions = document.querySelectorAll('#optionList .option-row').length > 0;
+            document.getElementById('stockField').style.display = hasOptions ? 'none' : '';
+        }
+
+        function addOption() {
+            const list = document.getElementById('optionList');
+            const index = list.querySelectorAll('.option-row').length;
+            const row = document.createElement('div');
+            row.className = 'd-flex gap-2 mb-2 option-row';
+            row.innerHTML = `
+                <input type="text" name="productOptionDTOList[${index}].name" placeholder="옵션명 (예: M+블랙)" class="form-control">
+                <input type="number" name="productOptionDTOList[${index}].stock" placeholder="재고" class="form-control" style="width: 120px;">
+                <input type="number" name="productOptionDTOList[${index}].additionalPrice" placeholder="추가금액" class="form-control" style="width: 120px;">
+                <button type="button" class="btn btn-outline-danger" onclick="removeOption(this)">삭제</button>
+            `;
+            list.appendChild(row);
+            updateStockVisibility();
+        }
+
+        function removeOption(btn) {
+            const row = btn.closest('.option-row');
+            row.remove();
+            reindex();
+            updateStockVisibility();
+        }
+
+        function reindex() {
+            document.querySelectorAll('#optionList .option-row').forEach((row, i) => {
+                row.querySelectorAll('input').forEach(input => {
+                    input.name = input.name.replace(/\[\d+\]/, `[${i}]`);
+                });
+            });
+        }
+    </script>
 </body>
 </html>

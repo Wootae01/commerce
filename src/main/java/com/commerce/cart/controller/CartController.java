@@ -31,10 +31,10 @@ public class CartController {
 	}
 
 	@PostMapping("/add/{productId}")
-	public String addProduct(@PathVariable Long productId, @Min(1) int quantity,
+	public String addProduct(@PathVariable Long productId, @RequestParam(required = false) Long productOptionId, @Min(1) int quantity,
 		@RequestHeader(value = "Referer", required = false) String referer) {
 
-		cartService.addCart(productId, quantity);
+		cartService.addCart(productId, productOptionId, quantity);
 		return "redirect:" + referer;
 	}
 

@@ -1,14 +1,17 @@
 package com.commerce.product.service;
 
+import com.commerce.admin.dto.ProductOptionDTO;
 import com.commerce.product.domain.Image;
 import com.commerce.product.domain.Product;
 import com.commerce.common.enums.OrderStatus;
 import com.commerce.common.enums.ProductSortType;
+import com.commerce.product.domain.ProductOption;
 import com.commerce.product.dto.*;
 import com.commerce.admin.dto.AdminProductListDTO;
 import com.commerce.product.repository.ImageRepository;
 import com.commerce.order.repository.OrderProductRepository;
 import com.commerce.product.repository.ProductJdbcRepository;
+import com.commerce.product.repository.ProductOptionRepository;
 import com.commerce.product.repository.ProductRepository;
 import com.commerce.common.exception.EntityNotFoundException;
 import com.commerce.common.storage.FileStorage;
@@ -32,6 +35,7 @@ import java.io.IOException;
 import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.*;
+import java.util.stream.Collectors;
 
 import static com.commerce.common.support.ProductCachePolicy.*;
 
@@ -45,6 +49,7 @@ public class ProductService {
     private final ImageRepository imageRepository;
     private final ProductJdbcRepository productJdbcRepository;
     private final OrderProductRepository orderProductRepository;
+    private final ProductOptionRepository productOptionRepository;
 
     private final CacheTemplate cacheTemplate;
 
@@ -155,6 +160,20 @@ public class ProductService {
                 .orElseThrow(() -> new EntityNotFoundException("해당 상품을 찾을 수 없습니다."));
     }
 
+    public List<ProductOption> findOptionsByProductId(Long id) {
+        return productOptionRepository.findByProductId(id);
+    }
+
+    public ProductOption findOptionById(Long id) {
+        return productOptionRepository.findById(id)
+                .orElseThrow(() -> new EntityNotFoundException("해당 옵션을 찾을 수 없습니다."));
+    }
+
+    public Product findByIdWithOptions(Long id) {
+        return productRepository.findByIdWithOptions(id)
+                .orElseThrow(() -> new EntityNotFoundException("해당 상품을 찾을 수 없습니다."));
+    }
+
     // 모든 상품 검색
 
     public Page<AdminProductListDTO> findAdminProductListDTO(Pageable pageable) {
@@ -235,7 +254,7 @@ public class ProductService {
     public void updateProduct(Long id, ProductResponseDTO updatedProduct, List<Long> deleteImageIds,
                               MultipartFile mainFile, List<MultipartFile> files) throws IOException {
 
-        Product product = productRepository.findById(id)
+        Product product = productRepository.findByIdWithOptions(id)
             .orElseThrow(() -> new EntityNotFoundException("해당 상품을 찾을 수 없습니다."));
         product.update(
             updatedProduct.getPrice(),
@@ -243,6 +262,27 @@ public class ProductService {
             updatedProduct.getName(),
             updatedProduct.getDescription()
         );
+
+        List<ProductOptionDTO> optionDTOList = updatedProduct.getProductOptionDTOList() == null
+            ? List.of()
+            : updatedProduct.getProductOptionDTOList().stream()
+                .filter(o -> o.getName() != null && !o.getName().isBlank())
+                .toList();
+        Map<Long, ProductOption> existingOptions = product.getOptions().stream()
+            .collect(Collectors.toMap(ProductOption::getId, o -> o));
+
+        Set<Long> incomingIds = new HashSet<>();
+        for (ProductOptionDTO dto : optionDTOList) {
+            // 기존에 있는 옵션이면 업데이트, 아니면 옵션 추가
+            if (dto.getId() != null && existingOptions.containsKey(dto.getId())) {
+                existingOptions.get(dto.getId()).update(dto.getName(), dto.getStock(), dto.getAdditionalPrice());
+                incomingIds.add(dto.getId());
+            } else {
+                product.addOption(new ProductOption(dto.getName(), dto.getStock(), dto.getAdditionalPrice()));
+            }
+        }
+        // DTO에 없는 기존 옵션 삭제
+        product.getOptions().removeIf(o -> !incomingIds.contains(o.getId()));
 
         // 서브 이미지 삭제
         if (deleteImageIds != null && !deleteImageIds.isEmpty()) {
@@ -270,6 +310,7 @@ public class ProductService {
         // 여러 이미지 저장
         List<UploadFile> uploadFiles = new ArrayList<>();
         for (MultipartFile file : files) {
+            if (file == null || file.isEmpty()) continue;
             uploadFiles.add(fileStorage.storeImage(file));
         }
 

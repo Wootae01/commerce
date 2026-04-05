@@ -40,4 +40,5 @@ public class OrderCreateRequestDTO {
     // 즉시 구매일 때만 사용
     private Long productId;
     private int quantity;
+    private Long optionId;
 }

@@ -20,12 +20,6 @@ import com.commerce.product.dto.ProductMainImageRow;
 
 public interface ProductRepository extends JpaRepository<Product, Long> {
 
-	@Modifying
-	@Query("update Product p set p.stock = p.stock - :quantity where p.id = :id and p.stock > :quantity")
-	int decreaseStock(Long id, int quantity);
-
-
-
 	@Query("""
 	  select new com.commerce.product.dto.ProductMainImageRow(p.id, mi.storeFileName)
 	  from Product p
@@ -64,11 +58,13 @@ public interface ProductRepository extends JpaRepository<Product, Long> {
 	List<ProductHomeDTO> findHomeProductsByFeatured();
 
 
-	@Query("""
-				select new com.commerce.admin.dto.AdminProductListDTO(p.id, p.name, p.price, p.stock, mi.storeFileName, p.createdAt, p.featured, p.featuredRank)
+	@Query(value = """
+				select new com.commerce.admin.dto.AdminProductListDTO(p.id, p.name, p.price, coalesce(sum(o.stock), 0), mi.storeFileName, p.createdAt, p.featured, p.featuredRank)
 				from Product p
 				left join p.mainImage mi
-		""")
+				left join p.options o
+				group by p.id, p.name, p.price, mi.storeFileName, p.createdAt, p.featured, p.featuredRank
+		""", countQuery = "select count(p) from Product p")
 	Page<AdminProductListDTO> findAdminProductListDTO(Pageable pageable);
 
 	@Query("""
@@ -78,6 +74,14 @@ public interface ProductRepository extends JpaRepository<Product, Long> {
 				where p.id = :productId
 			""")
 	Optional<Product> findByIdWithImage(Long productId);
+
+
+	@Query("""
+				select p from Product p
+				left join fetch p.options
+				where p.id = :productId
+			""")
+	Optional<Product> findByIdWithOptions(@Param("productId") Long productId);
 
 	@Query(value = """
 		select new com.commerce.product.dto.ProductHomeDTO(p.id, mi.storeFileName, p.name, p.price, p.createdAt)

@@ -6,6 +6,7 @@ import java.util.List;
 import java.util.Map;
 import com.commerce.common.exception.BusinessException;
 import com.commerce.common.exception.EntityNotFoundException;
+import com.commerce.product.domain.ProductOption;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
@@ -185,10 +186,13 @@ public class PayController {
 			// 즉시 주문인 경우
 		} else if (dto.getOrderType() == OrderType.BUY_NOW) {
 			Product product = productService.findById(dto.getProductId());
-			OrderItemDTO item = orderMapper.toOrderItemDTOFromCart(product, dto.getQuantity());
+			ProductOption option = dto.getOptionId() != null ? productService.findOptionById(dto.getOptionId()) : null;
+
+			OrderItemDTO item = orderMapper.toOrderItemDTOFromCart(product, dto.getQuantity(), option);
 			model.addAttribute("orderItems", List.of(item));
 
-			int totalPrice = product.getPrice() * dto.getQuantity();
+			int additionalPrice = option != null ? option.getAdditionalPrice() : 0;
+			int totalPrice = (product.getPrice() + additionalPrice) * dto.getQuantity();
 			int deliveryFee = DeliveryPolicy.DELIVERY_FEE;
 			model.addAttribute("orderPrice",
 				new OrderPriceDTO(totalPrice, deliveryFee, totalPrice + deliveryFee));

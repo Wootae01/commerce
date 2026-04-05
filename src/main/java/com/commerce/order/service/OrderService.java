@@ -26,6 +26,7 @@ import com.commerce.product.domain.DeliveryPolicy;
 import com.commerce.order.domain.OrderProduct;
 import com.commerce.order.domain.Orders;
 import com.commerce.product.domain.Product;
+import com.commerce.product.domain.ProductOption;
 import com.commerce.user.domain.User;
 import com.commerce.common.enums.OrderStatus;
 import com.commerce.common.enums.OrderType;
@@ -43,6 +44,7 @@ import com.commerce.order.repository.OrderCartProductJdbcRepository;
 import com.commerce.order.repository.OrderProductJdbcRepository;
 import com.commerce.order.repository.OrderProductRepository;
 import com.commerce.order.repository.OrderRepository;
+import com.commerce.product.repository.ProductOptionRepository;
 import com.commerce.product.repository.ProductRepository;
 import com.commerce.common.util.SecurityUtil;
 
@@ -55,6 +57,7 @@ public class OrderService {
 
 	private final OrderRepository orderRepository;
 	private final CartProductRepository cartProductRepository;
+	private final ProductOptionRepository productOptionRepository;
 	private final SecurityUtil securityUtil;
 	private final ProductRepository productRepository;
 	private final OrderProductRepository orderProductRepository;
@@ -126,6 +129,7 @@ public class OrderService {
 				new OrderProductResponseDTO(
 					r.productId(),
 					r.productName(),
+					r.optionName(),
 					r.quantity(),
 					r.price(),
 					imageUrl
@@ -169,16 +173,27 @@ public class OrderService {
 			.orElseThrow(() -> new EntityNotFoundException("해당 주문이 존재하지 않습니다."));
 	}
 
+	/**
+	 * 바로구매 기반 주문 객체를 생성하고 저장한다. (결제 전 준비 단계)
+	 *
+	 * <p>단일 상품이므로 JDBC 배치가 아닌 JPA cascade로 orderProduct를 함께 저장한다.
+	 */
 	@Transactional
 	public Orders prepareOrderFromBuyNow(OrderCreateRequestDTO dto) {
 		Product product = productRepository.findById(dto.getProductId())
 			.orElseThrow();
 
+		ProductOption option = dto.getOptionId() != null
+			? productOptionRepository.findById(dto.getOptionId()).orElseThrow()
+			: null;
+
 		// 1. 상품 재고 확인
-		validateStock(product, dto.getQuantity());
+		validateStock(product, option, dto.getQuantity());
 
 		// 2. 가격 계산
-		int totalPrice = product.getPrice() * dto.getQuantity();
+		int additionalPrice = option != null ? option.getAdditionalPrice() : 0;
+		int unitPrice = product.getPrice() + additionalPrice;
+		int totalPrice = unitPrice * dto.getQuantity();
 
 		// 3. 주문 이름 생성
 		String orderName = product.getName();
@@ -190,7 +205,8 @@ public class OrderService {
 		OrderProduct orderProduct = OrderProduct.builder()
 			.product(product)
 			.order(orders)
-			.price(product.getPrice())
+			.productOption(option)
+			.price(unitPrice)
 			.quantity(dto.getQuantity())
 			.build();
 
@@ -222,15 +238,19 @@ public class OrderService {
 		List<OrderCartProductRow> orderCartProductRows = new ArrayList<>();
 		for (CartProduct cartProduct : cartProducts) {
 			Product product = cartProduct.getProduct();
+			ProductOption option = cartProduct.getProductOption();
+			int additionalPrice = option != null ? option.getAdditionalPrice() : 0;
+			Long optionId = option != null ? option.getId() : null;
 			orderProductRows.add(
-				new OrderProductRow(orders.getId(), product.getId(),
-					product.getPrice(), cartProduct.getQuantity())
+				new OrderProductRow(orders.getId(), product.getId(), optionId,
+					product.getPrice() + additionalPrice, cartProduct.getQuantity())
 			);
 
 			orderCartProductRows.add(new OrderCartProductRow(orders.getId(), cartProduct.getId()));
 		}
 
-		// 데드락 방지
+		// 여러 트랜잭션이 동시에 같은 product_id에 insert할 때 발생하는 데드락 방지.
+		// productId 오름차순으로 정렬해 모든 트랜잭션이 동일한 순서로 락을 획득하게 한다.
 		orderProductRows.sort(Comparator.comparing(OrderProductRow::productId));
 		orderCartProductRows.sort(Comparator.comparing(OrderCartProductRow::cartProductId));
 
@@ -279,25 +299,27 @@ public class OrderService {
 	private static int getTotalPrice(List<CartProduct> cartProducts) {
 		int sum = 0;
 		for (CartProduct cartProduct : cartProducts) {
-			sum += cartProduct.getProduct().getPrice() * cartProduct.getQuantity();
+			int additionalPrice = cartProduct.getProductOption() != null ? cartProduct.getProductOption().getAdditionalPrice() : 0;
+			sum += (cartProduct.getProduct().getPrice() + additionalPrice) * cartProduct.getQuantity();
 		}
 		return sum;
 	}
 
 	private static void validateStock(List<CartProduct> cartProducts) {
 		for (CartProduct cartProduct : cartProducts) {
-			Product product = cartProduct.getProduct();
-			// 재고 부족한 경우
-			if (product.getStock() - cartProduct.getQuantity() < 0) {
-				throw new BusinessException("재고가 부족합니다.", HttpStatus.BAD_REQUEST);
-			}
+			validateStock(cartProduct.getProduct(), cartProduct.getProductOption(), cartProduct.getQuantity());
 		}
 	}
 
-	private static void validateStock(Product product, int quantity) {
-		int stock = product.getStock();
-		if (stock - quantity < 0) {
-			throw new BusinessException("재고가 부족합니다.", HttpStatus.BAD_REQUEST);
+	private static void validateStock(Product product, ProductOption option, int quantity) {
+		if (option != null) {
+			if (option.getStock() - quantity < 0) {
+				throw new BusinessException("재고가 부족합니다. (옵션: " + option.getName() + ")", HttpStatus.BAD_REQUEST);
+			}
+		} else {
+			if (product.getStock() - quantity < 0) {
+				throw new BusinessException("재고가 부족합니다.", HttpStatus.BAD_REQUEST);
+			}
 		}
 	}
 

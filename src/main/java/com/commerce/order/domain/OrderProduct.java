@@ -2,6 +2,7 @@ package com.commerce.order.domain;
 
 import com.commerce.common.domain.BaseEntity;
 import com.commerce.product.domain.Product;
+import com.commerce.product.domain.ProductOption;
 import jakarta.persistence.*;
 import lombok.AccessLevel;
 import lombok.Builder;
@@ -29,13 +30,18 @@ public class OrderProduct extends BaseEntity{
     @ManyToOne(fetch = FetchType.LAZY)
     private Orders order;
 
+    @JoinColumn(name = "product_option_id")
+    @ManyToOne(fetch = FetchType.LAZY)
+    private ProductOption productOption;
+
     private int quantity;
     private int price;
 
     @Builder
-    private OrderProduct(Product product, Orders order, int quantity, int price) {
+    private OrderProduct(Product product, Orders order, ProductOption productOption, int quantity, int price) {
         this.product = product;
         this.order = order;
+        this.productOption = productOption;
         this.quantity = quantity;
         this.price = price;
     }

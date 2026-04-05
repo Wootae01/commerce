@@ -37,10 +37,13 @@ public class Product extends BaseEntity{
     @OneToMany(mappedBy = "product", orphanRemoval = true, cascade = CascadeType.ALL)
     private List<Image> images = new ArrayList<>();
 
+    @OneToMany(mappedBy = "product", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<ProductOption> options = new ArrayList<>();
+
     private int price;
+    private int stock;
 
     private String name;
-    private int stock;
     private String description;
 
     private boolean featured = false;
@@ -49,12 +52,21 @@ public class Product extends BaseEntity{
 
     public Product() {}
 
-    public Product(Admin admin, int price, String name, int stock, String description) {
+    public Product(Admin admin, int price, int stock, String name, String description) {
         this.admin = admin;
         this.price = price;
-        this.name = name;
         this.stock = stock;
+        this.name = name;
         this.description = description;
+    }
+
+    public void addOption(ProductOption productOption) {
+        options.add(productOption);
+        productOption.setProduct(this);
+    }
+
+    public void deductStock(int quantity) {
+        this.stock -= quantity;
     }
 
     public void update(int price, int stock, String name, String description) {

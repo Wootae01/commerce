@@ -182,10 +182,14 @@ public class PayService {
 		order.setApprovedAt(approvedAt);
 
 		// 재고 차감
-		List<OrderProduct> orderProducts = order.getOrderProducts();
-		for (OrderProduct orderProduct : orderProducts) {
-			Product product = orderProduct.getProduct();
-			productRepository.decreaseStock(product.getId(), orderProduct.getQuantity());
+		Orders orderWithProducts = orderRepository.findByOrderNumberWithProduct(req.getOrderId())
+			.orElseThrow();
+		for (OrderProduct orderProduct : orderWithProducts.getOrderProducts()) {
+			if (orderProduct.getProductOption() != null) {
+				orderProduct.getProductOption().deductStock(orderProduct.getQuantity());
+			} else {
+				orderProduct.getProduct().deductStock(orderProduct.getQuantity());
+			}
 		}
 
 		// 장바구니 삭제

@@ -19,4 +19,5 @@ public class OrderItemDTO {
 	private int totalPrice;
 	private String mainImageUrl;
 	private String name;
+	private String optionName;
 }

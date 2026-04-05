@@ -14,6 +14,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 
 import com.commerce.cart.domain.CartProduct;
 import com.commerce.product.domain.DeliveryPolicy;
+import com.commerce.product.domain.ProductOption;
 import com.commerce.order.domain.Orders;
 import com.commerce.product.domain.Product;
 import com.commerce.user.domain.User;
@@ -73,10 +74,11 @@ public class OrderController {
 
 
     @GetMapping("/buy-now")
-    public String buyNow(Long productId, int quantity, Model model) {
+    public String buyNow(Long productId, @RequestParam(required = false) Long optionId, int quantity, Model model) {
         // 1. 상품 정보 담기
         Product product = productService.findById(productId);
-        OrderItemDTO dto = orderMapper.toOrderItemDTOFromCart(product,quantity);
+        ProductOption option = optionId != null ? productService.findOptionById(optionId) : null;
+        OrderItemDTO dto = orderMapper.toOrderItemDTOFromCart(product, quantity, option);
         model.addAttribute("orderItems", List.of(dto));
 
         // 2. 사용자 기본 정보 모델에 담기
@@ -85,10 +87,12 @@ public class OrderController {
         orderDTO.setOrderType(OrderType.BUY_NOW);
         orderDTO.setProductId(productId);
         orderDTO.setQuantity(quantity);
+        orderDTO.setOptionId(optionId);
         model.addAttribute("orderForm", orderDTO);
 
         // 3. 주문 가격
-        int totalPrice = product.getPrice() * quantity;
+        int additionalPrice = option != null ? option.getAdditionalPrice() : 0;
+        int totalPrice = (product.getPrice() + additionalPrice) * quantity;
         int deliveryFee = DeliveryPolicy.DELIVERY_FEE;
         OrderPriceDTO orderPriceDTO = new OrderPriceDTO(totalPrice, deliveryFee, totalPrice + deliveryFee);
         model.addAttribute("orderPrice", orderPriceDTO);
@@ -115,6 +119,8 @@ public class OrderController {
         Orders order = orderService.findByOrderNumber(orderNumber);
         User currentUser = securityUtil.getCurrentUser();
 
+        // 타인의 주문 번호를 직접 입력하는 경우를 막기 위해
+        // 주문 소유자와 현재 로그인 사용자가 일치하는지 직접 검증한다.
         if (!order.getUser().getId().equals(currentUser.getId())) {
             throw new org.springframework.security.access.AccessDeniedException("접근 권한이 없습니다.");
         }

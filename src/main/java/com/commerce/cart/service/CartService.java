@@ -5,6 +5,8 @@ import java.util.Optional;
 
 import com.commerce.common.exception.EntityNotFoundException;
 import com.commerce.common.util.ProductImageUtil;
+import com.commerce.product.domain.ProductOption;
+import com.commerce.product.repository.ProductOptionRepository;
 import org.springframework.stereotype.Service;
 
 import com.commerce.cart.domain.Cart;
@@ -28,6 +30,7 @@ public class CartService {
 	private final ProductRepository productRepository;
 	private final SecurityUtil securityUtil;
 	private final ProductImageUtil productImageUtil;
+	private final ProductOptionRepository productOptionRepository;
 
 	public List<CartProduct> findAllByIdWithProduct(List<Long> cartProductIds) {
 		return cartProductRepository.findAllByIdWithProduct(cartProductIds);
@@ -67,39 +70,40 @@ public class CartService {
 	}
 
 	public List<CartProduct> getSelectedProduct() {
-
 		User user = securityUtil.getCurrentUser();
-		Cart cart = cartRepository.findByUser(user)
-				.orElseThrow(() -> new EntityNotFoundException("카트가 존재하지 않습니다."));
-
-		List<CartProduct> cartProducts = cart.getCartProducts();
-
-        return cartProducts.stream()
-                .filter(CartProduct::isChecked)
-                .toList();
+		return cartProductRepository.findCheckedByUser(user);
 	}
 
-	public void addCart(Long productId, int quantity) {
+	public void addCart(Long productId, Long productOptionId, int quantity) {
 		Product product = productRepository.findById(productId)
 			.orElseThrow(() -> new EntityNotFoundException("해당 상품이 존재하지 않습니다."));
+
+		ProductOption productOption = null;
+		if (productOptionId != null) {
+			productOption = productOptionRepository.findById(productOptionId)
+					.orElseThrow(() -> new EntityNotFoundException("해당 옵션이 존재하지 않습니다."));
+		}
 
 		User user = securityUtil.getCurrentUser();
 
 		Cart cart = cartRepository.findByUser(user)
 			.orElseGet(() -> new Cart(user));
 
-		// 이미 존재하는 상품은 수량만 증가
-		List<CartProduct> cartProducts = cart.getCartProducts();
+		// 같은 상품 + 같은 옵션이면 수량만 증가
+		List<CartProduct> cartProducts = cartProductRepository.findByCartIdWithProductAndOption(cart.getId());
 		for (CartProduct cartProduct : cartProducts) {
-			if (cartProduct.getProduct().getId().equals(productId)) {
+			boolean sameProduct = cartProduct.getProduct().getId().equals(productId);
+			boolean sameOption = (cartProduct.getProductOption() == null && productOptionId == null)
+					|| (cartProduct.getProductOption() != null && cartProduct.getProductOption().getId().equals(productOptionId));
+			if (sameProduct && sameOption) {
 				cartProduct.addQuantity();
-				cartRepository.save(cart);
+				cartProductRepository.save(cartProduct);
 				return;
 			}
 		}
 
 		// 장바구니에 새 상품 등록
-		CartProduct cartProduct = new CartProduct(cart, product, quantity, false);
+		CartProduct cartProduct = new CartProduct(cart, product, productOption, quantity, false);
 		cart.addProduct(cartProduct);
 
 		cartRepository.save(cart);
@@ -129,19 +133,23 @@ public class CartService {
 	}
 
 	public int getTotalPrice(Long cartId) {
-		Cart cart = cartRepository.findById(cartId)
-			.orElseThrow();
-
-		return cart.getCartProducts().stream()
+		List<CartProduct> cartProducts = cartProductRepository.findByCartIdWithProductAndOption(cartId);
+		return cartProducts.stream()
 			.filter(CartProduct::isChecked)
-			.mapToInt(cp -> cp.getQuantity() * cp.getProduct().getPrice())
+			.mapToInt(cp -> {
+				int additionalPrice = cp.getProductOption() != null ? cp.getProductOption().getAdditionalPrice() : 0;
+				return cp.getQuantity() * (cp.getProduct().getPrice() + additionalPrice);
+			})
 			.sum();
 	}
 
 	public int getTotalPrice(List<CartProduct> cartProducts) {
 		return cartProducts.stream()
 				.filter(CartProduct::isChecked)
-				.mapToInt(cp -> cp.getQuantity() * cp.getProduct().getPrice())
+				.mapToInt(cp -> {
+					int additionalPrice = cp.getProductOption() != null ? cp.getProductOption().getAdditionalPrice() : 0;
+					return cp.getQuantity() * (cp.getProduct().getPrice() + additionalPrice);
+				})
 				.sum();
 	}
 }

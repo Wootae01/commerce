@@ -1,14 +1,14 @@
 package com.commerce.product.dto;
 
-import java.util.ArrayList;
 import java.util.List;
 
+import com.commerce.admin.dto.ProductOptionDTO;
+import com.commerce.product.domain.ProductOption;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 import com.commerce.admin.domain.Admin;
 import com.commerce.product.domain.Product;
-import com.commerce.admin.dto.AdminProductListDTO;
 import com.commerce.common.util.ProductImageUtil;
 
 import lombok.RequiredArgsConstructor;
@@ -21,34 +21,23 @@ public class ProductMapper {
 	private String baseUrl;
 	private final ProductImageUtil productImageUtil;
 
+	public ProductOption toProductOption(ProductOptionDTO dto) {
+        return new ProductOption(dto.getName(), dto.getStock(), dto.getAdditionalPrice());
+	}
+
 	public Product toEntity(ProductDTO dto, Admin admin) {
-		Product product = new Product(admin, dto.getPrice(), dto.getName(), dto.getStock(), dto.getDescription());
-		return product;
-	}
+		List<ProductOptionDTO> optionDTOList = dto.getProductOptionDTOList();
 
-	public List<AdminProductListDTO> toAdminResponseDTO(List<Product> products) {
-		List<AdminProductListDTO> result = new ArrayList<>();
-
-		for (Product product : products) {
-			result.add(toAdminResponseDTO(product));
+		Product product = new Product(admin, dto.getPrice(), dto.getStock(), dto.getName(), dto.getDescription());
+		if (optionDTOList != null) {
+			for (ProductOptionDTO optionDTO : optionDTOList) {
+				if (optionDTO.getName() != null && !optionDTO.getName().isBlank()) {
+					product.addOption(toProductOption(optionDTO));
+				}
+			}
 		}
-		return result;
-	}
 
-	public AdminProductListDTO toAdminResponseDTO(Product product) {
-		AdminProductListDTO dto = new AdminProductListDTO();
-		dto.setId(product.getId());
-		dto.setName(product.getName());
-		dto.setPrice(product.getPrice());
-		dto.setStock(product.getStock());
-		dto.setCreatedAt(product.getCreatedAt());
-		dto.setMainImageUrl(
-			productImageUtil.getMainImageUrl(product));
-
-		dto.setFeatured(product.isFeatured());
-		dto.setFeaturedRank(product.getFeaturedRank());
-
-		return dto;
+		return product;
 	}
 
 	public ProductResponseDTO toProductResponseDTO(Product product) {
@@ -64,16 +53,24 @@ public class ProductMapper {
 				.map(image -> new ImageResponseDTO(image.getId(), baseUrl + image.getStoreFileName()))
 				.toList()
 		);
+		dto.setProductOptionDTOList(
+			product.getOptions().stream()
+				.map(o -> new ProductOptionDTO(o.getId(), o.getName(), o.getStock(), o.getAdditionalPrice()))
+				.toList()
+		);
 		return dto;
 	}
 
 
-	public ProductDetailDTO toProductDetailDTO(Product product) {
+	public ProductDetailDTO toProductDetailDTO(Product product, List<ProductOption> options) {
 		String mainImageUrl = productImageUtil.getMainImageUrl(product);
 		List<String> images = productImageUtil.getSubImagesUrl(product);
+		List<ProductOptionDTO> optionDTOs = options.stream()
+			.map(o -> new ProductOptionDTO(o.getId(), o.getName(), o.getStock(), o.getAdditionalPrice()))
+			.toList();
 
 		return new ProductDetailDTO(
-			product.getId(), product.getPrice(), product.getName(), mainImageUrl, images, product.getDescription());
+			product.getId(), product.getPrice(), product.getName(), mainImageUrl, images, product.getDescription(), optionDTOs);
 	}
 
 

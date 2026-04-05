@@ -16,7 +16,7 @@ public class AdminProductListDTO {
 	private Long id;
 	private String name;
 	private int price;
-	private int stock;
+	private long stock;
 	private String mainImageUrl;
 	private LocalDateTime createdAt;
 

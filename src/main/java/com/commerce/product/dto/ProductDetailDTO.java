@@ -2,8 +2,8 @@ package com.commerce.product.dto;
 
 import java.util.List;
 
+import com.commerce.admin.dto.ProductOptionDTO;
 import lombok.Getter;
-import lombok.Setter;
 
 @Getter
 public class ProductDetailDTO {
@@ -13,15 +13,17 @@ public class ProductDetailDTO {
 	private String mainImageUrl;
 	private List<String> images;
 	private String description;
+	private List<ProductOptionDTO> options;
 
 	public ProductDetailDTO(Long id, int price, String name, String mainImageUrl, List<String> images,
-		String description) {
+		String description, List<ProductOptionDTO> options) {
 		this.id = id;
 		this.price = price;
 		this.name = name;
 		this.mainImageUrl = mainImageUrl;
 		this.images = images;
 		this.description = description;
+		this.options = options;
 	}
 
 }

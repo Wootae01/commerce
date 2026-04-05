@@ -79,7 +79,7 @@ public class AdminProductController {
 	// 상품 수정
 	@GetMapping("/edit/{id}")
 	public String editPage(@PathVariable Long id, Model model) {
-		Product product = productService.findById(id);
+		Product product = productService.findByIdWithOptions(id);
 		ProductResponseDTO dto = productMapper.toProductResponseDTO(product);
 		model.addAttribute("product", dto);
 		model.addAttribute("productId", id);

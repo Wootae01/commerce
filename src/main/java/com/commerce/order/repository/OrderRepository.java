@@ -25,10 +25,14 @@ public interface OrderRepository extends JpaRepository<Orders, Long> {
 
 	Optional<Orders> findByOrderNumber(String orderNumber);
 
+	/**
+	 * 결제 처리 시 동일 주문에 대한 중복 요청을 막기 위해 비관적 락(FOR UPDATE)으로 조회한다.
+	 */
 	@Lock(LockModeType.PESSIMISTIC_WRITE)
 	@Query("select o from Orders o where o.id = :id")
 	Optional<Orders> findByIdWithLock(@Param("id") Long id);
 
+	/** {@link #findByIdWithLock}과 동일하나 orderNumber로 조회한다. */
 	@Lock(LockModeType.PESSIMISTIC_WRITE)
 	@Query("select o from Orders o where o.orderNumber = :orderNumber")
 	Optional<Orders> findByOrderNumberWithLock(@Param("orderNumber") String orderNumber);
@@ -37,10 +41,10 @@ public interface OrderRepository extends JpaRepository<Orders, Long> {
 			select o from Orders o
 			join fetch o.orderProducts op
 			join fetch op.product p
-			left join fetch p.mainImage
-			where o.id = :orderId
+			left join fetch op.productOption
+			where o.orderNumber = :orderNumber
 	""")
-	Optional<Orders> findByOrderNumberWithProduct(Long orderId);
+	Optional<Orders> findByOrderNumberWithProduct(@Param("orderNumber") String orderNumber);
 
 	@Query("""
 		select o from Orders o

@@ -18,15 +18,16 @@ public class OrderProductJdbcRepository {
 	public void batchInsert(List<OrderProductRow> rows) {
 
 		String sql = """
-            insert into order_product (order_id, product_id, price, quantity)
-            values (?, ?, ?, ?)
+            insert into order_product (order_id, product_id, product_option_id, price, quantity)
+            values (?, ?, ?, ?, ?)
         """;
 
 		jdbcTemplate.batchUpdate(sql, rows, 1000, (ps, row) -> {
 			ps.setLong(1, row.orderId());
 			ps.setLong(2, row.productId());
-			ps.setInt(3, row.price());
-			ps.setInt(4, row.quantity());
+			if (row.optionId() != null) ps.setLong(3, row.optionId()); else ps.setNull(3, java.sql.Types.BIGINT);
+			ps.setInt(4, row.price());
+			ps.setInt(5, row.quantity());
 		});
 	}
 }

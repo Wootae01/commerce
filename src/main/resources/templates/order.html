@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+ <!DOCTYPE html>
 <html lang="ko" xmlns:th="http://www.thymeleaf.org">
 <head>
     <meta charset="UTF-8">
@@ -66,6 +66,9 @@
                                         <div class="fw-semibold" th:text="${orderItem.name}">
                                             상품명
                                         </div>
+                                        <div class="text-muted small" th:if="${orderItem.optionName != null}"
+                                             th:text="'옵션: ' + ${orderItem.optionName}">
+                                        </div>
                                         <div class="text-muted small"
                                              th:text="'수량: ' + ${orderItem.quantity} + '개'">
                                             수량: 1개
@@ -75,7 +78,7 @@
 
                                 <!-- 장바구니 주문일 때: cartProductIds 리스트로 바인딩 -->
                                 <input type="hidden"
-                                       th:if="${orderForm.orderType == T(com.commerce.domain.enums.OrderType).CART}"
+                                       th:if="${orderForm.orderType == T(com.commerce.common.enums.OrderType).CART}"
                                        name="cartProductIds"
                                        th:value="${orderItem.id}"/>
                             </td>
@@ -115,10 +118,10 @@
 
                 <!-- 즉시 구매일 때: productId, quantity hidden으로 전송 -->
                 <input type="hidden"
-                       th:if="${orderForm.orderType == T(com.commerce.domain.enums.OrderType).BUY_NOW}"
+                       th:if="${orderForm.orderType == T(com.commerce.common.enums.OrderType).BUY_NOW}"
                        th:field="*{productId}"/>
                 <input type="hidden"
-                       th:if="${orderForm.orderType == T(com.commerce.domain.enums.OrderType).BUY_NOW}"
+                       th:if="${orderForm.orderType == T(com.commerce.common.enums.OrderType).BUY_NOW}"
                        th:field="*{quantity}"/>
 
             </div>

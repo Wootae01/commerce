@@ -59,15 +59,20 @@ public class Orders extends BaseEntity{
     @Enumerated(EnumType.STRING)
     private OrderType orderType;
 
+    /**
+     * 장바구니 주문일 때 연결된 CartProduct ID 목록.
+     * 결제 승인 후 해당 장바구니 상품들을 삭제하는 데 사용한다.
+     * BUY_NOW 주문에서는 비어 있다.
+     */
     @ElementCollection(fetch = FetchType.LAZY)
     @CollectionTable(
         name = "order_cart_product",
         joinColumns = @JoinColumn(name = "order_id")
     )
     @Column(name = "cart_product_id")
-    private List<Long> cartProductIds = new ArrayList<>(); // 카트 주문인 경우 사용. 카트 상품 삭제하는데 사용
+    private List<Long> cartProductIds = new ArrayList<>();
 
-    private LocalDateTime approvedAt; // 결제 승인 날짜
+    private LocalDateTime approvedAt; // Toss Payments 결제 승인 시각
 
     @Builder
     private Orders(User user, String orderName, int finalPrice, String receiverName, String receiverAddress, String orderNumber,

@@ -8,6 +8,7 @@ import org.springframework.stereotype.Component;
 
 import com.commerce.cart.domain.CartProduct;
 import com.commerce.product.domain.DeliveryPolicy;
+import com.commerce.product.domain.ProductOption;
 import com.commerce.order.domain.OrderProduct;
 import com.commerce.order.domain.Orders;
 import com.commerce.product.domain.Product;
@@ -99,20 +100,24 @@ public class OrderMapper {
 	public OrderProductResponseDTO toOrderProductResponseDTO(OrderProduct orderProduct) {
 		Product product = orderProduct.getProduct();
 		String mainImageUrl = productImageUtil.getMainImageUrl(product);
+		String optionName = orderProduct.getProductOption() != null ? orderProduct.getProductOption().getName() : null;
 
-		return new OrderProductResponseDTO(product.getId(), product.getName(), orderProduct.getQuantity(),
+		return new OrderProductResponseDTO(product.getId(), product.getName(), optionName, orderProduct.getQuantity(),
 			orderProduct.getPrice(), mainImageUrl);
 	}
 
-	public OrderItemDTO toOrderItemDTOFromCart(Product product, int quantity) {
+	public OrderItemDTO toOrderItemDTOFromCart(Product product, int quantity, ProductOption option) {
+		int additionalPrice = option != null ? option.getAdditionalPrice() : 0;
+		int unitPrice = product.getPrice() + additionalPrice;
 
 		return OrderItemDTO.builder()
 			.id(product.getId())
 			.quantity(quantity)
-			.unitPrice(product.getPrice())
-			.totalPrice(quantity * product.getPrice())
+			.unitPrice(unitPrice)
+			.totalPrice(quantity * unitPrice)
 			.mainImageUrl(productImageUtil.getMainImageUrl(product))
 			.name(product.getName())
+			.optionName(option != null ? option.getName() : null)
 			.build();
 	}
 
@@ -127,15 +132,19 @@ public class OrderMapper {
 
 	public OrderItemDTO toOrderItemDTOFromCart(CartProduct cartProduct) {
 		Product product = cartProduct.getProduct();
+		ProductOption option = cartProduct.getProductOption();
+		int additionalPrice = option != null ? option.getAdditionalPrice() : 0;
+		int unitPrice = product.getPrice() + additionalPrice;
 		String mainImageUrl = productImageUtil.getMainImageUrl(product);
 
 		return OrderItemDTO.builder()
 			.id(cartProduct.getId())
 			.quantity(cartProduct.getQuantity())
-			.unitPrice(product.getPrice())
-			.totalPrice(product.getPrice() * cartProduct.getQuantity())
+			.unitPrice(unitPrice)
+			.totalPrice(unitPrice * cartProduct.getQuantity())
 			.mainImageUrl(mainImageUrl)
 			.name(product.getName())
+			.optionName(option != null ? option.getName() : null)
 			.build();
 	}
 
