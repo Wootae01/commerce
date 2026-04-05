@@ -13,6 +13,6 @@ public class ProductOptionDTO {
 
     private Long id;
     private String name;
-    private int stock;
-    private int additionalPrice;
+    private Integer stock;
+    private Integer additionalPrice;
 }

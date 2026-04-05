@@ -274,11 +274,13 @@ public class ProductService {
         Set<Long> incomingIds = new HashSet<>();
         for (ProductOptionDTO dto : optionDTOList) {
             // 기존에 있는 옵션이면 업데이트, 아니면 옵션 추가
+            int stock = dto.getStock() != null ? dto.getStock() : 0;
+            int additionalPrice = dto.getAdditionalPrice() != null ? dto.getAdditionalPrice() : 0;
             if (dto.getId() != null && existingOptions.containsKey(dto.getId())) {
-                existingOptions.get(dto.getId()).update(dto.getName(), dto.getStock(), dto.getAdditionalPrice());
+                existingOptions.get(dto.getId()).update(dto.getName(), stock, additionalPrice);
                 incomingIds.add(dto.getId());
             } else {
-                product.addOption(new ProductOption(dto.getName(), dto.getStock(), dto.getAdditionalPrice()));
+                product.addOption(new ProductOption(dto.getName(), stock, additionalPrice));
             }
         }
         // DTO에 없는 기존 옵션 삭제

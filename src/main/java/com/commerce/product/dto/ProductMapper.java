@@ -22,7 +22,9 @@ public class ProductMapper {
 	private final ProductImageUtil productImageUtil;
 
 	public ProductOption toProductOption(ProductOptionDTO dto) {
-        return new ProductOption(dto.getName(), dto.getStock(), dto.getAdditionalPrice());
+        int stock = dto.getStock() != null ? dto.getStock() : 0;
+        int additionalPrice = dto.getAdditionalPrice() != null ? dto.getAdditionalPrice() : 0;
+        return new ProductOption(dto.getName(), stock, additionalPrice);
 	}
 
 	public Product toEntity(ProductDTO dto, Admin admin) {

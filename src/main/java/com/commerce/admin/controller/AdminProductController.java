@@ -65,6 +65,7 @@ public class AdminProductController {
 		@RequestParam(value = "images", required = false) List<MultipartFile> files) throws
 		IOException {
 		if (bindingResult.hasErrors()) {
+			log.warn("상품 등록 검증 오류: {}", bindingResult.getAllErrors());
 			return "admin/product-new";
 		}
 		log.debug("POST /admin/products/new productDTO={}, mainImage={}, images={}", productDTO, mainFile, files);
