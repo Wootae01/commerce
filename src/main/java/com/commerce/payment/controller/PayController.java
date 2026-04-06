@@ -88,7 +88,7 @@ public class PayController {
 	@PostMapping("/prepare")
 	@ResponseBody
 	public ResponseEntity<?> orderPrepare(@Validated @ModelAttribute("orderForm") OrderCreateRequestDTO dto,
-		BindingResult bindingResult, Model model) {
+		BindingResult bindingResult) {
 
 		if (bindingResult.hasErrors()) {
 			log.info("orderPrepare validation failed: errorCount={}", bindingResult.getErrorCount());
@@ -104,7 +104,6 @@ public class PayController {
 			// DTO가 실제로 뭐로 바인딩됐는지도 같이 찍으면 더 확실함
 			log.info("bound dto={}", dto);
 
-			repopulateOrderView(dto, model);
 			return ResponseEntity.badRequest().body(Map.of("message", "입력값 오류"));
 		}
 
@@ -171,31 +170,4 @@ public class PayController {
 		return "order-cancel";
 	}
 
-	private void repopulateOrderView(OrderCreateRequestDTO dto, Model model) {
-		// cart 주문인 경우
-		if (dto.getOrderType() == OrderType.CART) {
-			List<OrderItemDTO> items = cartService.getOrderItemDTOS(dto.getCartProductIds());
-			List<CartProduct> cartProducts = cartService.findAllByIdWithProduct(dto.getCartProductIds());
-			model.addAttribute("orderItems", items);
-
-			int totalPrice = cartService.getTotalPrice(cartProducts);
-			int deliveryFee = DeliveryPolicy.DELIVERY_FEE;
-			model.addAttribute("orderPrice",
-				new OrderPriceDTO(totalPrice, deliveryFee, totalPrice + deliveryFee));
-
-			// 즉시 주문인 경우
-		} else if (dto.getOrderType() == OrderType.BUY_NOW) {
-			Product product = productService.findById(dto.getProductId());
-			ProductOption option = dto.getOptionId() != null ? productService.findOptionById(dto.getOptionId()) : null;
-
-			OrderItemDTO item = orderMapper.toOrderItemDTOFromCart(product, dto.getQuantity(), option);
-			model.addAttribute("orderItems", List.of(item));
-
-			int additionalPrice = option != null ? option.getAdditionalPrice() : 0;
-			int totalPrice = (product.getPrice() + additionalPrice) * dto.getQuantity();
-			int deliveryFee = DeliveryPolicy.DELIVERY_FEE;
-			model.addAttribute("orderPrice",
-				new OrderPriceDTO(totalPrice, deliveryFee, totalPrice + deliveryFee));
-		}
-	}
 }
