@@ -37,6 +37,26 @@ Spring Boot 기반 이커머스 플랫폼
 - Redis 캐시 초기화
 
 
+## 화면 구성
+
+### 사용자
+| 메인 | 상품 상세 |
+|------|---------|
+| ![메인](https://github.com/user-attachments/assets/61668b63-8f6e-4c0a-82aa-3014dbec5e79) | ![상품 상세](https://github.com/user-attachments/assets/6b4c116e-4e1f-4fca-a7c2-a2f8b49221ef) |
+
+| 상품 목록 | 장바구니 |
+|---------|---------|
+| ![상품 목록](https://github.com/user-attachments/assets/9c282c27-b1b5-4872-9079-790985c41ef8) | ![장바구니](https://github.com/user-attachments/assets/cafb6f18-f2d7-4e36-a604-24ddce602c69) |
+
+| 주문/결제 |
+|---------|
+| ![주문](https://github.com/user-attachments/assets/8719fef5-d5cd-4f74-ae47-0e0acce443d8) |
+
+### 관리자
+| 상품 관리 | 주문 관리 |
+|---------|---------|
+| ![상품 관리](https://github.com/user-attachments/assets/44501a1e-fe94-4981-98cf-8cb46a2ac8cf) | ![주문 관리](https://github.com/user-attachments/assets/50cc8f90-c8db-4cac-bdbf-7ee62f8ad642) |
+
 ## 트러블슈팅
  
 ### 1. N+1 쿼리 문제
