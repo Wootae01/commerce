@@ -6,40 +6,37 @@
     <title>장바구니 - Commerce</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <style>
-        .big-checkbox {
-            transform: scale(1.4);
-            cursor: pointer;
+        body { background-color: #f4f6fb; }
+        .cart-card {
+            border: none;
+            border-radius: 16px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.07);
         }
-        .cart-img {
-            width: 64px;
-            height: 64px;
-            object-fit: cover;
-            border-radius: 10px;
-        }
+        .big-checkbox { transform: scale(1.4); cursor: pointer; }
+        .cart-img { width: 64px; height: 64px; object-fit: cover; border-radius: 10px; }
+        .btn-primary { background-color: #4d9fff; border-color: #4d9fff; border-radius: 8px; }
+        .btn-primary:hover { background-color: #3a8de8; border-color: #3a8de8; }
     </style>
 </head>
-<body class="bg-light">
+<body>
 <div th:replace="~{fragments/header :: siteHeader}"></div>
 
 <div class="container py-5" style="max-width: 860px;">
+    <h4 class="fw-bold mb-4">장바구니</h4>
 
-    <h2 class="fw-bold mb-4">🛒 장바구니</h2>
-
-    <div th:if="${#lists.isEmpty(cartProducts)}"
-         class="text-center py-5">
+    <div th:if="${#lists.isEmpty(cartProducts)}" class="text-center py-5">
         <div style="font-size:4rem;">🛒</div>
         <h5 class="mt-3 fw-semibold text-muted">장바구니가 비어있습니다</h5>
-        <a href="/" class="btn btn-primary mt-3 px-4 rounded-pill">쇼핑 계속하기</a>
+        <a href="/" class="btn btn-primary mt-3 px-4">쇼핑 계속하기</a>
     </div>
 
     <div th:if="${!#lists.isEmpty(cartProducts)}">
-        <!-- 상품 테이블 -->
-        <div class="card border-0 shadow-sm rounded-4 mb-4">
+        <div class="card cart-card mb-4">
             <div class="card-body p-0">
                 <table class="table table-hover align-middle mb-0">
                     <thead>
                     <tr class="table-light">
-                        <th class="ps-4 rounded-top-4" style="width:50px;">선택</th>
+                        <th class="ps-4" style="width:50px; border-radius: 16px 0 0 0;">선택</th>
                         <th>상품</th>
                         <th class="text-center" style="width:100px;">수량</th>
                         <th class="text-end pe-4" style="width:120px;">금액</th>
@@ -48,56 +45,33 @@
                     </thead>
                     <tbody>
                     <tr th:each="product : ${cartProducts}">
-                        <!-- 선택 체크박스 -->
                         <td class="ps-4">
                             <form th:action="@{'/cart/select/'+${product.id}}" method="post">
-                                <input type="checkbox"
-                                       name="checked"
-                                       class="form-check-input big-checkbox"
-                                       th:checked="${product.checked}"
-                                       onchange="this.form.submit()">
+                                <input type="checkbox" name="checked" class="form-check-input big-checkbox"
+                                       th:checked="${product.checked}" onchange="this.form.submit()">
                             </form>
                         </td>
-
-                        <!-- 상품 이미지 + 이름 -->
                         <td>
                             <div class="d-flex align-items-center gap-3">
-                                <img th:src="@{${product.mainImageUrl}}"
-                                     alt="상품 이미지" class="cart-img flex-shrink-0">
+                                <img th:src="@{${product.mainImageUrl}}" alt="상품 이미지" class="cart-img flex-shrink-0">
                                 <div>
                                     <div class="fw-semibold" th:text="${product.name}"></div>
-                                    <div class="text-muted small" th:if="${product.optionName != null}"
-                                         th:text="'옵션: ' + ${product.optionName}"></div>
+                                    <div class="text-muted small" th:if="${product.optionName != null}" th:text="'옵션: ' + ${product.optionName}"></div>
                                 </div>
                             </div>
                         </td>
-
-                        <!-- 수량 -->
                         <td class="text-center">
                             <form th:action="@{'/cart/edit/' + ${product.id}}" method="post">
-                                <select name="quantity"
-                                        class="form-select form-select-sm mx-auto"
-                                        style="width:72px;"
-                                        onchange="this.form.submit()">
+                                <select name="quantity" class="form-select form-select-sm mx-auto" style="width:72px;" onchange="this.form.submit()">
                                     <option th:each="i : ${#numbers.sequence(1, 10)}"
-                                            th:value="${i}"
-                                            th:selected="${product.quantity == i}"
-                                            th:text="${i}">
-                                    </option>
+                                            th:value="${i}" th:selected="${product.quantity == i}" th:text="${i}"></option>
                                 </select>
                             </form>
                         </td>
-
-                        <!-- 금액 -->
-                        <td class="text-end pe-4 fw-semibold"
-                            th:text="${#numbers.formatInteger(product.price, 3, 'COMMA')} + '원'"></td>
-
-                        <!-- 삭제 -->
+                        <td class="text-end pe-4 fw-semibold" th:text="${#numbers.formatInteger(product.price, 3, 'COMMA')} + '원'"></td>
                         <td class="text-center">
                             <form th:action="@{'/cart/delete/' + ${product.id}}" method="post">
-                                <button type="submit"
-                                        class="btn btn-sm btn-outline-danger rounded-3"
-                                        onclick="return confirm('삭제하시겠습니까?')">삭제</button>
+                                <button type="submit" class="btn btn-sm btn-outline-danger" onclick="return confirm('삭제하시겠습니까?')">삭제</button>
                             </form>
                         </td>
                     </tr>
@@ -106,23 +80,19 @@
             </div>
         </div>
 
-        <!-- 결제 요약 -->
-        <div class="card border-0 shadow-sm rounded-4">
+        <div class="card cart-card">
             <div class="card-body p-4">
                 <div class="d-flex justify-content-between align-items-center mb-3">
                     <span class="text-muted">선택 상품 합계</span>
-                    <span class="fw-bold fs-5 text-primary"
+                    <span class="fw-bold fs-5" style="color: #4d9fff;"
                           th:text="${#numbers.formatInteger(totalPrice, 3, 'COMMA')} + '원'"></span>
                 </div>
                 <form method="get" th:action="@{/orders/cart}">
-                    <button class="btn btn-primary btn-lg w-100 rounded-3" type="submit">
-                        선택 상품 주문하기
-                    </button>
+                    <button class="btn btn-primary btn-lg w-100" type="submit">선택 상품 주문하기</button>
                 </form>
             </div>
         </div>
     </div>
-
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>

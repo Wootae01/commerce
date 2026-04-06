@@ -3,302 +3,204 @@
 <head>
     <meta charset="UTF-8">
     <title>주문하기</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css"
-          rel="stylesheet">
-
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <style>
+        body { background-color: #f4f6fb; }
+        .order-card {
+            border: none;
+            border-radius: 16px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.07);
+        }
         .section-title {
-            font-weight: bold;
-            margin-top: 25px;
-            margin-bottom: 15px;
-            font-size: 1.2rem;
+            font-size: 0.8rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: #6c757d;
+            margin-bottom: 1rem;
         }
-
-        .price-box {
-            background-color: #f8f9fa;
-            border-radius: 10px;
-            padding: 15px;
-        }
+        .btn-primary { background-color: #4d9fff; border-color: #4d9fff; border-radius: 8px; }
+        .btn-primary:hover { background-color: #3a8de8; border-color: #3a8de8; }
     </style>
-
-    <!-- 토스페이먼츠 SDK 추가 -->
     <script src="https://js.tosspayments.com/v2/standard"></script>
 </head>
+<body>
+<div th:replace="~{fragments/header :: siteHeader}"></div>
 
-<body class="bg-light">
+<div class="container py-5" style="max-width: 760px;">
+    <h4 class="fw-bold mb-4">주문하기</h4>
 
-<div class="container py-5">
-
-    <!-- 페이지 제목 -->
-    <h2 class="fw-bold mb-4 text-center">🧾 주문하기</h2>
-
-    <form th:action="@{/orders}" method="post" th:object="${orderForm}">
-
-        <!-- orderType도 같이 전송 -->
+    <form id="orderForm" th:action="@{/orders}" method="post" th:object="${orderForm}">
         <input type="hidden" th:field="*{orderType}"/>
 
-        <!-- 주문 상품 정보 -->
-        <div class="section-title">주문 상품</div>
-        <div class="card shadow-sm mb-4">
-            <div class="card-body">
-
-                <div class="table-responsive">
-                    <table class="table align-middle">
-                        <thead class="table-light">
-                        <tr>
-                            <th>상품 정보</th>
-                            <th class="text-center" style="width:120px">수량</th>
-                            <th class="text-end" style="width:140px">상품금액</th>
-                            <th class="text-end" style="width:140px">합계</th>
-                        </tr>
-                        </thead>
-
-                        <tbody>
-                        <!-- 주문 상품 루프 -->
-                        <tr th:each="orderItem : ${orderItems}">
-                            <td>
-                                <div class="d-flex align-items-center">
-                                    <img th:src="@{${orderItem.mainImageUrl}}"
-                                         alt="상품 이미지"
-                                         class="order-item-img me-3 rounded"
-                                         style="width:60px; height:60px; object-fit:cover;">
-                                    <div>
-                                        <div class="fw-semibold" th:text="${orderItem.name}">
-                                            상품명
-                                        </div>
-                                        <div class="text-muted small" th:if="${orderItem.optionName != null}"
-                                             th:text="'옵션: ' + ${orderItem.optionName}">
-                                        </div>
-                                        <div class="text-muted small"
-                                             th:text="'수량: ' + ${orderItem.quantity} + '개'">
-                                            수량: 1개
-                                        </div>
-                                    </div>
+        <!-- 주문 상품 -->
+        <div class="card order-card p-4 mb-4">
+            <p class="section-title">주문 상품</p>
+            <div class="table-responsive">
+                <table class="table align-middle mb-0">
+                    <thead class="table-light">
+                    <tr>
+                        <th>상품 정보</th>
+                        <th class="text-center" style="width:120px">수량</th>
+                        <th class="text-end" style="width:140px">상품금액</th>
+                        <th class="text-end" style="width:140px">합계</th>
+                    </tr>
+                    </thead>
+                    <tbody>
+                    <tr th:each="orderItem : ${orderItems}">
+                        <td>
+                            <div class="d-flex align-items-center">
+                                <img th:src="@{${orderItem.mainImageUrl}}" alt="상품 이미지"
+                                     class="me-3 rounded flex-shrink-0" style="width:60px; height:60px; object-fit:cover; border-radius:10px!important;">
+                                <div>
+                                    <div class="fw-semibold" th:text="${orderItem.name}"></div>
+                                    <div class="text-muted small" th:if="${orderItem.optionName != null}" th:text="'옵션: ' + ${orderItem.optionName}"></div>
+                                    <div class="text-muted small" th:text="'수량: ' + ${orderItem.quantity} + '개'"></div>
                                 </div>
-
-                                <!-- 장바구니 주문일 때: cartProductIds 리스트로 바인딩 -->
-                                <input type="hidden"
-                                       th:if="${orderForm.orderType == T(com.commerce.common.enums.OrderType).CART}"
-                                       name="cartProductIds"
-                                       th:value="${orderItem.id}"/>
-                            </td>
-
-                            <!-- 수량 -->
-                            <td class="text-center">
-                                <span th:text="${orderItem.quantity}">1</span>개
-                            </td>
-
-                            <!-- 상품 단가 -->
-                            <td class="text-end">
-                        <span th:text="${#numbers.formatInteger(orderItem.unitPrice, 3, 'COMMA')}">
-                            10,000
-                        </span> 원
-                            </td>
-
-                            <!-- 합계 = 단가 * 수량 -->
-                            <td class="text-end">
-                        <span th:text="${#numbers.formatInteger(orderItem.totalPrice, 3, 'COMMA')}">
-                            10,000
-                        </span> 원
-                            </td>
-                        </tr>
-
-                        </tbody>
-                    </table>
-                </div>
-
-                <!-- 총 상품 금액 -->
-                <div class="text-end fw-bold mt-3">
-                    총 상품 금액:
-                    <span th:text="${#numbers.formatInteger(orderPrice.totalPrice, 3, 'COMMA')} + '원'"
-                          class="text-danger">
-                0원
-            </span>
-                </div>
-
-                <!-- 즉시 구매일 때: productId, quantity hidden으로 전송 -->
-                <input type="hidden"
-                       th:if="${orderForm.orderType == T(com.commerce.common.enums.OrderType).BUY_NOW}"
-                       th:field="*{productId}"/>
-                <input type="hidden"
-                       th:if="${orderForm.orderType == T(com.commerce.common.enums.OrderType).BUY_NOW}"
-                       th:field="*{quantity}"/>
-
+                            </div>
+                            <input type="hidden"
+                                   th:if="${orderForm.orderType == T(com.commerce.common.enums.OrderType).CART}"
+                                   name="cartProductIds" th:value="${orderItem.id}"/>
+                        </td>
+                        <td class="text-center" th:text="${orderItem.quantity} + '개'"></td>
+                        <td class="text-end" th:text="${#numbers.formatInteger(orderItem.unitPrice, 3, 'COMMA')} + '원'"></td>
+                        <td class="text-end fw-semibold" th:text="${#numbers.formatInteger(orderItem.totalPrice, 3, 'COMMA')} + '원'"></td>
+                    </tr>
+                    </tbody>
+                </table>
             </div>
+            <div class="text-end fw-bold mt-3">
+                총 상품 금액 <span class="text-danger ms-1" th:text="${#numbers.formatInteger(orderPrice.totalPrice, 3, 'COMMA')} + '원'"></span>
+            </div>
+            <input type="hidden" th:if="${orderForm.orderType == T(com.commerce.common.enums.OrderType).BUY_NOW}" th:field="*{productId}"/>
+            <input type="hidden" th:if="${orderForm.orderType == T(com.commerce.common.enums.OrderType).BUY_NOW}" th:field="*{quantity}"/>
         </div>
-
 
         <!-- 배송 정보 -->
-        <div class="section-title">배송 정보</div>
-        <div class="card shadow-sm mb-4">
-            <div class="card-body">
-
-                <div class="mb-3">
-                    <label class="form-label">받는 사람</label>
-                    <input type="text" class="form-control" th:field="*{name}" th:errorclass="is-invalid">
-                    <div class="invalid-feedback" th:errors="*{name}">이름 오류</div>
-                </div>
-
-                <div class="mb-3">
-                    <label class="form-label">연락처</label>
-                    <input type="text" class="form-control" th:field="*{phone}" th:errorclass="is-invalid">
-                    <div class="invalid-feedback" th:errors="*{phone}">전화번호 오류</div>
-                </div>
-
-                <div class="mb-3">
-                    <label class="form-label">주소</label>
-                    <input type="text" class="form-control mb-2" th:field="*{address}" th:errorclass="is-invalid">
-                    <div class="invalid-feedback" th:errors="*{address}">주소 오류</div>
-                    <input type="text" class="form-control" placeholder="상세 주소 입력" th:field="*{addressDetail}" th:errorclass="is-invalid">
-                    <div class="invalid-feedback" th:errors="*{addressDetail}">상세 주소 오류</div>
-                </div>
-
-                <div class="mb-3">
-                    <label class="form-label">요청 사항</label>
-                    <textarea class="form-control" rows="3" th:field="*{requestNote}"></textarea>
-                </div>
-
+        <div class="card order-card p-4 mb-4">
+            <p class="section-title">배송 정보</p>
+            <div class="mb-3">
+                <label class="form-label fw-semibold">받는 사람</label>
+                <input type="text" class="form-control" th:field="*{name}" th:errorclass="is-invalid">
+                <div class="invalid-feedback"></div>
+            </div>
+            <div class="mb-3">
+                <label class="form-label fw-semibold">연락처</label>
+                <input type="text" class="form-control" th:field="*{phone}" th:errorclass="is-invalid">
+                <div class="invalid-feedback"></div>
+            </div>
+            <div class="mb-3">
+                <label class="form-label fw-semibold">주소</label>
+                <input type="text" class="form-control mb-2" th:field="*{address}" th:errorclass="is-invalid">
+                <div class="invalid-feedback"></div>
+                <input type="text" class="form-control" placeholder="상세 주소 입력" th:field="*{addressDetail}" th:errorclass="is-invalid">
+                <div class="invalid-feedback"></div>
+            </div>
+            <div>
+                <label class="form-label fw-semibold">요청 사항</label>
+                <textarea class="form-control" rows="3" th:field="*{requestNote}"></textarea>
             </div>
         </div>
 
-
-        <!-- 결제 방식 -->
-        <div class="box_section" style="padding: 40px 30px 50px 30px; margin-top: 30px; margin-bottom: 50px">
-            <!-- 결제 UI -->
+        <!-- 결제 위젯 -->
+        <div class="card order-card p-4 mb-4">
             <div id="payment-method"></div>
-            <!-- 이용약관 UI -->
             <div id="agreement"></div>
         </div>
 
-
-
-        <!-- 결제 금액 요약 -->
-        <div class="section-title">결제 금액</div>
-
-        <div class="price-box shadow-sm mb-4">
-
-            <div class="d-flex justify-content-between my-1">
-                <span>상품 금액</span>
-                <strong th:text="${#numbers.formatInteger(orderPrice.totalPrice, 3, 'COMMA')} + '원'"></strong>
+        <!-- 결제 금액 -->
+        <div class="card order-card p-4 mb-4">
+            <p class="section-title">결제 금액</p>
+            <div class="d-flex justify-content-between mb-2">
+                <span class="text-muted">상품 금액</span>
+                <span class="fw-semibold" th:text="${#numbers.formatInteger(orderPrice.totalPrice, 3, 'COMMA')} + '원'"></span>
             </div>
-
-            <div class="d-flex justify-content-between my-1">
-                <span>배송비</span>
-                <strong th:text="${#numbers.formatInteger(orderPrice.deliveryFee, 3, 'COMMA')} + '원'"></strong>
+            <div class="d-flex justify-content-between mb-3">
+                <span class="text-muted">배송비</span>
+                <span class="fw-semibold" th:text="${#numbers.formatInteger(orderPrice.deliveryFee, 3, 'COMMA')} + '원'"></span>
             </div>
-
             <hr>
-
-            <div class="d-flex justify-content-between">
+            <div class="d-flex justify-content-between align-items-center">
                 <span class="fw-bold">최종 결제 금액</span>
-                <strong class="text-danger" th:text="${#numbers.formatInteger(orderPrice.finalPrice, 3, 'COMMA') } + '원'"></strong>
+                <span class="text-danger fw-bold fs-5" th:text="${#numbers.formatInteger(orderPrice.finalPrice, 3, 'COMMA')} + '원'"></span>
             </div>
         </div>
 
-
-        <!-- 결제하기 버튼 -->
-        <button type="button" class="btn btn-primary btn-lg w-100 mt-4" id="payment-button">
-            결제하기
-        </button>
-
-
+        <button type="button" class="btn btn-primary btn-lg w-100" id="payment-button">결제하기</button>
     </form>
 </div>
 
-
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
-
- <script th:inline="javascript">
+<script th:inline="javascript">
     main();
 
     async function main() {
         const button = document.getElementById("payment-button");
-
-        const amount = {
-            currency: "KRW",
-            value: 50000,
-        };
-        // ------  결제위젯 초기화 ------
-        // TODO: clientKey는 개발자센터의 결제위젯 연동 키 > 클라이언트 키로 바꾸세요.
-        // TODO: 구매자의 고유 아이디를 불러와서 customerKey로 설정하세요. 이메일・전화번호와 같이 유추가 가능한 값은 안전하지 않습니다.
-        // @docs https://docs.tosspayments.com/sdk/v2/js#토스페이먼츠-초기화
         const clientKey = /*[[${tossClientKey}]]*/ "";
         const customerKey = /*[[${orderForm.customerKey}]]*/ "";
         const finalPrice = Number(/*[[${orderPrice.finalPrice}]]*/ 0);
 
         const tossPayments = TossPayments(clientKey);
-        // 회원 결제
-        const widgets = tossPayments.widgets({
-            customerKey,
-        });
-        // 비회원 결제
-        // const widgets = tossPayments.widgets({customerKey: TossPayments.ANONYMOUS});
+        const widgets = tossPayments.widgets({ customerKey });
 
-        // ------  주문서의 결제 금액 설정 ------
-        await widgets.setAmount({currency: "KRW", value: finalPrice });
-
-        // ------  결제 UI 렌더링 ------
-        // @docs https://docs.tosspayments.com/sdk/v2/js#widgetsrenderpaymentmethods
-        await widgets.renderPaymentMethods({
-            selector: "#payment-method",
-            // 렌더링하고 싶은 결제 UI의 variantKey
-            // 결제 수단 및 스타일이 다른 멀티 UI를 직접 만들고 싶다면 계약이 필요해요.
-            // @docs https://docs.tosspayments.com/guides/v2/payment-widget/admin#새로운-결제-ui-추가하기
-            variantKey: "DEFAULT",
-        });
-
-        // ------  이용약관 UI 렌더링 ------
-        // @docs https://docs.tosspayments.com/reference/widget-sdk#renderagreement선택자-옵션
+        await widgets.setAmount({ currency: "KRW", value: finalPrice });
+        await widgets.renderPaymentMethods({ selector: "#payment-method", variantKey: "DEFAULT" });
         await widgets.renderAgreement({ selector: "#agreement", variantKey: "AGREEMENT" });
 
-
-        // ------ '결제하기' 버튼 누르면 결제창 띄우기 ------
-        // @docs https://docs.tosspayments.com/sdk/v2/js#widgetsrequestpayment
         button.addEventListener("click", async function (e) {
-
             e.preventDefault();
-            try{
-                // 1. 서버에 주문 준비 요청
-                const form = document.querySelector("form");
-                const res = await fetch("/pay/prepare", {
-                    method: "POST",
-                    body: new FormData(form),
-                });
 
-                if(!res.ok) {
+            const required = [
+                { id: 'name',          msg: '받는 사람을 입력해주세요.' },
+                { id: 'phone',         msg: '연락처를 입력해주세요.' },
+                { id: 'address',       msg: '주소를 입력해주세요.' },
+                { id: 'addressDetail', msg: '상세 주소를 입력해주세요.' },
+            ];
+            let hasError = false;
+            required.forEach(({ id, msg }) => {
+                const el = document.getElementById(id);
+                const feedback = el.nextElementSibling;
+                if (!el.value.trim()) {
+                    el.classList.add('is-invalid');
+                    if (feedback) feedback.textContent = msg;
+                    hasError = true;
+                } else {
+                    el.classList.remove('is-invalid');
+                    if (feedback) feedback.textContent = '';
+                }
+            });
+            if (hasError) {
+                document.querySelector('.is-invalid').scrollIntoView({ behavior: 'smooth', block: 'center' });
+                return;
+            }
+
+            try {
+                const form = document.getElementById("orderForm");
+                const res = await fetch("/pay/prepare", { method: "POST", body: new FormData(form) });
+
+                if (!res.ok) {
                     const error = await res.json();
                     alert(error.message || "주문 준비 실패");
                     return;
                 }
 
                 const prepared = await res.json();
-
-                // 2. 금액 확정
                 await widgets.setAmount({ currency: "KRW", value: Number(prepared.amount) });
-
-                // 3. 토스로 결제 요청
                 await widgets.requestPayment({
                     orderId: prepared.orderId,
                     orderName: prepared.orderName,
-                    successUrl:  prepared.successUrl,
-                    failUrl:  prepared.failUrl,
+                    successUrl: prepared.successUrl,
+                    failUrl: prepared.failUrl,
                     customerName: prepared.customerName,
                     customerMobilePhone: prepared.customerMobilePhone,
                 });
-
             } catch (err) {
                 console.log(err);
                 alert("결제 요청 중 오류가 발생하였습니다.");
             }
-
         });
     }
-
-    function generateRandomString() {
-        return window.btoa(Math.random()).slice(0, 20);
-    }
-
 </script>
-
 </body>
 </html>
