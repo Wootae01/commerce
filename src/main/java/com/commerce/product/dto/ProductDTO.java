@@ -1,6 +1,7 @@
 package com.commerce.product.dto;
 
 import com.commerce.admin.dto.ProductOptionDTO;
+import jakarta.validation.Valid;
 import org.hibernate.validator.constraints.Range;
 
 import jakarta.validation.constraints.NotBlank;
@@ -25,6 +26,7 @@ public class ProductDTO {
 	@NotBlank
 	private String name;
 
+	@Valid
 	List<ProductOptionDTO> productOptionDTOList;
 
 	private String description;

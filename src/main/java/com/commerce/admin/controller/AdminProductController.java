@@ -55,7 +55,7 @@ public class AdminProductController {
 	// 상품 등록
 	@GetMapping("/new")
 	public String registerPage(Model model) {
-		model.addAttribute("product", new Product());
+		model.addAttribute("product", new ProductDTO());
 		return "admin/product-new";
 	}
 
