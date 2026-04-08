@@ -38,8 +38,9 @@
                     <tr class="table-light">
                         <th class="ps-4" style="width:50px; border-radius: 16px 0 0 0;">선택</th>
                         <th>상품</th>
+                        <th class="text-end" style="width:120px;">단가</th>
                         <th class="text-center" style="width:100px;">수량</th>
-                        <th class="text-end pe-4" style="width:120px;">금액</th>
+                        <th class="text-end pe-4" style="width:130px;">소계</th>
                         <th class="text-center" style="width:80px;">삭제</th>
                     </tr>
                     </thead>
@@ -60,6 +61,7 @@
                                 </div>
                             </div>
                         </td>
+                        <td class="text-end text-muted" th:text="${#numbers.formatInteger(product.price, 3, 'COMMA')} + '원'"></td>
                         <td class="text-center">
                             <form th:action="@{'/cart/edit/' + ${product.id}}" method="post">
                                 <select name="quantity" class="form-select form-select-sm mx-auto" style="width:72px;" onchange="this.form.submit()">
@@ -68,7 +70,7 @@
                                 </select>
                             </form>
                         </td>
-                        <td class="text-end pe-4 fw-semibold" th:text="${#numbers.formatInteger(product.price, 3, 'COMMA')} + '원'"></td>
+                        <td class="text-end pe-4 fw-semibold" th:text="${#numbers.formatInteger(product.price * product.quantity, 3, 'COMMA')} + '원'"></td>
                         <td class="text-center">
                             <form th:action="@{'/cart/delete/' + ${product.id}}" method="post">
                                 <button type="submit" class="btn btn-sm btn-outline-danger" onclick="return confirm('삭제하시겠습니까?')">삭제</button>
