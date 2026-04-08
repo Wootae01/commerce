@@ -73,6 +73,48 @@ resource "aws_route_table_association" "public_2" {
   subnet_id = aws_subnet.public_2.id
 }
 
+# private 서브넷 1
+resource "aws_subnet" "private_1" {
+  vpc_id            = aws_vpc.main.id
+  cidr_block        = "10.0.11.0/24"
+  availability_zone = "ap-northeast-2a"
+
+  tags = {
+    Name = "commerce-private-1"
+  }
+}
+
+# private 서브넷 2
+resource "aws_subnet" "private_2" {
+  vpc_id            = aws_vpc.main.id
+  cidr_block        = "10.0.12.0/24"
+  availability_zone = "ap-northeast-2c"
+
+  tags = {
+    Name = "commerce-private-2"
+  }
+}
+
+# private 라우팅 테이블
+resource "aws_route_table" "private" {
+  vpc_id = aws_vpc.main.id
+
+  tags = {
+    Name = "commerce-private-rt"
+  }
+}
+
+# private 서브넷 라우팅 연결
+resource "aws_route_table_association" "private_1" {
+  route_table_id = aws_route_table.private.id
+  subnet_id      = aws_subnet.private_1.id
+}
+
+resource "aws_route_table_association" "private_2" {
+  route_table_id = aws_route_table.private.id
+  subnet_id      = aws_subnet.private_2.id
+}
+
 # 보안 그룹 EC2
 resource "aws_security_group" "ec2" {
   name = "commerce-ec2-sg"
@@ -178,7 +220,7 @@ resource "aws_iam_instance_profile" "ec2_profile" {
 # EC2 인스턴스
 resource "aws_instance" "app" {
   ami           = "ami-0e9bfdb247cc8de84"  # Ubuntu 22.04 LTS AMI
-  instance_type = "t2.micro"
+  instance_type = "t3.micro"
   subnet_id = aws_subnet.public_1.id
 
   # 세부 모니터링 활성화
@@ -228,15 +270,6 @@ resource "aws_instance" "app" {
 
                 # Docker 네트워크 생성 (없으면 생성)
                 docker network create monitoring || true
-
-                # Redis 컨테이너 실행 (항상 유지)
-                docker rm -f redis || true
-                docker run -d \
-                  --name redis \
-                  --network monitoring \
-                  --restart unless-stopped \
-                  redis:7-alpine \
-                  redis-server --maxmemory 128mb --maxmemory-policy allkeys-lru
 
                 # CloudWatch Agent 설치 및 설정
                 sudo wget https://s3.amazonaws.com/amazoncloudwatch-agent/ubuntu/amd64/latest/amazon-cloudwatch-agent.deb
@@ -364,12 +397,12 @@ resource "aws_security_group" "rds" {
   description = "Security group for rds"
   vpc_id = aws_vpc.main.id
 
-  # 외부에서 MySQL 접속 허용
+  # EC2에서만 MySQL 접속 허용
   ingress {
-    from_port = 3306
-    to_port = 3306
-    protocol = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
+    from_port       = 3306
+    to_port         = 3306
+    protocol        = "tcp"
+    security_groups = [aws_security_group.ec2.id]
   }
 
   tags = {
@@ -380,7 +413,7 @@ resource "aws_security_group" "rds" {
 # RDS 서브넷 그룹
 resource "aws_db_subnet_group" "rds" {
   name = "commerce-rds-subnet-group"
-  subnet_ids = [aws_subnet.public_1.id ,aws_subnet.public_2.id]
+  subnet_ids = [aws_subnet.private_1.id, aws_subnet.private_2.id]
 
   tags = {
     Name = "commerce-rds-subnet-group"
@@ -428,7 +461,7 @@ resource "aws_db_instance" "commerce" {
   db_subnet_group_name = aws_db_subnet_group.rds.name
 
   skip_final_snapshot = true    # 삭제 시 스냅샷 만들지 않음
-  publicly_accessible = true
+  publicly_accessible = false
 
   monitoring_interval = 60
   monitoring_role_arn = aws_iam_role.rds_enhanced_monitoring.arn
@@ -441,6 +474,58 @@ resource "aws_db_instance" "commerce" {
 # RDS 엔드포인트 출력
 output "rds_endpoint" {
   value = aws_db_instance.commerce.endpoint
+}
+
+# ElastiCache 보안 그룹
+resource "aws_security_group" "redis" {
+  name        = "commerce-redis-sg"
+  description = "Security group for ElastiCache Redis"
+  vpc_id      = aws_vpc.main.id
+
+  # EC2에서만 Redis 접속 허용
+  ingress {
+    from_port       = 6379
+    to_port         = 6379
+    protocol        = "tcp"
+    security_groups = [aws_security_group.ec2.id]
+  }
+
+  tags = {
+    Name = "commerce-redis-sg"
+  }
+}
+
+# ElastiCache 서브넷 그룹
+resource "aws_elasticache_subnet_group" "redis" {
+  name       = "commerce-redis-subnet-group"
+  subnet_ids = [aws_subnet.private_1.id, aws_subnet.private_2.id]
+
+  tags = {
+    Name = "commerce-redis-subnet-group"
+  }
+}
+
+# ElastiCache Redis
+resource "aws_elasticache_cluster" "redis" {
+  cluster_id           = "commerce-redis"
+  engine               = "redis"
+  node_type            = "cache.t3.micro"
+  num_cache_nodes      = 1
+  parameter_group_name = "default.redis7"
+  engine_version       = "7.0"
+  port                 = 6379
+
+  subnet_group_name  = aws_elasticache_subnet_group.redis.name
+  security_group_ids = [aws_security_group.redis.id]
+
+  tags = {
+    Name = "commerce-redis"
+  }
+}
+
+# ElastiCache 엔드포인트 출력
+output "redis_endpoint" {
+  value = aws_elasticache_cluster.redis.cache_nodes[0].address
 }
 
 # CloudWatch 대시보드 생성
@@ -602,7 +687,7 @@ resource "aws_s3_bucket_server_side_encryption_configuration" "app" {
 # /public 이미지는 누구든 접근 가능
 resource "aws_s3_bucket_policy" "public_read" {
   bucket = aws_s3_bucket.app.id
-  depends_on = [aws_s3_account_public_access_block.account]
+  depends_on = [aws_s3_account_public_access_block.account, aws_s3_bucket_public_access_block.bucket-access-block]
   policy = jsonencode({
     Version = "2012-10-17"
     Statement = [
