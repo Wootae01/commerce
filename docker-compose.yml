@@ -48,6 +48,9 @@ services:
     depends_on:
       db:
         condition: service_healthy  # MySQL의 health check가 성공할 때까지 대기
+      redis:
+        condition: service_healthy
+
     networks:
       - monitoring
 
@@ -95,6 +98,13 @@ services:
       - redis_data:/data
     networks:
       - monitoring
+    healthcheck:
+      test: [ "CMD", "redis-cli", "ping" ]  # PONG 응답 오면 healthy
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 10s
+
     deploy:
       resources:
         limits:
@@ -110,7 +120,8 @@ services:
     command:
       - '--redis.addr=redis://redis:6379'
     depends_on:
-      - redis
+      redis:
+        condition: service_healthy
     networks:
       - monitoring
 
