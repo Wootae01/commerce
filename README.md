@@ -1,7 +1,5 @@
 # Commerce
 
-Spring Boot 기반 이커머스 플랫폼
-
 ## 프로젝트 소개
 Spring Boot 기반 이커머스 플랫폼을 직접 구현하며 주문, 결제, 재고 관리 등 핵심 도메인을 학습하고, 동시성 문제, 성능 이슈, 데드락 등 실제로 마주친 문제들을 해결한 프로젝트입니다.
 
@@ -29,7 +27,7 @@ Spring Boot 기반 이커머스 플랫폼을 직접 구현하며 주문, 결제,
 
 ### 사용자
 - OAuth2 소셜 로그인 (네이버)
-- 상품 검색 (가격순, 판매량순 정렬 / 기간 필터링)
+- 상품 검색 (가격순, 판매량순 정렬)
 - 장바구니 (추가, 수량 변경, 선택/해제, 삭제)
 - 주문 (장바구니 주문, 바로 구매)
 - 결제 (Toss Payments 연동)
@@ -66,12 +64,12 @@ Spring Boot 기반 이커머스 플랫폼을 직접 구현하며 주문, 결제,
 ### 1. N+1 쿼리 문제
 
 #### 장바구니 조회 (`GET /cart`)
-- **문제**: CartProduct마다 Product, Image 추가 쿼리 발생 → 요청당 5~23개 쿼리
+- **문제**: CartProduct마다 Product, Image 추가 쿼리 발생
   - 300 VU 기준 cart_duration p95=1,191ms
-- **해결**: `JOIN FETCH` 최적화 → 요청당 4개 쿼리
+- **해결**: JPQL DTO 프로젝션으로 Product, mainImage 필요한 부분만 한 번에 조회해 N+1 제거
 - **결과**: p95 1,191ms → 19.9ms (약 98% 개선, 300 VU)
 
-#### 주문 준비 N+1 쿼리 (`POST /pay/prepare`)
+#### 주문 준비 쿼리 최적화 (`POST /pay/prepare`)
 - **문제**: 장바구니 아이템 N개에 대해 INSERT·SELECT가 N번씩 발생
   - 50개 아이템 기준 INSERT max=101회, SELECT max=52회, prepare_duration p95=1,552ms
 - **해결**: JDBC Batch INSERT + `IN` 절로 SELECT 일괄 조회 → INSERT 1회, SELECT 1회
@@ -120,9 +118,8 @@ Spring Boot 기반 이커머스 플랫폼을 직접 구현하며 주문, 결제,
 
 ### 5. Redis 캐시 적용 (인기 상품)
 - **문제**: 인기 상품 조회 시 매 요청마다 DB 직접 조회
-- **해결**: Redis 캐시 적용 + 분산 락 + Double-Check 패턴으로 Hot Key 문제 방지
+- **해결**: Redis 캐시 적용 + 분산 락 + Double-Check 패턴으로 Cache Stampede 문제 방지
 - **결과**: p95 756ms → 386ms (약 49% 개선, 500 VU)
-- **부가**: TTL에 ±10% Jitter를 추가하여 Cache Avalanche 방지
 
 
 ### 환경 변수
