@@ -9,7 +9,6 @@ import com.commerce.common.exception.EntityNotFoundException;
 import java.util.stream.Collectors;
 
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.commerce.order.domain.OrderProduct;
@@ -97,11 +96,10 @@ public class PaymentTxService {
 	// 결제 성공 시 재고 차감, 장바구니 삭제, 결제 일시, 상태 변경
 	@Transactional
 	public void applyPaymentSuccess(String orderNumber, JsonNode tossResponse, Long userId, String paymentKey) {
-		Orders order = orderRepository.findByOrderNumberWithLock(orderNumber)
+		Orders order = orderRepository.findByOrderNumber(orderNumber)
 			.orElseThrow(() -> new EntityNotFoundException("해당 주문이 존재하지 않습니다."));
 
-		// 멱등성 보장: 이미 처리된 주문이면 중복 처리 방지
-		if (order.getOrderStatus() != OrderStatus.READY) {
+		if (order.getOrderStatus() != OrderStatus.PAYMENT_PENDING) {
 			log.warn("이미 처리된 주문입니다. orderNumber={}, status={}", orderNumber, order.getOrderStatus());
 			throw new IllegalStateException("이미 처리된 주문입니다.");
 		}
@@ -126,9 +124,8 @@ public class PaymentTxService {
 
 		order.setApprovedAt(approvedAt);
 
-		// 재고 차감, 주문 상태 변경
+		// 주문 상태 변경
 		order.setOrderStatus(OrderStatus.PAID);
-		updateStock(order.getId(), false);
 
 
 		// 장바구니 삭제
@@ -141,16 +138,23 @@ public class PaymentTxService {
 	}
 
 	@Transactional
-	public void changeOrderStatus(Orders order, OrderStatus orderStatus) {
-		order.setOrderStatus(orderStatus);
+	public void lockAndDeductStock(String orderNumber) {
+		Orders order = orderRepository.findByOrderNumberWithLock(orderNumber)
+			.orElseThrow(() -> new EntityNotFoundException("해당 주문이 존재하지 않습니다."));
+
+		if (order.getOrderStatus() != OrderStatus.READY) {
+			throw new IllegalStateException("이미 처리된 주문입니다.");
+		}
+
+		order.setOrderStatus(OrderStatus.PAYMENT_PENDING);
+		updateStock(order.getId(), false);
 	}
 
-	// 결제 보상 처리용 - 독립 트랜잭션으로 paymentKey와 상태를 저장
-	@Transactional(propagation = Propagation.REQUIRES_NEW)
-	public void savePaymentKeyAndStatus(String orderNumber, String paymentKey, OrderStatus status) {
+	@Transactional
+	public void restoreStockOnTossFailure(String orderNumber) {
 		Orders order = orderRepository.findByOrderNumber(orderNumber)
 			.orElseThrow(() -> new EntityNotFoundException("해당 주문이 존재하지 않습니다."));
-		order.setPaymentKey(paymentKey);
-		order.setOrderStatus(status);
+		updateStock(order.getId(), true);
+		order.setOrderStatus(OrderStatus.CANCELED);
 	}
 }

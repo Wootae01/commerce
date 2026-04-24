@@ -258,8 +258,8 @@ class PayServiceTest {
 	}
 
 	@Test
-	@DisplayName("재고 부족 시 결제 보상 처리 - 자동 환불")
-	void compensateWhenStockExhausted() {
+	@DisplayName("재고 부족 시 토스 호출 없이 예외 발생")
+	void stockExhaustedBeforeToss() {
 		// given
 		User user = User.builder()
 			.customerPaymentKey("customerPaymentKey")
@@ -278,7 +278,6 @@ class PayServiceTest {
 		product.update(1000, 1, "상품1", "설명");
 		product = productRepository.save(product);
 
-		// 두 개 주문 준비
 		OrderCreateRequestDTO dto = new OrderCreateRequestDTO();
 		dto.setName("홍길동");
 		dto.setPhone("01012345678");
@@ -291,98 +290,73 @@ class PayServiceTest {
 		Orders order1 = orderService.prepareOrderFromBuyNow(dto);
 		Orders order2 = orderService.prepareOrderFromBuyNow(dto);
 
-		// 토스 취소 stub
-		stubFor(post(urlPathMatching("/v1/payments/.*/cancel"))
-			.willReturn(aResponse()
-				.withStatus(200)
-				.withHeader("Content-Type", "application/json")
-				.withBody("""
-					{
-					  "cancels": [{"cancelAmount": %d}],
-					  "method": "카드"
-					}
-					""".formatted(order2.getFinalPrice()))));
-
-		// when - 첫 번째 주문은 성공
+		// when - 첫 번째 주문 성공
 		PayConfirmDTO req1 = new PayConfirmDTO(
 			UUID.randomUUID().toString(), order1.getOrderNumber(), order1.getFinalPrice());
-		payService.confirm(req1, user.getId());
+		payService.confirm(req1, userId);
 
-		// 두 번째 주문은 재고 부족 -> 보상 처리
+		// 두 번째 주문 - 재고 부족으로 토스 호출 전 실패
 		PayConfirmDTO req2 = new PayConfirmDTO(
 			UUID.randomUUID().toString(), order2.getOrderNumber(), order2.getFinalPrice());
 
 		assertThatThrownBy(() -> payService.confirm(req2, userId))
-			.isInstanceOf(ResponseStatusException.class)
-			.satisfies(ex -> {
-				ResponseStatusException rse = (ResponseStatusException) ex;
-				assertThat(rse.getStatusCode()).isEqualTo(HttpStatus.CONFLICT);
-			});
+			.isInstanceOf(Exception.class);
 
-		// then
-		Orders canceledOrder = orderRepository.findByOrderNumber(order2.getOrderNumber()).orElseThrow();
-		assertThat(canceledOrder.getOrderStatus()).isEqualTo(OrderStatus.CANCELED);
-		assertThat(canceledOrder.getPaymentKey()).isEqualTo(req2.getPaymentKey());
-
-		// 토스 cancel API 호출 확인
-		verify(postRequestedFor(urlPathMatching("/v1/payments/.*/cancel")));
+		// then - 토스 confirm은 1번만 호출됨 (두 번째는 재고 차감 단계에서 실패)
+		verify(1, postRequestedFor(urlEqualTo("/v1/payments/confirm")));
 	}
 
 	@Test
-	@DisplayName("재고 부족 후 토스 취소도 실패 - REFUND_FAILED 상태")
-	void compensateFailsWhenTossCancelFails() {
+	@DisplayName("토스 confirm 실패 시 재고 복원 및 주문 CANCELED")
+	void stockRestoredWhenTossConfirmFails() {
 		// given
 		User user = User.builder()
 			.customerPaymentKey("customerPaymentKey")
-			.email("test@naver.com")
-			.name("테스트")
-			.phone("01099998888")
+			.email("c@naver.com")
+			.name("홍길동")
+			.phone("01012345678")
 			.role(RoleType.ROLE_USER)
-			.username("testuser")
+			.username("username")
 			.build();
 		user = userRepository.save(user);
 		Long userId = user.getId();
 		Mockito.when(securityUtil.getCurrentUser()).thenReturn(user);
 
+		int initialStock = 10;
 		Product product = new Product();
-		product.update(1000, 1, "상품1", "설명");
+		product.update(1000, initialStock, "상품1", "설명");
 		product = productRepository.save(product);
 
 		OrderCreateRequestDTO dto = new OrderCreateRequestDTO();
-		dto.setName("테스트");
-		dto.setPhone("01099998888");
+		dto.setName("홍길동");
+		dto.setPhone("01012345678");
 		dto.setAddress("서울");
 		dto.setAddressDetail("어딘가");
 		dto.setOrderType(OrderType.BUY_NOW);
 		dto.setProductId(product.getId());
 		dto.setQuantity(1);
 
-		Orders order1 = orderService.prepareOrderFromBuyNow(dto);
-		Orders order2 = orderService.prepareOrderFromBuyNow(dto);
+		Orders order = orderService.prepareOrderFromBuyNow(dto);
 
-		// 토스 취소 - 500 에러 반환
-		stubFor(post(urlPathMatching("/v1/payments/.*/cancel"))
+		// 토스 confirm 500 에러 stub
+		stubFor(post(urlEqualTo("/v1/payments/confirm"))
 			.willReturn(aResponse()
 				.withStatus(500)
 				.withHeader("Content-Type", "application/json")
 				.withBody("{\"message\": \"Internal Server Error\"}")));
 
-		// when - 첫 번째 성공
-		PayConfirmDTO req1 = new PayConfirmDTO(
-			UUID.randomUUID().toString(), order1.getOrderNumber(), order1.getFinalPrice());
-		payService.confirm(req1, user.getId());
+		// when
+		PayConfirmDTO req = new PayConfirmDTO(
+			UUID.randomUUID().toString(), order.getOrderNumber(), order.getFinalPrice());
 
-		// 두 번째 - 재고 부족 + 토스 취소도 실패
-		PayConfirmDTO req2 = new PayConfirmDTO(
-			UUID.randomUUID().toString(), order2.getOrderNumber(), order2.getFinalPrice());
-
-		assertThatThrownBy(() -> payService.confirm(req2, userId))
+		assertThatThrownBy(() -> payService.confirm(req, userId))
 			.isInstanceOf(ResponseStatusException.class);
 
-		// then - REFUND_FAILED 상태, paymentKey 저장됨
-		Orders failedOrder = orderRepository.findByOrderNumber(order2.getOrderNumber()).orElseThrow();
-		assertThat(failedOrder.getOrderStatus()).isEqualTo(OrderStatus.REFUND_FAILED);
-		assertThat(failedOrder.getPaymentKey()).isEqualTo(req2.getPaymentKey());
+		// then - 재고 복원, 주문 CANCELED
+		Product afterProduct = productRepository.findById(product.getId()).orElseThrow();
+		Orders afterOrder = orderRepository.findByOrderNumber(order.getOrderNumber()).orElseThrow();
+		assertThat(afterProduct.getStock()).isEqualTo(initialStock);
+		assertThat(afterOrder.getOrderStatus()).isEqualTo(OrderStatus.CANCELED);
 	}
 
 }

@@ -54,8 +54,6 @@ public class PayController {
 	private final PayService payService;
 	private final OrderService orderService;
 	private final OrderMapper orderMapper;
-	private final CartService cartService;
-	private final ProductService productService;
 
 	@GetMapping("/loading")
 	public String loading() {

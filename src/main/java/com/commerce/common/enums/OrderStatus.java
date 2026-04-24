@@ -2,6 +2,7 @@ package com.commerce.common.enums;
 
 public enum OrderStatus {
 	READY("결제 준비"),
+	PAYMENT_PENDING("결제 진행중"),
 	PAID("결제완료"),
 	PREPARING("배송준비"),
 	SHIPPING("배송중"),
