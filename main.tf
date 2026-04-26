@@ -121,13 +121,13 @@ resource "aws_security_group" "ec2" {
   description = "Security group"
   vpc_id = aws_vpc.main.id
 
-  # Spring boot Application
+  # HTTP (nginX)
   ingress {
-    from_port = 8080
-    to_port = 8080
+    from_port = 80
+    to_port = 80
     protocol = "tcp"
     cidr_blocks = ["0.0.0.0/0"]
-    description = "Allow Spring boot Application"
+    description = "Allow HTTP via nginx"
   }
 
   # SSH 접속
@@ -236,81 +236,7 @@ resource "aws_instance" "app" {
     volume_type = "gp3"
   }
 
-    user_data = <<-EOF
-                #!/bin/bash
-                set -e
-
-                # SSM Agent 설치
-                sudo snap install amazon-ssm-agent --classic
-                sudo systemctl start snap.amazon-ssm-agent.amazon-ssm-agent.service
-                sudo systemctl enable snap.amazon-ssm-agent.amazon-ssm-agent.service
-
-                # AWS CLI 설치
-                sudo apt-get update
-                sudo apt-get install -y unzip
-                curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
-                unzip awscliv2.zip
-                sudo ./aws/install
-
-                # Docker 설치 및 실행
-                sudo apt-get install -y ca-certificates curl gnupg
-                sudo install -m 0755 -d /etc/apt/keyrings
-                curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /etc/apt/keyrings/docker.gpg
-                sudo chmod a+r /etc/apt/keyrings/docker.gpg
-                echo "deb [arch="$(dpkg --print-architecture)" signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu "$(. /etc/os-release && echo "$VERSION_CODENAME")" stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
-                sudo apt-get update
-                sudo apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
-                sudo usermod -aG docker ubuntu
-                sudo systemctl start docker
-                sudo systemctl enable docker
-
-                # Docker Compose 설치
-                sudo curl -L "https://github.com/docker/compose/releases/download/v2.20.0/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
-                sudo chmod +x /usr/local/bin/docker-compose
-
-                # Docker 네트워크 생성 (없으면 생성)
-                docker network create monitoring || true
-
-                # CloudWatch Agent 설치 및 설정
-                sudo wget https://s3.amazonaws.com/amazoncloudwatch-agent/ubuntu/amd64/latest/amazon-cloudwatch-agent.deb
-                sudo dpkg -i amazon-cloudwatch-agent.deb
-
-                # CloudWatch Agent 설정
-                sudo mkdir -p /opt/aws/amazon-cloudwatch-agent/etc/
-                sudo bash -c 'cat > /opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json' << 'EOT'
-                {
-                  "agent": {
-                    "metrics_collection_interval": 60,
-                    "run_as_user": "root"
-                  },
-                  "metrics": {
-                    "append_dimensions": {
-                      "InstanceId": "$${aws:InstanceId}",
-                      "InstanceType": "$${aws:InstanceType}",
-                      "AutoScalingGroupName": "$${aws:AutoScalingGroupName}"
-                    },
-                    "metrics_collected": {
-                      "mem": {
-                        "measurement": [
-                          "mem_used_percent"
-                        ],
-                        "metrics_collection_interval": 60
-                      },
-                      "swap": {
-                        "measurement": [
-                          "swap_used_percent"
-                        ]
-                      }
-                    }
-                  }
-                }
-                EOT
-
-                # CloudWatch Agent 시작
-                sudo /opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl -a fetch-config -m ec2 -s -c file:/opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json
-                sudo systemctl start amazon-cloudwatch-agent
-                sudo systemctl enable amazon-cloudwatch-agent
-                EOF
+    user_data = file("${path.module}/scripts/init.sh")
 
     tags = {
       Name = "commerce-app"
