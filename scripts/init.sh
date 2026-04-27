@@ -122,17 +122,17 @@ if [ "$CURRENT" = "blue" ]; then TARGET=green; PORT=8082; else TARGET=blue; PORT
 echo "Deploying to $TARGET (port $PORT), current: $CURRENT"
 
 # 배포 대상 컨테이너가 이미 있으면 제거
-docker stop spring-app-$TARGET || true
-docker rm spring-app-$TARGET || true
+docker stop $TARGET || true
+docker rm $TARGET || true
 
 # 새 버전 컨테이너 실행 (환경변수는 SSM 호출 시 주입됨)
-docker run -d --name spring-app-$TARGET --network monitoring -p $PORT:8080 -e JAVA_OPTS="-Xms128m -Xmx256m" -e SPRING_PROFILES_ACTIVE=$PROFILE -e SPRING_DATASOURCE_URL="$SPRING_DATASOURCE_URL" -e SPRING_DATASOURCE_USERNAME=$SPRING_DATASOURCE_USERNAME -e SPRING_DATASOURCE_PASSWORD=$SPRING_DATASOURCE_PASSWORD -e SPRING_DATA_REDIS_HOST=$SPRING_DATA_REDIS_HOST -e AWS_S3_BUCKET=$AWS_S3_BUCKET -e NAVER_CLIENT_ID=$NAVER_CLIENT_ID -e NAVER_CLIENT_SECRET=$NAVER_CLIENT_SECRET -e TOSS_SECRET_KEY=$TOSS_SECRET_KEY -e TOSS_CLIENT_KEY=$TOSS_CLIENT_KEY $IMAGE
+docker run -d --name $TARGET --restart unless-stopped --network monitoring -p $PORT:8080 -e JAVA_OPTS="-Xms128m -Xmx256m" -e SPRING_PROFILES_ACTIVE=$PROFILE -e SPRING_DATASOURCE_URL="$SPRING_DATASOURCE_URL" -e SPRING_DATASOURCE_USERNAME=$SPRING_DATASOURCE_USERNAME -e SPRING_DATASOURCE_PASSWORD=$SPRING_DATASOURCE_PASSWORD -e SPRING_DATA_REDIS_HOST=$SPRING_DATA_REDIS_HOST -e AWS_S3_BUCKET=$AWS_S3_BUCKET -e NAVER_CLIENT_ID=$NAVER_CLIENT_ID -e NAVER_CLIENT_SECRET=$NAVER_CLIENT_SECRET -e TOSS_SECRET_KEY=$TOSS_SECRET_KEY -e TOSS_CLIENT_KEY=$TOSS_CLIENT_KEY $IMAGE
 
 # 최대 240초(10초 × 24회) 동안 헬스체크 → 실패 시 배포 중단
 for i in $(seq 1 24); do
     STATUS=$(curl -sf http://localhost:$PORT/actuator/health | grep -c UP || true)
     if [ "$STATUS" -ge 1 ]; then echo "Health check passed"; break; fi
-    if [ $i -eq 24 ]; then echo "Health check failed - rolling back"; exit 1; fi
+    if [ $i -eq 24 ]; then echo "Health check failed - rolling back"; docker stop $TARGET || true; docker rm $TARGET || true; exit 1; fi
     echo "Waiting... ($i/24)"
     sleep 10
 done
@@ -142,8 +142,8 @@ echo "set \$service_url http://$TARGET:8080;" > /home/ubuntu/nginx/conf.d/servic
 docker exec nginx nginx -s reload
 
 # 이전 버전 컨테이너 종료 및 제거
-docker stop spring-app-$CURRENT || true
-docker rm spring-app-$CURRENT || true
+docker stop $CURRENT || true
+docker rm $CURRENT || true
 
 echo "Deploy complete. Active: $TARGET"
 DEPLOYSH
