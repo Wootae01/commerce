@@ -1,6 +1,13 @@
 #!/bin/bash
 set -e
 
+# 스왑 메모리 1GB 추가 (t3.micro 메모리 부족 대비)
+fallocate -l 1G /swapfile
+chmod 600 /swapfile
+mkswap /swapfile
+swapon /swapfile
+echo '/swapfile none swap sw 0 0' >> /etc/fstab
+
 # SSM Agent 설치
 sudo snap install amazon-ssm-agent --classic
 sudo systemctl start snap.amazon-ssm-agent.amazon-ssm-agent.service
@@ -119,18 +126,7 @@ docker stop spring-app-$TARGET || true
 docker rm spring-app-$TARGET || true
 
 # 새 버전 컨테이너 실행 (환경변수는 SSM 호출 시 주입됨)
-docker run -d --name spring-app-$TARGET --network monitoring -p $PORT:8080 \
-    -e SPRING_PROFILES_ACTIVE=$PROFILE \
-    -e SPRING_DATASOURCE_URL="$SPRING_DATASOURCE_URL" \
-    -e SPRING_DATASOURCE_USERNAME=$SPRING_DATASOURCE_USERNAME \
-    -e SPRING_DATASOURCE_PASSWORD=$SPRING_DATASOURCE_PASSWORD \
-    -e SPRING_DATA_REDIS_HOST=$SPRING_DATA_REDIS_HOST \
-    -e AWS_S3_BUCKET=$AWS_S3_BUCKET \
-    -e NAVER_CLIENT_ID=$NAVER_CLIENT_ID \
-    -e NAVER_CLIENT_SECRET=$NAVER_CLIENT_SECRET \
-    -e TOSS_SECRET_KEY=$TOSS_SECRET_KEY \
-    -e TOSS_CLIENT_KEY=$TOSS_CLIENT_KEY \
-    $IMAGE
+docker run -d --name spring-app-$TARGET --network monitoring -p $PORT:8080 -e JAVA_OPTS="-Xms128m -Xmx256m" -e SPRING_PROFILES_ACTIVE=$PROFILE -e SPRING_DATASOURCE_URL="$SPRING_DATASOURCE_URL" -e SPRING_DATASOURCE_USERNAME=$SPRING_DATASOURCE_USERNAME -e SPRING_DATASOURCE_PASSWORD=$SPRING_DATASOURCE_PASSWORD -e SPRING_DATA_REDIS_HOST=$SPRING_DATA_REDIS_HOST -e AWS_S3_BUCKET=$AWS_S3_BUCKET -e NAVER_CLIENT_ID=$NAVER_CLIENT_ID -e NAVER_CLIENT_SECRET=$NAVER_CLIENT_SECRET -e TOSS_SECRET_KEY=$TOSS_SECRET_KEY -e TOSS_CLIENT_KEY=$TOSS_CLIENT_KEY $IMAGE
 
 # 최대 60초(5초 × 12회) 동안 헬스체크 → 실패 시 배포 중단
 for i in $(seq 1 12); do
