@@ -128,13 +128,13 @@ docker rm spring-app-$TARGET || true
 # 새 버전 컨테이너 실행 (환경변수는 SSM 호출 시 주입됨)
 docker run -d --name spring-app-$TARGET --network monitoring -p $PORT:8080 -e JAVA_OPTS="-Xms128m -Xmx256m" -e SPRING_PROFILES_ACTIVE=$PROFILE -e SPRING_DATASOURCE_URL="$SPRING_DATASOURCE_URL" -e SPRING_DATASOURCE_USERNAME=$SPRING_DATASOURCE_USERNAME -e SPRING_DATASOURCE_PASSWORD=$SPRING_DATASOURCE_PASSWORD -e SPRING_DATA_REDIS_HOST=$SPRING_DATA_REDIS_HOST -e AWS_S3_BUCKET=$AWS_S3_BUCKET -e NAVER_CLIENT_ID=$NAVER_CLIENT_ID -e NAVER_CLIENT_SECRET=$NAVER_CLIENT_SECRET -e TOSS_SECRET_KEY=$TOSS_SECRET_KEY -e TOSS_CLIENT_KEY=$TOSS_CLIENT_KEY $IMAGE
 
-# 최대 60초(5초 × 12회) 동안 헬스체크 → 실패 시 배포 중단
-for i in $(seq 1 12); do
+# 최대 240초(10초 × 24회) 동안 헬스체크 → 실패 시 배포 중단
+for i in $(seq 1 24); do
     STATUS=$(curl -sf http://localhost:$PORT/actuator/health | grep -c UP || true)
     if [ "$STATUS" -ge 1 ]; then echo "Health check passed"; break; fi
-    if [ $i -eq 12 ]; then echo "Health check failed - rolling back"; exit 1; fi
-    echo "Waiting... ($i/12)"
-    sleep 5
+    if [ $i -eq 24 ]; then echo "Health check failed - rolling back"; exit 1; fi
+    echo "Waiting... ($i/24)"
+    sleep 10
 done
 
 # nginx가 바라보는 대상을 새 버전으로 전환 (무중단)
