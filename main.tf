@@ -662,3 +662,137 @@ resource "aws_iam_role_policy" "s3_policy" {
 output "s3_bucket_name" {
   value = aws_s3_bucket.app.bucket
 }
+
+# SSM Parameter Store - 인프라 의존 값들 (terraform apply 후 자동 등록)
+resource "aws_ssm_parameter" "rds_url" {
+  name  = "/commerce/SPRING_DATASOURCE_URL"
+  type  = "String"
+  value = "jdbc:mysql://${aws_db_instance.commerce.endpoint}/commerce?useSSL=false&allowPublicKeyRetrieval=true"
+}
+
+resource "aws_ssm_parameter" "db_username" {
+  name  = "/commerce/SPRING_DATASOURCE_USERNAME"
+  type  = "String"
+  value = "commerce_user"
+}
+
+resource "aws_ssm_parameter" "db_password" {
+  name  = "/commerce/SPRING_DATASOURCE_PASSWORD"
+  type  = "SecureString"
+  value = var.db_password
+}
+
+resource "aws_ssm_parameter" "redis_host" {
+  name  = "/commerce/SPRING_DATA_REDIS_HOST"
+  type  = "String"
+  value = aws_elasticache_cluster.redis.cache_nodes[0].address
+}
+
+resource "aws_ssm_parameter" "s3_bucket" {
+  name  = "/commerce/AWS_S3_BUCKET"
+  type  = "String"
+  value = aws_s3_bucket.app.bucket
+}
+
+# CodeDeploy 서비스 IAM 역할 (CodeDeploy가 EC2를 제어하기 위해 필요)
+resource "aws_iam_role" "codedeploy_role" {
+  name = "commerce-codedeploy-role"
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Action = "sts:AssumeRole"
+        Effect = "Allow"
+        Principal = {
+          Service = "codedeploy.amazonaws.com"
+        }
+      }
+    ]
+  })
+}
+
+resource "aws_iam_role_policy_attachment" "codedeploy_policy" {
+  role       = aws_iam_role.codedeploy_role.name
+  policy_arn = "arn:aws:iam::aws:policy/service-role/AWSCodeDeployRole"
+}
+
+# EC2 역할에 CodeDeploy Agent용 권한 추가 (S3에서 번들 다운로드)
+resource "aws_iam_role_policy_attachment" "codedeploy_ec2_policy" {
+  role       = aws_iam_role.ec2_role.name
+  policy_arn = "arn:aws:iam::aws:policy/service-role/AmazonEC2RoleforAWSCodeDeploy"
+}
+
+# EC2 역할에 SSM Parameter Store 읽기 권한 추가
+resource "aws_iam_role_policy" "ssm_parameter_policy" {
+  name = "ssm-parameter-policy"
+  role = aws_iam_role.ec2_role.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Action = [
+          "ssm:GetParameter",
+          "ssm:GetParameters"
+        ]
+        Resource = "arn:aws:ssm:ap-northeast-2:*:parameter/commerce/*"
+      },
+      {
+        Effect = "Allow"
+        Action = "kms:Decrypt"
+        Resource = "*"
+      }
+    ]
+  })
+}
+
+# 배포 번들 저장용 S3 버킷
+resource "aws_s3_bucket" "codedeploy" {
+  bucket        = "commerce-codedeploy-${random_id.suffix.hex}"
+  force_destroy = true
+
+  tags = {
+    Name = "commerce-codedeploy"
+  }
+}
+
+resource "aws_s3_bucket_versioning" "codedeploy" {
+  bucket = aws_s3_bucket.codedeploy.id
+  versioning_configuration {
+    status = "Enabled"
+  }
+}
+
+# CodeDeploy Application
+resource "aws_codedeploy_app" "commerce" {
+  name             = "commerce-app"
+  compute_platform = "Server"
+}
+
+# CodeDeploy Deployment Group
+resource "aws_codedeploy_deployment_group" "commerce" {
+  app_name               = aws_codedeploy_app.commerce.name
+  deployment_group_name  = "commerce-deployment-group"
+  service_role_arn       = aws_iam_role.codedeploy_role.arn
+
+  deployment_config_name = "CodeDeployDefault.AllAtOnce"
+
+  ec2_tag_set {
+    ec2_tag_filter {
+      key   = "Name"
+      type  = "KEY_AND_VALUE"
+      value = "commerce-app"
+    }
+  }
+
+  deployment_style {
+    deployment_option = "WITHOUT_TRAFFIC_CONTROL"
+    deployment_type   = "IN_PLACE"
+  }
+}
+
+output "codedeploy_bucket" {
+  value = aws_s3_bucket.codedeploy.bucket
+}

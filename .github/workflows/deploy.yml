@@ -56,35 +56,50 @@ jobs:
           docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:${{ github.sha }} .
           docker push $ECR_REGISTRY/$ECR_REPOSITORY:${{ github.sha }}
 
-      - name: Deploy to EC2 using SSM (Blue-Green)
+      - name: Get CodeDeploy bucket name
+        run: |
+          BUCKET=$(aws s3api list-buckets \
+            --query "Buckets[?starts_with(Name, 'commerce-codedeploy')].Name | [0]" \
+            --output text)
+          echo "CODEDEPLOY_BUCKET=$BUCKET" >> $GITHUB_ENV
+
+      - name: Save secrets to SSM Parameter Store
         env:
           IMAGE: ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}:${{ github.sha }}
-          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
         run: |
-          COMMAND_ID=$(aws ssm send-command \
-            --instance-ids "${{ secrets.EC2_INSTANCE_ID }}" \
-            --document-name "AWS-RunShellScript" \
-            --timeout-seconds 600 \
-            --parameters commands='[
-              "aws ecr get-login-password --region ap-northeast-2 | docker login --username AWS --password-stdin ${{ env.ECR_REGISTRY }}",
-              "SPRING_DATASOURCE_URL=\"jdbc:mysql://${{ secrets.RDS_ENDPOINT }}/commerce?useSSL=false&allowPublicKeyRetrieval=true\" SPRING_DATASOURCE_USERNAME=${{ secrets.RDS_USERNAME }} SPRING_DATASOURCE_PASSWORD=${{ secrets.RDS_PASSWORD }} SPRING_DATA_REDIS_HOST=${{ secrets.REDIS_HOST }} AWS_S3_BUCKET=${{ secrets.AWS_S3_BUCKET }} NAVER_CLIENT_ID=${{ secrets.NAVER_CLIENT_ID }} NAVER_CLIENT_SECRET=${{ secrets.NAVER_CLIENT_SECRET }} TOSS_SECRET_KEY=${{ secrets.TOSS_SECRET_KEY }} TOSS_CLIENT_KEY=${{ secrets.TOSS_CLIENT_KEY }} bash /home/ubuntu/deploy.sh ${{ env.IMAGE }} ${{ env.PROFILE }}"
-            ]' \
-            --query 'Command.CommandId' \
+          aws ssm put-parameter --name "/commerce/IMAGE" \
+            --value "$IMAGE" --type String --overwrite
+
+          aws ssm put-parameter --name "/commerce/SPRING_PROFILES_ACTIVE" \
+            --value "${{ env.PROFILE }}" --type String --overwrite
+
+          aws ssm put-parameter --name "/commerce/NAVER_CLIENT_ID" \
+            --value "${{ secrets.NAVER_CLIENT_ID }}" --type String --overwrite
+
+          aws ssm put-parameter --name "/commerce/NAVER_CLIENT_SECRET" \
+            --value "${{ secrets.NAVER_CLIENT_SECRET }}" --type SecureString --overwrite
+
+          aws ssm put-parameter --name "/commerce/TOSS_SECRET_KEY" \
+            --value "${{ secrets.TOSS_SECRET_KEY }}" --type SecureString --overwrite
+
+          aws ssm put-parameter --name "/commerce/TOSS_CLIENT_KEY" \
+            --value "${{ secrets.TOSS_CLIENT_KEY }}" --type String --overwrite
+
+      - name: Create deploy bundle and upload to S3
+        run: |
+          zip -r deploy.zip appspec.yml scripts/
+          aws s3 cp deploy.zip s3://${{ env.CODEDEPLOY_BUCKET }}/deploy-${{ github.sha }}.zip
+
+      - name: Deploy via CodeDeploy
+        run: |
+          DEPLOYMENT_ID=$(aws deploy create-deployment \
+            --application-name commerce-app \
+            --deployment-group-name commerce-deployment-group \
+            --s3-location bucket=${{ env.CODEDEPLOY_BUCKET }},key=deploy-${{ github.sha }}.zip,bundleType=zip \
+            --query 'deploymentId' \
             --output text)
 
-          for i in $(seq 1 60); do
-            STATUS=$(aws ssm get-command-invocation \
-              --command-id $COMMAND_ID \
-              --instance-id "${{ secrets.EC2_INSTANCE_ID }}" \
-              --query 'Status' --output text)
-            echo "[$i/60] Status: $STATUS"
-            if [ "$STATUS" = "Success" ] || [ "$STATUS" = "Failed" ] || [ "$STATUS" = "TimedOut" ]; then break; fi
-            sleep 10
-          done
+          echo "Deployment ID: $DEPLOYMENT_ID"
 
-          aws ssm get-command-invocation \
-            --command-id $COMMAND_ID \
-            --instance-id "${{ secrets.EC2_INSTANCE_ID }}" \
-            --query '{Status: Status, Output: StandardOutputContent, Error: StandardErrorContent}'
-
-          if [ "$STATUS" != "Success" ]; then exit 1; fi
+          aws deploy wait deployment-successful \
+            --deployment-id $DEPLOYMENT_ID

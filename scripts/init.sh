@@ -105,47 +105,10 @@ docker run -d --name nginx --network monitoring -p 80:80 \
     --restart unless-stopped \
     nginx:alpine
 
-# deploy.sh 생성
-cat > /home/ubuntu/deploy.sh << 'DEPLOYSH'
-#!/bin/bash
-set -e
-
-# 인자로 받은 ECR 이미지 주소와 스프링 프로파일
-IMAGE=$1
-PROFILE=$2
-
-# 현재 nginx가 바라보는 대상(blue/green) 확인 → 파일 없으면 기본값 blue
-CURRENT=$(grep -oP 'http://\K(blue|green)' /home/ubuntu/nginx/conf.d/service-url.inc 2>/dev/null || echo blue)
-# 현재가 blue면 green에 배포, 그 반대도 동일
-if [ "$CURRENT" = "blue" ]; then TARGET=green; PORT=8082; else TARGET=blue; PORT=8081; fi
-
-echo "Deploying to $TARGET (port $PORT), current: $CURRENT"
-
-# 배포 대상 컨테이너가 이미 있으면 제거
-docker stop $TARGET || true
-docker rm $TARGET || true
-
-# 새 버전 컨테이너 실행 (환경변수는 SSM 호출 시 주입됨)
-docker run -d --name $TARGET --restart unless-stopped --network monitoring -p $PORT:8080 -e JAVA_OPTS="-Xms128m -Xmx256m" -e SPRING_PROFILES_ACTIVE=$PROFILE -e SPRING_DATASOURCE_URL="$SPRING_DATASOURCE_URL" -e SPRING_DATASOURCE_USERNAME=$SPRING_DATASOURCE_USERNAME -e SPRING_DATASOURCE_PASSWORD=$SPRING_DATASOURCE_PASSWORD -e SPRING_DATA_REDIS_HOST=$SPRING_DATA_REDIS_HOST -e AWS_S3_BUCKET=$AWS_S3_BUCKET -e NAVER_CLIENT_ID=$NAVER_CLIENT_ID -e NAVER_CLIENT_SECRET=$NAVER_CLIENT_SECRET -e TOSS_SECRET_KEY=$TOSS_SECRET_KEY -e TOSS_CLIENT_KEY=$TOSS_CLIENT_KEY $IMAGE
-
-# 최대 240초(10초 × 24회) 동안 헬스체크 → 실패 시 배포 중단
-for i in $(seq 1 24); do
-    STATUS=$(curl -sf http://localhost:$PORT/actuator/health | grep -c UP || true)
-    if [ "$STATUS" -ge 1 ]; then echo "Health check passed"; break; fi
-    if [ $i -eq 24 ]; then echo "Health check failed - rolling back"; docker stop $TARGET || true; docker rm $TARGET || true; exit 1; fi
-    echo "Waiting... ($i/24)"
-    sleep 10
-done
-
-# nginx가 바라보는 대상을 새 버전으로 전환 (무중단)
-echo "set \$service_url http://$TARGET:8080;" > /home/ubuntu/nginx/conf.d/service-url.inc
-docker exec nginx nginx -s reload
-
-# 이전 버전 컨테이너 종료 및 제거
-docker stop $CURRENT || true
-docker rm $CURRENT || true
-
-echo "Deploy complete. Active: $TARGET"
-DEPLOYSH
-
-chmod +x /home/ubuntu/deploy.sh
+# CodeDeploy Agent 설치
+sudo apt-get install -y ruby-full
+wget https://aws-codedeploy-ap-northeast-2.s3.ap-northeast-2.amazonaws.com/latest/install
+chmod +x ./install
+sudo ./install auto
+sudo systemctl start codedeploy-agent
+sudo systemctl enable codedeploy-agent
