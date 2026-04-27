@@ -11,6 +11,12 @@ permissions:
     mode: "755"
     type:
       - file
+  - object: /home/ubuntu/nginx
+    owner: ubuntu
+    group: ubuntu
+    type:
+      - directory
+      - file
 
 hooks:
   BeforeInstall:
