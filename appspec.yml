@@ -1,0 +1,29 @@
+version: 0.0
+os: linux
+
+files:
+  - source: /scripts
+    destination: /home/ubuntu/scripts
+    overwrite: yes
+
+permissions:
+  - object: /home/ubuntu/scripts
+    mode: "755"
+    type:
+      - file
+
+hooks:
+  BeforeInstall:
+    - location: scripts/before_install.sh
+      timeout: 60
+      runas: ubuntu
+
+  ApplicationStart:
+    - location: scripts/application_start.sh
+      timeout: 300
+      runas: ubuntu
+
+  ValidateService:
+    - location: scripts/validate_service.sh
+      timeout: 300
+      runas: ubuntu
