@@ -3,8 +3,11 @@
 ## 프로젝트 소개
 Spring Boot 기반 이커머스 플랫폼을 직접 구현하며 주문, 결제, 재고 관리 등 핵심 도메인을 학습하고, 동시성 문제, 성능 이슈, 데드락 등 실제로 마주친 문제들을 해결한 프로젝트입니다.
 
-## 아키텍처
-<img src="https://github.com/user-attachments/assets/71fa7063-8f04-409b-a40b-5cd09363b8dc" width="800" alt="architecture"/>
+## 시스템 아키텍처
+<img src="https://github.com/user-attachments/assets/6c8576f6-14a8-44cc-942f-126e9ed539d2" width="800" alt="architecture"/>
+
+## CI/CD 
+<img src="https://github.com/user-attachments/assets/fd6bacd5-da88-4670-8363-5ba4bc7909b9" width="800" alt="architecture"/>
 
 ## 기술 스택
 
