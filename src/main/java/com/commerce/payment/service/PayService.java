@@ -1,18 +1,17 @@
 package com.commerce.payment.service;
 
-import com.commerce.order.domain.OrderProduct;
-import com.commerce.order.domain.Orders;
-import com.commerce.product.domain.Product;
+import com.commerce.cart.repository.CartProductRepository;
 import com.commerce.common.enums.OrderStatus;
 import com.commerce.common.enums.OrderType;
 import com.commerce.common.enums.PaymentType;
+import com.commerce.common.exception.EntityNotFoundException;
+import com.commerce.order.domain.OrderProduct;
+import com.commerce.order.domain.Orders;
+import com.commerce.order.repository.OrderRepository;
+import com.commerce.order.service.OrderService;
 import com.commerce.payment.dto.CancelResponseDTO;
 import com.commerce.payment.dto.PayConfirmDTO;
-import com.commerce.common.exception.EntityNotFoundException;
 import com.commerce.payment.external.TossPaymentClient;
-import com.commerce.cart.repository.CartProductRepository;
-import com.commerce.order.repository.OrderRepository;
-import com.commerce.product.repository.ProductRepository;
 import com.fasterxml.jackson.databind.JsonNode;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -21,14 +20,16 @@ import org.springframework.http.HttpStatusCode;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.reactive.function.client.WebClient;
+import org.springframework.web.reactive.function.client.WebClientRequestException;
 import org.springframework.web.reactive.function.client.WebClientResponseException;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
-import java.util.*;
-
-import com.commerce.order.service.OrderService;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
 
 @Service
 @RequiredArgsConstructor
@@ -91,6 +92,9 @@ public class PayService {
 		JsonNode tossResponse;
 		try {
 			tossResponse = confirmWithToss(req);
+		} catch (WebClientRequestException e) {
+			handleAmbiguousFailure(req, userId);
+			throw e;
 		} catch (Exception e) {
 			paymentTxService.restoreStockOnTossFailure(req.getOrderId());
 			throw e;
@@ -234,12 +238,26 @@ public class PayService {
 	private JsonNode confirmWithToss(PayConfirmDTO req) {
 		try {
 			return tossPaymentClient.confirm(req);
-		} catch (WebClientResponseException e) {
-			log.warn("payment confirm failed: orderId={}, status={}", req.getOrderId(), e.getStatusCode().value());
-			throw new ResponseStatusException(e.getStatusCode(), "토스 승인 실패");
 		} catch (Exception e) {
 			log.error("toss confirm exception: orderId={}", req.getOrderId(), e);
 			throw e;
+		}
+	}
+
+	private void handleAmbiguousFailure(PayConfirmDTO req, Long userId) {
+		log.warn("응답 유실 가능성, Toss 결제 상태 조회: orderId={}", req.getOrderId());
+		try {
+			JsonNode payment = tossPaymentClient.getPayment(req.getOrderId());
+			String status = payment.path("status").asText();
+			if ("DONE".equals(status)) {
+				log.info("Toss 결제 확인됨, 승인 처리: orderId={}", req.getOrderId());
+				paymentTxService.applyPaymentSuccess(req.getOrderId(), payment, userId, req.getPaymentKey());
+			} else {
+				log.info("Toss 미결제 확인, 재고 복원: orderId={}, status={}", req.getOrderId(), status);
+				paymentTxService.restoreStockOnTossFailure(req.getOrderId());
+			}
+		} catch (Exception e) {
+			log.error("Toss 조회 실패, 수동 처리 필요: orderId={}", req.getOrderId(), e);
 		}
 	}
 

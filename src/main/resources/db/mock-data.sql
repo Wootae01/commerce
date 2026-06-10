@@ -1,6 +1,19 @@
     create database if not exists commerce;
     use commerce;
 
+    -- 기존 데이터 초기화
+    SET FOREIGN_KEY_CHECKS = 0;
+    TRUNCATE TABLE order_cart_product;
+    TRUNCATE TABLE order_product;
+    TRUNCATE TABLE orders;
+    TRUNCATE TABLE cart_product;
+    TRUNCATE TABLE cart;
+    TRUNCATE TABLE product_option;
+    TRUNCATE TABLE image;
+    TRUNCATE TABLE product;
+    TRUNCATE TABLE `user`;
+    SET FOREIGN_KEY_CHECKS = 1;
+
     INSERT INTO admin(username, role, password)
     SELECT "admin", "ROLE_ADMIN", "$2a$10$33jAxhxoVRtTN4ybMoSkB.ZY2jqjcx/8o2FyhgnrrDJlTkvLRF0Ji"
         WHERE NOT EXISTS (SELECT 1 FROM admin WHERE username = "admin");
@@ -153,10 +166,50 @@
              LEFT JOIN cart c ON c.user_id = u.user_id
     WHERE c.user_id IS NULL;
 
+    -- 상품 절반(하위 50개)에 옵션 3개씩 삽입 (S/M/L)
+    INSERT INTO product_option (name, stock, additional_price, product_id)
+    WITH
+        opts(opt_name, opt_price) AS (
+            SELECT 'S',  0    UNION ALL
+            SELECT 'M', 1000  UNION ALL
+            SELECT 'L', 2000
+        ),
+        half_products AS (
+            SELECT product_id
+            FROM product
+            ORDER BY product_id DESC
+            LIMIT 50
+        )
+    SELECT o.opt_name, 100, o.opt_price, p.product_id
+    FROM half_products p
+    CROSS JOIN opts o
+    WHERE NOT EXISTS (
+        SELECT 1 FROM product_option po WHERE po.product_id = p.product_id
+    );
+
+    -- 옵션 있는 상품의 order_product에 옵션 연결 (S/M/L 균등 분배)
+    UPDATE order_product op
+    JOIN (
+        SELECT po.id AS option_id, po.product_id,
+               ROW_NUMBER() OVER (PARTITION BY po.product_id ORDER BY po.id) AS rn
+        FROM product_option po
+    ) ranked ON ranked.product_id = op.product_id
+        AND ranked.rn = (MOD(op.order_product_id, 3) + 1)
+    SET op.product_option_id = ranked.option_id
+    WHERE op.product_option_id IS NULL;
+
     -- cart product 만들기 카트 당 50개
-    INSERT INTO cart_product (is_checked, quantity, cart_id, product_id, created_at, updated_at)
+    INSERT INTO cart_product (is_checked, quantity, cart_id, product_id, created_at, updated_at, product_option_id)
     SELECT
-        0, 1, c.cart_id, rp.product_id, NOW(), NOW()
+        0, 1, c.cart_id, rp.product_id, NOW(), NOW(),
+        (
+            SELECT ranked.id FROM (
+                SELECT po.id, ROW_NUMBER() OVER (ORDER BY po.id) - 1 AS rn
+                FROM product_option po
+                WHERE po.product_id = rp.product_id
+            ) ranked
+            WHERE ranked.rn = MOD(c.cart_id, 3)
+        )
     FROM cart c
     JOIN (
         SELECT product_id

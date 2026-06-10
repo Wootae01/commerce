@@ -40,6 +40,22 @@ public class TossPaymentClient {
 		return jsonNode;
 	}
 
+	public JsonNode getPayment(String orderId) {
+		try {
+			return tossWebClient.get()
+				.uri("/v1/payments/orders/{orderId}", orderId)
+				.retrieve()
+				.bodyToMono(JsonNode.class)
+				.block();
+		} catch (WebClientResponseException e) {
+			log.error("toss getPayment failed: status={}, body={}", e.getStatusCode(), e.getResponseBodyAsString(), e);
+			throw new ResponseStatusException(e.getStatusCode(), "토스 결제 조회 실패");
+		} catch (Exception e) {
+			log.error("toss getPayment exception", e);
+			throw e;
+		}
+	}
+
 	public JsonNode confirm(PayConfirmDTO req) {
 		JsonNode tossResponse;
 		try{

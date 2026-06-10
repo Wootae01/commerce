@@ -49,10 +49,12 @@ import com.commerce.product.repository.ProductRepository;
 import com.commerce.common.util.SecurityUtil;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
+@Slf4j
 public class OrderService {
 
 	private final OrderRepository orderRepository;
@@ -254,8 +256,14 @@ public class OrderService {
 		orderProductRows.sort(Comparator.comparing(OrderProductRow::productId));
 		orderCartProductRows.sort(Comparator.comparing(OrderCartProductRow::cartProductId));
 
-		orderProductJdbcRepository.batchInsert(orderProductRows);
-		orderCartProductJdbcRepository.batchInsert(orderCartProductRows);
+		try {
+			orderProductJdbcRepository.batchInsert(orderProductRows);
+			orderCartProductJdbcRepository.batchInsert(orderCartProductRows);
+		} catch (org.springframework.dao.DataAccessException e) {
+			log.error("주문 상품 batch insert 실패: orderId={}, productCount={}",
+				orders.getId(), orderProductRows.size(), e);
+			throw new BusinessException("주문 생성 중 오류가 발생했습니다.", HttpStatus.INTERNAL_SERVER_ERROR);
+		}
 
 		return orders; // 이 객체에서 orderProduct, orderCartProduct 사용하면 안됨.
 	}
