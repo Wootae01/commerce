@@ -24,7 +24,10 @@ done
 echo "set \$service_url http://$TARGET:8080;" > /home/ubuntu/nginx/conf.d/service-url.inc
 docker exec nginx nginx -s reload
 
+# 기존 커넥션 drain 대기
+sleep 5
+
 # 이전 컨테이너 stop만 (rm 안 함 → 즉시 롤백 가능)
-docker stop $CURRENT || true
+docker stop --time 35 $CURRENT || true
 
 echo "Deploy complete. Active: $TARGET"

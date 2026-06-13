@@ -75,6 +75,7 @@ sudo systemctl enable amazon-cloudwatch-agent
 
 # nginx 설정 디렉토리 생성
 mkdir -p /home/ubuntu/nginx/conf.d
+chown -R ubuntu:ubuntu /home/ubuntu/nginx
 
 # nginx.conf 작성
 cat > /home/ubuntu/nginx/nginx.conf << 'NGINXCONF'

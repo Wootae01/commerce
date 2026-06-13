@@ -22,6 +22,12 @@ spring:
         session_factory:
           statement_inspector: com.commerce.common.interceptor.QueryCountStatementInterceptor
 
+  lifecycle:
+    timeout-per-shutdown-phase: 30s
+
+server:
+  shutdown: graceful
+
   servlet:
     multipart:
       max-file-size: 20MB
