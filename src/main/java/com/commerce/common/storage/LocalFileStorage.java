@@ -9,6 +9,9 @@ import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Component;
 import org.springframework.web.multipart.MultipartFile;
 
+import com.commerce.common.code.GeneralResponseCode;
+import com.commerce.common.exception.ApiException;
+
 @Component
 @Profile(value = "local")
 public class LocalFileStorage implements FileStorage{
@@ -21,12 +24,12 @@ public class LocalFileStorage implements FileStorage{
 	@Override
 	public UploadFile storeImage(MultipartFile file) throws IOException {
 		if (file == null || file.isEmpty()) {
-			throw new IllegalArgumentException("빈 파일 입니다.");
+			throw new ApiException(GeneralResponseCode.IMAGE_EMPTY);
 		}
 
 		String contentType = file.getContentType();
 		if (contentType == null || !contentType.startsWith("image/")) {
-			throw new IllegalArgumentException("이미지 파일만 업로드 가능");
+			throw new ApiException(GeneralResponseCode.IMAGE_TYPE_INVALID);
 		}
 
 		String originalFilename = file.getOriginalFilename();

@@ -6,8 +6,9 @@ import org.springframework.http.HttpStatusCode;
 import org.springframework.stereotype.Component;
 import org.springframework.web.reactive.function.client.WebClient;
 import org.springframework.web.reactive.function.client.WebClientResponseException;
-import org.springframework.web.server.ResponseStatusException;
 
+import com.commerce.common.code.ExternalResponseCode;
+import com.commerce.common.exception.ApiException;
 import com.commerce.payment.dto.PayConfirmDTO;
 import com.fasterxml.jackson.databind.JsonNode;
 
@@ -31,10 +32,10 @@ public class TossPaymentClient {
 				.bodyToMono(JsonNode.class)
 				.block();
 		} catch (WebClientResponseException e) {
-			log.error("toss confirm failed: status={}, body={}", e.getStatusCode(), e.getResponseBodyAsString(), e);
-			throw new ResponseStatusException(e.getStatusCode(), "토스 승인 실패");
+			log.error("toss cancel failed: status={}, body={}", e.getStatusCode(), e.getResponseBodyAsString(), e);
+			throw new ApiException(ExternalResponseCode.PG_CANCEL_ERROR);
 		} catch (Exception e) {
-			log.error("toss confirm exception", e);
+			log.error("toss cancel exception", e);
 			throw e;
 		}
 		return jsonNode;
@@ -49,7 +50,7 @@ public class TossPaymentClient {
 				.block();
 		} catch (WebClientResponseException e) {
 			log.error("toss getPayment failed: status={}, body={}", e.getStatusCode(), e.getResponseBodyAsString(), e);
-			throw new ResponseStatusException(e.getStatusCode(), "토스 결제 조회 실패");
+			throw new ApiException(ExternalResponseCode.PG_QUERY_ERROR);
 		} catch (Exception e) {
 			log.error("toss getPayment exception", e);
 			throw e;
@@ -66,14 +67,16 @@ public class TossPaymentClient {
 				.onStatus(HttpStatusCode::isError, res ->
 					res.bodyToMono(String.class)
 						.defaultIfEmpty("")
-						.map(body -> new ResponseStatusException(res.statusCode(),
-							"toss confirm error: " + body))
+						.map(body -> {
+							log.error("toss confirm error: status={}, body={}", res.statusCode(), body);
+							return new ApiException(ExternalResponseCode.PG_APPROVAL_ERROR);
+						})
 				)
 				.bodyToMono(JsonNode.class)
 				.block();
 		} catch (WebClientResponseException e) {
 			log.error("toss confirm failed: status={}, body={}", e.getStatusCode(), e.getResponseBodyAsString(), e);
-			throw new ResponseStatusException(e.getStatusCode(), "토스 승인 실패");
+			throw new ApiException(ExternalResponseCode.PG_APPROVAL_ERROR);
 		} catch (Exception e) {
 			log.error("toss confirm exception", e);
 			throw e;

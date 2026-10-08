@@ -24,7 +24,8 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
-import org.springframework.web.server.ResponseStatusException;
+import com.commerce.common.code.ExternalResponseCode;
+import com.commerce.common.exception.ApiException;
 import org.wiremock.spring.EnableWireMock;
 
 import com.commerce.config.IntegrationTest;
@@ -350,7 +351,8 @@ class PayServiceTest {
 			UUID.randomUUID().toString(), order.getOrderNumber(), order.getFinalPrice());
 
 		assertThatThrownBy(() -> payService.confirm(req, userId))
-			.isInstanceOf(ResponseStatusException.class);
+			.isInstanceOf(ApiException.class)
+			.extracting("responseCode").isEqualTo(ExternalResponseCode.PG_APPROVAL_ERROR);
 
 		// then - 재고 복원, 주문 CANCELED
 		Product afterProduct = productRepository.findById(product.getId()).orElseThrow();

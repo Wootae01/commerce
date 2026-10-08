@@ -13,7 +13,8 @@ import com.commerce.order.repository.OrderProductRepository;
 import com.commerce.product.repository.ProductJdbcRepository;
 import com.commerce.product.repository.ProductOptionRepository;
 import com.commerce.product.repository.ProductRepository;
-import com.commerce.common.exception.EntityNotFoundException;
+import com.commerce.common.code.GeneralResponseCode;
+import com.commerce.common.exception.ApiException;
 import com.commerce.common.storage.FileStorage;
 import com.commerce.common.storage.UploadFile;
 import com.commerce.common.template.CacheTemplate;
@@ -152,12 +153,12 @@ public class ProductService {
     // id로 상품 검색
     public Product findById(Long id) {
         return productRepository.findById(id)
-                .orElseThrow(() -> new EntityNotFoundException("해당 상품을 찾을 수 없습니다."));
+                .orElseThrow(() -> new ApiException(GeneralResponseCode.PRODUCT_NOT_FOUND));
     }
 
     public Product findByIdWithImage(Long id) {
         return productRepository.findByIdWithImage(id)
-                .orElseThrow(() -> new EntityNotFoundException("해당 상품을 찾을 수 없습니다."));
+                .orElseThrow(() -> new ApiException(GeneralResponseCode.PRODUCT_NOT_FOUND));
     }
 
     public List<ProductOption> findOptionsByProductId(Long id) {
@@ -166,12 +167,12 @@ public class ProductService {
 
     public ProductOption findOptionById(Long id) {
         return productOptionRepository.findById(id)
-                .orElseThrow(() -> new EntityNotFoundException("해당 옵션을 찾을 수 없습니다."));
+                .orElseThrow(() -> new ApiException(GeneralResponseCode.PRODUCT_OPTION_NOT_FOUND));
     }
 
     public Product findByIdWithOptions(Long id) {
         return productRepository.findByIdWithOptions(id)
-                .orElseThrow(() -> new EntityNotFoundException("해당 상품을 찾을 수 없습니다."));
+                .orElseThrow(() -> new ApiException(GeneralResponseCode.PRODUCT_NOT_FOUND));
     }
 
     // 모든 상품 검색
@@ -232,7 +233,7 @@ public class ProductService {
     @Transactional
     public void deleteProduct(Long id) {
         Product product = productRepository.findById(id)
-            .orElseThrow(() -> new EntityNotFoundException("해당 상품을 찾을 수 없습니다."));
+            .orElseThrow(() -> new ApiException(GeneralResponseCode.PRODUCT_NOT_FOUND));
 
         // 대표 이미지 삭제
         Image mainImage = product.getMainImage();
@@ -255,7 +256,7 @@ public class ProductService {
                               MultipartFile mainFile, List<MultipartFile> files) throws IOException {
 
         Product product = productRepository.findByIdWithOptions(id)
-            .orElseThrow(() -> new EntityNotFoundException("해당 상품을 찾을 수 없습니다."));
+            .orElseThrow(() -> new ApiException(GeneralResponseCode.PRODUCT_NOT_FOUND));
         product.update(
             updatedProduct.getPrice(),
             updatedProduct.getStock(),

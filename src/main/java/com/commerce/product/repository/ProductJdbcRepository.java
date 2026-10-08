@@ -8,6 +8,8 @@ import java.util.Map;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Repository;
 
+import com.commerce.common.code.GeneralResponseCode;
+import com.commerce.common.exception.ApiException;
 import com.commerce.product.dto.FeaturedItem;
 
 import lombok.RequiredArgsConstructor;
@@ -77,7 +79,7 @@ public class ProductJdbcRepository {
 		int updated = jdbcTemplate.update(sql.toString(), params.toArray());
 
 		if (!isIncrease && updated != productIds.size()) {
-			throw new IllegalStateException("재고 부족(또는 상품 누락) - rollback");
+			throw new ApiException(GeneralResponseCode.PRODUCT_OUT_OF_STOCK);
 
 		}
 		return updated;

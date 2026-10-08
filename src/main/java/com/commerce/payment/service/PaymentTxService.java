@@ -5,7 +5,8 @@ import java.time.OffsetDateTime;
 import java.time.format.DateTimeParseException;
 import java.util.List;
 import java.util.Map;
-import com.commerce.common.exception.EntityNotFoundException;
+import com.commerce.common.code.GeneralResponseCode;
+import com.commerce.common.exception.ApiException;
 import java.util.stream.Collectors;
 
 import org.springframework.stereotype.Service;
@@ -54,11 +55,11 @@ public class PaymentTxService {
 	@Transactional
 	public String beginCancel(Long orderId) {
 		Orders order = orderRepository.findByIdWithLock(orderId)
-			.orElseThrow(() -> new EntityNotFoundException("해당 주문이 존재하지 않습니다."));
+			.orElseThrow(() -> new ApiException(GeneralResponseCode.ORDER_NOT_FOUND));
 
 		OrderStatus status = order.getOrderStatus();
 		if (!(status == OrderStatus.PAID || status == OrderStatus.READY)) {
-			throw new IllegalStateException("현재 상태에서는 주문 취소를할 수 없습니다.");
+			throw new ApiException(GeneralResponseCode.ORDER_CANCEL_NOT_ALLOWED);
 		}
 
 		order.setOrderStatus(OrderStatus.CANCEL_REQUESTED);
@@ -69,11 +70,11 @@ public class PaymentTxService {
 	@Transactional
 	public void applyCancelSuccess(Long orderId, boolean restoreStock) {
 		Orders order = orderRepository.findByIdWithLock(orderId)
-			.orElseThrow(() -> new EntityNotFoundException("해당 주문이 존재하지 않습니다."));
+			.orElseThrow(() -> new ApiException(GeneralResponseCode.ORDER_NOT_FOUND));
 
 		if (order.getOrderStatus() != OrderStatus.CANCEL_REQUESTED) {
 			log.warn("취소 처리할 수 없는 상태입니다. orderId={}, status={}", orderId, order.getOrderStatus());
-			throw new IllegalStateException("취소 처리할 수 없는 상태입니다.");
+			throw new ApiException(GeneralResponseCode.ORDER_CANCEL_NOT_ALLOWED, "취소 처리할 수 없는 상태입니다.");
 		}
 
 		order.setOrderStatus(OrderStatus.CANCELED);
@@ -86,7 +87,7 @@ public class PaymentTxService {
 	@Transactional
 	public void revertCancelRequest(Long orderId) {
 		Orders order = orderRepository.findByIdWithLock(orderId)
-			.orElseThrow(() -> new EntityNotFoundException("해당 주문이 존재하지 않습니다."));
+			.orElseThrow(() -> new ApiException(GeneralResponseCode.ORDER_NOT_FOUND));
 
 		if (order.getOrderStatus() == OrderStatus.CANCEL_REQUESTED) {
 			order.setOrderStatus(OrderStatus.PAID);
@@ -97,11 +98,11 @@ public class PaymentTxService {
 	@Transactional
 	public void applyPaymentSuccess(String orderNumber, JsonNode tossResponse, Long userId, String paymentKey) {
 		Orders order = orderRepository.findByOrderNumber(orderNumber)
-			.orElseThrow(() -> new EntityNotFoundException("해당 주문이 존재하지 않습니다."));
+			.orElseThrow(() -> new ApiException(GeneralResponseCode.ORDER_NOT_FOUND));
 
 		if (order.getOrderStatus() != OrderStatus.PAYMENT_PENDING) {
 			log.warn("이미 처리된 주문입니다. orderNumber={}, status={}", orderNumber, order.getOrderStatus());
-			throw new IllegalStateException("이미 처리된 주문입니다.");
+			throw new ApiException(GeneralResponseCode.PAYMENT_ALREADY_PROCESSED);
 		}
 
 		// 결제 수단, paymentKey
@@ -140,10 +141,10 @@ public class PaymentTxService {
 	@Transactional
 	public void lockAndDeductStock(String orderNumber) {
 		Orders order = orderRepository.findByOrderNumberWithLock(orderNumber)
-			.orElseThrow(() -> new EntityNotFoundException("해당 주문이 존재하지 않습니다."));
+			.orElseThrow(() -> new ApiException(GeneralResponseCode.ORDER_NOT_FOUND));
 
 		if (order.getOrderStatus() != OrderStatus.READY) {
-			throw new IllegalStateException("이미 처리된 주문입니다.");
+			throw new ApiException(GeneralResponseCode.PAYMENT_ALREADY_PROCESSED);
 		}
 
 		order.setOrderStatus(OrderStatus.PAYMENT_PENDING);
@@ -153,7 +154,7 @@ public class PaymentTxService {
 	@Transactional
 	public void restoreStockOnTossFailure(String orderNumber) {
 		Orders order = orderRepository.findByOrderNumber(orderNumber)
-			.orElseThrow(() -> new EntityNotFoundException("해당 주문이 존재하지 않습니다."));
+			.orElseThrow(() -> new ApiException(GeneralResponseCode.ORDER_NOT_FOUND));
 		updateStock(order.getId(), true);
 		order.setOrderStatus(OrderStatus.CANCELED);
 	}

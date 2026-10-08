@@ -4,8 +4,7 @@ import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Map;
-import com.commerce.common.exception.BusinessException;
-import com.commerce.common.exception.EntityNotFoundException;
+import com.commerce.common.exception.ApiException;
 import com.commerce.product.domain.ProductOption;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Controller;
@@ -116,7 +115,7 @@ public class PayController {
 				return ResponseEntity.badRequest().body(Map.of("message", "잘못된 요청"));
 			}
 
-		} catch (IllegalArgumentException | EntityNotFoundException | BusinessException e) {
+		} catch (IllegalArgumentException | ApiException e) {
 			return ResponseEntity.badRequest().body(Map.of("message", e.getMessage()));
 		}
 
@@ -156,7 +155,7 @@ public class PayController {
 		try {
 			CancelResponseDTO dto = payService.cancel(orderNumber, cancelReason);
 			model.addAttribute("result", dto);
-		} catch (IllegalStateException e) {
+		} catch (ApiException e) {
 			model.addAttribute("result",
 				new CancelResponseDTO(false, orderNumber, null, 0, null, e.getMessage()));
 		} catch (Exception e) {

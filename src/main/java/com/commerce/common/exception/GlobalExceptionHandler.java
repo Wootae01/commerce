@@ -9,22 +9,24 @@ import org.springframework.web.servlet.ModelAndView;
 
 import jakarta.servlet.http.HttpServletResponse;
 
+/**
+ * Thymeleaf 화면(@Controller)용 예외 처리 (error.html 응답).
+ * @RestController는 ApiExceptionHandler가 우선 처리한다.
+ */
 @ControllerAdvice
 @Slf4j
 public class GlobalExceptionHandler {
 
-    @ExceptionHandler(EntityNotFoundException.class)
-    public ModelAndView handleEntityNotFound(EntityNotFoundException e, HttpServletResponse response) {
-        log.warn("EntityNotFoundException: {}", e.getMessage());
-        response.setStatus(HttpStatus.NOT_FOUND.value());
-        return errorView(HttpStatus.NOT_FOUND.value(), "찾을 수 없음", e.getMessage());
-    }
-
-    @ExceptionHandler(BusinessException.class)
-    public ModelAndView handleBusinessException(BusinessException e, HttpServletResponse response) {
-        log.warn("BusinessException: {}", e.getMessage());
-        response.setStatus(e.getStatus().value());
-        return errorView(e.getStatus().value(), "요청 처리 실패", e.getMessage());
+    @ExceptionHandler(ApiException.class)
+    public ModelAndView handleApiException(ApiException e, HttpServletResponse response) {
+        HttpStatus status = e.getStatus();
+        if (status.is5xxServerError()) {
+            log.error("ApiException: code={}, message={}", e.getResponseCode(), e.getMessage(), e);
+        } else {
+            log.warn("ApiException: code={}, message={}", e.getResponseCode(), e.getMessage());
+        }
+        response.setStatus(status.value());
+        return errorView(status.value(), titleOf(status), e.getMessage());
     }
 
     @ExceptionHandler(AccessDeniedException.class)
@@ -34,7 +36,7 @@ public class GlobalExceptionHandler {
         return errorView(HttpStatus.FORBIDDEN.value(), "접근 권한 없음", "해당 페이지에 접근할 권한이 없습니다.");
     }
 
-@ExceptionHandler(Exception.class)
+    @ExceptionHandler(Exception.class)
     public ModelAndView handleException(Exception e, HttpServletResponse response) {
         log.error("Unhandled exception", e);
         response.setStatus(HttpStatus.INTERNAL_SERVER_ERROR.value());
@@ -47,5 +49,18 @@ public class GlobalExceptionHandler {
         mav.addObject("title", title);
         mav.addObject("message", message);
         return mav;
+    }
+
+    private String titleOf(HttpStatus status) {
+        if (status == HttpStatus.NOT_FOUND) {
+            return "찾을 수 없음";
+        }
+        if (status == HttpStatus.FORBIDDEN) {
+            return "접근 권한 없음";
+        }
+        if (status.is5xxServerError()) {
+            return "서버 오류";
+        }
+        return "요청 처리 실패";
     }
 }

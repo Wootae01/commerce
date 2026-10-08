@@ -1,5 +1,8 @@
 package com.commerce.common.storage;
 
+import com.commerce.common.code.GeneralResponseCode;
+import com.commerce.common.exception.ApiException;
+
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -27,12 +30,12 @@ public class S3FileStorage implements FileStorage {
 	@Override
 	public UploadFile storeImage(MultipartFile file) throws IOException {
 		if (file == null || file.isEmpty()) {
-			throw new IllegalArgumentException("빈 파일 입니다.");
+			throw new ApiException(GeneralResponseCode.IMAGE_EMPTY);
 		}
 
 		String contentType = file.getContentType();
 		if (contentType == null || !contentType.startsWith("image/")) {
-			throw new IllegalArgumentException("이미지 파일만 업로드 가능");
+			throw new ApiException(GeneralResponseCode.IMAGE_TYPE_INVALID);
 		}
 
 

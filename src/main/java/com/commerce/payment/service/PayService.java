@@ -4,7 +4,9 @@ import com.commerce.cart.repository.CartProductRepository;
 import com.commerce.common.enums.OrderStatus;
 import com.commerce.common.enums.OrderType;
 import com.commerce.common.enums.PaymentType;
-import com.commerce.common.exception.EntityNotFoundException;
+import com.commerce.common.code.ExternalResponseCode;
+import com.commerce.common.code.GeneralResponseCode;
+import com.commerce.common.exception.ApiException;
 import com.commerce.order.domain.OrderProduct;
 import com.commerce.order.domain.Orders;
 import com.commerce.order.repository.OrderRepository;
@@ -15,14 +17,12 @@ import com.commerce.payment.external.TossPaymentClient;
 import com.fasterxml.jackson.databind.JsonNode;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.http.HttpStatus;
 import org.springframework.http.HttpStatusCode;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.reactive.function.client.WebClient;
 import org.springframework.web.reactive.function.client.WebClientRequestException;
 import org.springframework.web.reactive.function.client.WebClientResponseException;
-import org.springframework.web.server.ResponseStatusException;
 
 import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
@@ -117,26 +117,26 @@ public class PayService {
 			order.getOrderNumber(), order.getOrderStatus(), order.getFinalPrice());
 
 		if (!Objects.equals(order.getUser().getId(), userId)) {
-			throw new ResponseStatusException(HttpStatus.FORBIDDEN, "본인 주문이 아닙니다.");
+			throw new ApiException(GeneralResponseCode.ORDER_ACCESS_DENIED);
 		}
 
 		// 2. 중복 주문 방지
 		if (order.getOrderStatus() == OrderStatus.PAID) {
 			if (Objects.equals(order.getPaymentKey(), req.getPaymentKey())) return;
 			log.info("이미 처리된 주문입니다.");
-			throw new ResponseStatusException(HttpStatus.CONFLICT, "이미 처리된 주문입니다.");
+			throw new ApiException(GeneralResponseCode.PAYMENT_ALREADY_PROCESSED);
 		}
 
 		// 3. 상태 확인
 		if (order.getOrderStatus() != OrderStatus.READY) {
 			log.info("결제 가능한 상태가 아닙니다.");
-			throw new ResponseStatusException(HttpStatus.CONFLICT, "결제 가능한 상태가 아닙니다.");
+			throw new ApiException(GeneralResponseCode.PAYMENT_NOT_PAYABLE);
 		}
 
 		// 4. 금액 검증
 		if (order.getFinalPrice() != req.getAmount()) {
 			log.info("결제 금액이 일치하지 않습니다.");
-			throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "결제 금액이 일치하지 않습니다");
+			throw new ApiException(GeneralResponseCode.PAYMENT_AMOUNT_INVALID);
 		}
 		log.info("calling toss confirm");
 
@@ -151,15 +151,17 @@ public class PayService {
 				.onStatus(HttpStatusCode::isError, res ->
 					res.bodyToMono(String.class)
 						.defaultIfEmpty("")
-						.map(body -> new ResponseStatusException(res.statusCode(),
-							"toss confirm error: " + body))
+						.map(body -> {
+							log.error("toss confirm error: status={}, body={}", res.statusCode(), body);
+							return new ApiException(ExternalResponseCode.PG_APPROVAL_ERROR);
+						})
 				)
 				.bodyToMono(JsonNode.class)
 				.block();
 		} catch (WebClientResponseException e) {
 			log.error("toss confirm failed: status={}, body={}", e.getStatusCode(), e.getResponseBodyAsString(), e);
 			orderService.deleteOrderByOrderNumber(req.getOrderId());
-			throw new ResponseStatusException(e.getStatusCode(), "토스 승인 실패");
+			throw new ApiException(ExternalResponseCode.PG_APPROVAL_ERROR);
 		} catch (Exception e) {
 			log.error("toss confirm exception", e);
 			orderService.deleteOrderByOrderNumber(req.getOrderId());
@@ -206,32 +208,32 @@ public class PayService {
 	public void validatePayment(PayConfirmDTO req, Long userId) {
 		// 1, 주문 조회
 		Orders order = orderRepository.findByOrderNumber(req.getOrderId())
-			.orElseThrow(() -> new EntityNotFoundException("해당 주문이 존재하지 않습니다."));
+			.orElseThrow(() -> new ApiException(GeneralResponseCode.ORDER_NOT_FOUND));
 
 		log.info("order loaded: orderNumber={}, status={}, finalPrice={}",
 			order.getOrderNumber(), order.getOrderStatus(), order.getFinalPrice());
 
 		if (!Objects.equals(order.getUser().getId(), userId)) {
 			log.warn("본인 주문이 아닙니다. orderId: {}, orderUserId={}, userId={}", order.getOrderNumber(), order.getUser().getId(), userId);
-			throw new ResponseStatusException(HttpStatus.FORBIDDEN, "본인 주문이 아닙니다.");
+			throw new ApiException(GeneralResponseCode.ORDER_ACCESS_DENIED);
 		}
 
 		// 2. 중복 주문 방지
 		if (order.getOrderStatus() == OrderStatus.PAID && Objects.equals(order.getPaymentKey(), req.getPaymentKey())) {
 			log.warn("이미 처리된 주문입니다.");
-			throw new ResponseStatusException(HttpStatus.CONFLICT, "이미 처리된 주문입니다.");
+			throw new ApiException(GeneralResponseCode.PAYMENT_ALREADY_PROCESSED);
 		}
 
 		// 3. 상태 확인
 		if (order.getOrderStatus() != OrderStatus.READY) {
 			log.warn("결제 가능한 상태가 아닙니다. status={}", order.getOrderStatus());
-			throw new ResponseStatusException(HttpStatus.CONFLICT, "결제 가능한 상태가 아닙니다.");
+			throw new ApiException(GeneralResponseCode.PAYMENT_NOT_PAYABLE);
 		}
 
 		// 4. 금액 검증
 		if (order.getFinalPrice() != req.getAmount()) {
 			log.info("결제 금액이 일치하지 않습니다. orderFinalPrice: {}, reqAmount: {}", order.getFinalPrice(), req.getAmount());
-			throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "결제 금액이 일치하지 않습니다");
+			throw new ApiException(GeneralResponseCode.PAYMENT_AMOUNT_INVALID);
 		}
 	}
 

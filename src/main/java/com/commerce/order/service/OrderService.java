@@ -7,9 +7,8 @@ import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import com.commerce.common.exception.BusinessException;
-import com.commerce.common.exception.EntityNotFoundException;
-import org.springframework.http.HttpStatus;
+import com.commerce.common.code.GeneralResponseCode;
+import com.commerce.common.exception.ApiException;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
@@ -172,7 +171,7 @@ public class OrderService {
 
 	public Orders findByOrderNumber(String orderNumber) {
 		return orderRepository.findByOrderNumber(orderNumber)
-			.orElseThrow(() -> new EntityNotFoundException("해당 주문이 존재하지 않습니다."));
+			.orElseThrow(() -> new ApiException(GeneralResponseCode.ORDER_NOT_FOUND));
 	}
 
 	/**
@@ -262,7 +261,7 @@ public class OrderService {
 		} catch (org.springframework.dao.DataAccessException e) {
 			log.error("주문 상품 batch insert 실패: orderId={}, productCount={}",
 				orders.getId(), orderProductRows.size(), e);
-			throw new BusinessException("주문 생성 중 오류가 발생했습니다.", HttpStatus.INTERNAL_SERVER_ERROR);
+			throw new ApiException(GeneralResponseCode.ORDER_CREATE_FAILED);
 		}
 
 		return orders; // 이 객체에서 orderProduct, orderCartProduct 사용하면 안됨.
@@ -271,7 +270,7 @@ public class OrderService {
 	// 주문 이름 생성
 	private String buildOrderName(List<CartProduct> cartProducts) {
 		if (cartProducts.isEmpty()) {
-			throw new IllegalArgumentException("주문 상품이 없습니다.");
+			throw new ApiException(GeneralResponseCode.ORDER_EMPTY);
 		}
 
 		CartProduct cartProduct = cartProducts.get(0);
@@ -322,11 +321,11 @@ public class OrderService {
 	private static void validateStock(Product product, ProductOption option, int quantity) {
 		if (option != null) {
 			if (option.getStock() - quantity < 0) {
-				throw new BusinessException("재고가 부족합니다. (옵션: " + option.getName() + ")", HttpStatus.BAD_REQUEST);
+				throw new ApiException(GeneralResponseCode.PRODUCT_OUT_OF_STOCK, "재고가 부족합니다. (옵션: " + option.getName() + ")");
 			}
 		} else {
 			if (product.getStock() - quantity < 0) {
-				throw new BusinessException("재고가 부족합니다.", HttpStatus.BAD_REQUEST);
+				throw new ApiException(GeneralResponseCode.PRODUCT_OUT_OF_STOCK);
 			}
 		}
 	}

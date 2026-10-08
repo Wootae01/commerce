@@ -24,6 +24,9 @@ repositories {
 	mavenCentral()
 }
 
+// Docker 29+ 호환 버전 (1.19.x는 Docker API 1.32로 요청해 거부됨)
+ext['testcontainers.version'] = '1.21.4'
+
 dependencies {
 	implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
 	implementation 'org.springframework.boot:spring-boot-starter-thymeleaf'
@@ -49,9 +52,9 @@ dependencies {
 	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
 
 
-	testImplementation 'org.testcontainers:testcontainers:1.19.6'
-	testImplementation 'org.testcontainers:junit-jupiter:1.19.6'
-	testImplementation 'org.testcontainers:mysql:1.19.6'
+	testImplementation 'org.testcontainers:testcontainers'
+	testImplementation 'org.testcontainers:junit-jupiter'
+	testImplementation 'org.testcontainers:mysql'
 
 	// 테스트에서 Lombok 사용을 위한 의존성 추가
 	testCompileOnly 'org.projectlombok:lombok'

@@ -3,7 +3,8 @@ package com.commerce.cart.service;
 import java.util.List;
 import java.util.Optional;
 
-import com.commerce.common.exception.EntityNotFoundException;
+import com.commerce.common.code.GeneralResponseCode;
+import com.commerce.common.exception.ApiException;
 import com.commerce.common.util.ProductImageUtil;
 import com.commerce.product.domain.ProductOption;
 import com.commerce.product.repository.ProductOptionRepository;
@@ -76,12 +77,12 @@ public class CartService {
 
 	public void addCart(Long productId, Long productOptionId, int quantity) {
 		Product product = productRepository.findById(productId)
-			.orElseThrow(() -> new EntityNotFoundException("해당 상품이 존재하지 않습니다."));
+			.orElseThrow(() -> new ApiException(GeneralResponseCode.PRODUCT_NOT_FOUND));
 
 		ProductOption productOption = null;
 		if (productOptionId != null) {
 			productOption = productOptionRepository.findById(productOptionId)
-					.orElseThrow(() -> new EntityNotFoundException("해당 옵션이 존재하지 않습니다."));
+					.orElseThrow(() -> new ApiException(GeneralResponseCode.PRODUCT_OPTION_NOT_FOUND));
 		}
 
 		User user = securityUtil.getCurrentUser();
