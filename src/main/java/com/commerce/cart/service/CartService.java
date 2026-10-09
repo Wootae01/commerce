@@ -93,14 +93,14 @@ public class CartService {
 		Cart cart = cartRepository.findByUser(user)
 			.orElseGet(() -> new Cart(user));
 
-		// 같은 상품 + 같은 옵션이면 수량만 증가
+		// 같은 상품 + 같은 옵션이면 담으려는 수량만큼 증가
 		List<CartProduct> cartProducts = cartProductRepository.findByCartIdWithProductAndOption(cart.getId());
 		for (CartProduct cartProduct : cartProducts) {
 			boolean sameProduct = cartProduct.getProduct().getId().equals(productId);
 			boolean sameOption = (cartProduct.getProductOption() == null && productOptionId == null)
 					|| (cartProduct.getProductOption() != null && cartProduct.getProductOption().getId().equals(productOptionId));
 			if (sameProduct && sameOption) {
-				cartProduct.addQuantity();
+				cartProduct.addQuantity(quantity);
 				cartProductRepository.save(cartProduct);
 				return;
 			}
