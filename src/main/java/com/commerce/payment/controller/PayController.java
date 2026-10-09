@@ -1,17 +1,12 @@
 package com.commerce.payment.controller;
 
-import java.time.LocalDateTime;
-import java.time.format.DateTimeFormatter;
-import java.util.List;
 import java.util.Map;
-import com.commerce.common.exception.ApiException;
-import com.commerce.product.domain.ProductOption;
+
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.validation.BindingResult;
 import org.springframework.validation.FieldError;
-import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.ModelAttribute;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -21,25 +16,20 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseBody;
 
-import com.commerce.cart.domain.CartProduct;
-import com.commerce.product.domain.DeliveryPolicy;
-import com.commerce.order.domain.Orders;
-import com.commerce.product.domain.Product;
 import com.commerce.common.enums.OrderType;
-import com.commerce.payment.dto.CancelResponseDTO;
+import com.commerce.common.exception.ApiException;
+import com.commerce.common.util.SecurityUtil;
+import com.commerce.order.domain.Orders;
 import com.commerce.order.dto.OrderCreateRequestDTO;
-import com.commerce.order.dto.OrderItemDTO;
+import com.commerce.order.dto.OrderMapper;
 import com.commerce.order.dto.OrderPrepareResponseDTO;
-import com.commerce.order.dto.OrderPriceDTO;
+import com.commerce.order.service.OrderService;
+import com.commerce.payment.dto.CancelResponseDTO;
 import com.commerce.payment.dto.PayConfirmDTO;
 import com.commerce.payment.dto.PaySuccessDTO;
-import com.commerce.order.dto.OrderMapper;
-import com.commerce.cart.service.CartService;
-import com.commerce.order.service.OrderService;
 import com.commerce.payment.service.PayService;
-import com.commerce.product.service.ProductService;
-import com.commerce.common.util.SecurityUtil;
 
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
@@ -66,17 +56,10 @@ public class PayController {
 
 	@GetMapping("/success")
 	public String success(@RequestParam("orderId") String orderNumber, Model model) {
+		Long userId = securityUtil.getCurrentUser().getId();
+		Orders order = orderService.findMyOrder(orderNumber, userId);
 
-		Orders order = orderService.findByOrderNumber(orderNumber);
-		LocalDateTime time = order.getApprovedAt();
-		String approvedAtText = time != null
-			? time.format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"))
-			: "-";
-
-		PaySuccessDTO dto = new PaySuccessDTO(orderNumber, order.getFinalPrice(),
-			order.getPaymentType().getText(), approvedAtText);
-
-		model.addAttribute("success", dto);
+		model.addAttribute("success", PaySuccessDTO.from(order));
 
 		return "pay-success";
 	}
@@ -84,7 +67,7 @@ public class PayController {
 	// 결제 전 필요한 데이터 보내줌.
 	@PostMapping("/prepare")
 	@ResponseBody
-	public ResponseEntity<?> orderPrepare(@Validated @ModelAttribute("orderForm") OrderCreateRequestDTO dto,
+	public ResponseEntity<?> orderPrepare(@Valid @ModelAttribute("orderForm") OrderCreateRequestDTO dto,
 		BindingResult bindingResult) {
 
 		if (bindingResult.hasErrors()) {
@@ -153,7 +136,8 @@ public class PayController {
 		String cancelReason = "단순 변심";
 
 		try {
-			CancelResponseDTO dto = payService.cancel(orderNumber, cancelReason);
+			Long userId = securityUtil.getCurrentUser().getId();
+			CancelResponseDTO dto = payService.cancel(orderNumber, cancelReason, userId);
 			model.addAttribute("result", dto);
 		} catch (ApiException e) {
 			model.addAttribute("result",

@@ -174,6 +174,17 @@ public class OrderService {
 			.orElseThrow(() -> new ApiException(GeneralResponseCode.ORDER_NOT_FOUND));
 	}
 
+	// 타인의 주문번호로 요청하는 경우를 막기 위해 주문 소유자를 검증한다.
+	public Orders findMyOrder(String orderNumber, Long userId) {
+		Orders order = findByOrderNumber(orderNumber);
+		if (!order.getUser().getId().equals(userId)) {
+			log.warn("본인 주문이 아닙니다. orderNumber={}, orderUserId={}, userId={}", orderNumber,
+				order.getUser().getId(), userId);
+			throw new ApiException(GeneralResponseCode.ORDER_ACCESS_DENIED);
+		}
+		return order;
+	}
+
 	/**
 	 * 바로구매 기반 주문 객체를 생성하고 저장한다. (결제 전 준비 단계)
 	 *
@@ -181,12 +192,22 @@ public class OrderService {
 	 */
 	@Transactional
 	public Orders prepareOrderFromBuyNow(OrderCreateRequestDTO dto) {
+		if (dto.getProductId() == null || dto.getQuantity() < 1) {
+			throw new ApiException(GeneralResponseCode.INVALID_REQUEST);
+		}
+
 		Product product = productRepository.findById(dto.getProductId())
-			.orElseThrow();
+			.orElseThrow(() -> new ApiException(GeneralResponseCode.PRODUCT_NOT_FOUND));
 
 		ProductOption option = dto.getOptionId() != null
-			? productOptionRepository.findById(dto.getOptionId()).orElseThrow()
+			? productOptionRepository.findById(dto.getOptionId())
+				.orElseThrow(() -> new ApiException(GeneralResponseCode.PRODUCT_OPTION_NOT_FOUND))
 			: null;
+
+		// 다른 상품의 옵션이면 가격과 재고가 그 옵션 기준으로 계산되므로 막는다.
+		if (option != null && !option.getProduct().getId().equals(product.getId())) {
+			throw new ApiException(GeneralResponseCode.PRODUCT_OPTION_MISMATCH);
+		}
 
 		// 1. 상품 재고 확인
 		validateStock(product, option, dto.getQuantity());
@@ -219,7 +240,16 @@ public class OrderService {
 	@Transactional
 	public Orders prepareOrderFromCart(OrderCreateRequestDTO dto) {
 		List<Long> cartProductIds = dto.getCartProductIds();
-		List<CartProduct> cartProducts = cartProductRepository.findAllByIdWithProduct(cartProductIds);
+		if (cartProductIds == null || cartProductIds.isEmpty()) {
+			throw new ApiException(GeneralResponseCode.ORDER_EMPTY);
+		}
+
+		// 본인 장바구니 상품만 조회하고, 요청한 ID 중 하나라도 빠지면 거부한다.
+		Long userId = securityUtil.getCurrentUser().getId();
+		List<CartProduct> cartProducts = cartProductRepository.findAllByIdWithProductAndUserId(cartProductIds, userId);
+		if (cartProducts.size() != cartProductIds.stream().distinct().count()) {
+			throw new ApiException(GeneralResponseCode.CART_ITEM_NOT_FOUND);
+		}
 
 		// 1. 상품 재고 확인
 		validateStock(cartProducts);

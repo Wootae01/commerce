@@ -11,6 +11,8 @@ public class UserMapper {
                 user.getName(), user.getPhone(), user.getAddress(), user.getEmail()
         );
 
+        dto.setAddressDetail(user.getAddressDetail());
+
         return dto;
     }
 }

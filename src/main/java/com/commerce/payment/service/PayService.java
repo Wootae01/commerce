@@ -43,8 +43,8 @@ public class PayService {
 	private final WebClient tossWebClient;
 	private final OrderRepository orderRepository;
 
-	public CancelResponseDTO cancel(String orderNumber, String cancelReason) {
-		Orders order = orderService.findByOrderNumber(orderNumber);
+	public CancelResponseDTO cancel(String orderNumber, String cancelReason, Long userId) {
+		Orders order = orderService.findMyOrder(orderNumber, userId);
 
 		// 1. 주문 잠금 + 상태 전이 (→ CANCEL_REQUESTED) - 동시 취소 요청 방지
 		String paymentKey = paymentTxService.beginCancel(order.getId());

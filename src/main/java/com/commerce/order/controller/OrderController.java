@@ -116,14 +116,8 @@ public class OrderController {
 
     @GetMapping("/detail/{orderNumber}")
     public String orderDetail(@PathVariable String orderNumber, Model model) {
-        Orders order = orderService.findByOrderNumber(orderNumber);
         User currentUser = securityUtil.getCurrentUser();
-
-        // 타인의 주문 번호를 직접 입력하는 경우를 막기 위해
-        // 주문 소유자와 현재 로그인 사용자가 일치하는지 직접 검증한다.
-        if (!order.getUser().getId().equals(currentUser.getId())) {
-            throw new org.springframework.security.access.AccessDeniedException("접근 권한이 없습니다.");
-        }
+        Orders order = orderService.findMyOrder(orderNumber, currentUser.getId());
 
         OrderDetailResponseDTO dto = orderMapper.toOrderDetailResponseDTO(order, currentUser);
         model.addAttribute("order", dto);

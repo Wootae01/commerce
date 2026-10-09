@@ -194,7 +194,8 @@ public class OrderMapper {
 			.orderItems(toOrderItemDTOFromOrder(order.getOrderProducts()))
 			.orderPrice(new OrderPriceDTO(order.getFinalPrice(), DeliveryPolicy.DELIVERY_FEE, order.getFinalPrice() + DeliveryPolicy.DELIVERY_FEE))
 			.paymentInfo(OrderDetailResponseDTO.PaymentInfo.builder()
-				.paymentMethod(order.getPaymentType().getText())
+				.paymentMethod(order.getPaymentType() == null
+					? PaymentType.UNKNOWN.getText() : order.getPaymentType().getText())
 				.orderStatus(order.getOrderStatus().getText())
 				.build())
 			.build();

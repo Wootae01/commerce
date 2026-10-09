@@ -8,7 +8,6 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.validation.BindingResult;
-import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.ModelAttribute;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -28,6 +27,7 @@ import com.commerce.product.dto.ProductMapper;
 import com.commerce.product.service.ProductService;
 import com.commerce.common.util.SecurityUtil;
 
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
@@ -60,7 +60,7 @@ public class AdminProductController {
 	}
 
 	@PostMapping("/new")
-	public String registerProduct(@Validated @ModelAttribute("product") ProductDTO productDTO, BindingResult bindingResult,
+	public String registerProduct(@Valid @ModelAttribute("product") ProductDTO productDTO, BindingResult bindingResult,
 		@RequestParam(value = "mainImage", required = false) MultipartFile mainFile,
 		@RequestParam(value = "images", required = false) List<MultipartFile> files) throws
 		IOException {
@@ -89,7 +89,7 @@ public class AdminProductController {
 	}
 
 	@PostMapping("/edit/{id}")
-	public String update(@PathVariable Long id, @Validated @ModelAttribute("product") ProductResponseDTO updatedProduct, BindingResult bindingResult,
+	public String update(@PathVariable Long id, @Valid @ModelAttribute("product") ProductResponseDTO updatedProduct, BindingResult bindingResult,
 		@RequestParam(value = "mainImage", required = false) MultipartFile mainFile,
 		@RequestParam(value = "newImages", required = false) List<MultipartFile> files,
 		@RequestParam(value = "deleteImageIds", required = false) List<Long> deleteImageIds,

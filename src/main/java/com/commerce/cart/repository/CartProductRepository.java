@@ -2,6 +2,7 @@ package com.commerce.cart.repository;
 
 
 import java.util.List;
+import java.util.Optional;
 
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
@@ -41,6 +42,14 @@ public interface CartProductRepository extends JpaRepository<CartProduct, Long> 
 
 	@Query("select cp from CartProduct cp join fetch cp.product p left join fetch p.mainImage left join fetch cp.productOption where cp.id in (:cartProductIds)")
 	List<CartProduct> findAllByIdWithProduct(List<Long> cartProductIds);
+
+	// 본인 장바구니에 담긴 상품만 조회
+	@Query("select cp from CartProduct cp where cp.id = :id and cp.cart.user.id = :userId")
+	Optional<CartProduct> findByIdAndUserId(@Param("id") Long id, @Param("userId") Long userId);
+
+	@Query("select cp from CartProduct cp join fetch cp.product p left join fetch p.mainImage left join fetch cp.productOption where cp.id in (:cartProductIds) and cp.cart.user.id = :userId")
+	List<CartProduct> findAllByIdWithProductAndUserId(@Param("cartProductIds") List<Long> cartProductIds,
+		@Param("userId") Long userId);
 
 	@Query("select cp from CartProduct cp join fetch cp.product left join fetch cp.productOption where cp.cart.id = :cartId")
 	List<CartProduct> findByCartIdWithProductAndOption(@Param("cartId") Long cartId);
