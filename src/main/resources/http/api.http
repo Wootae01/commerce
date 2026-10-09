@@ -1,0 +1,111 @@
+@host = http://localhost:8080
+
+### ===== 상품 (로그인 불필요) =====
+
+### 상품 검색 (sortType: NEWEST 등 ProductSortType, salesPeriod: SalesPeriod)
+GET {{host}}/api/products?keyword=티셔츠&minPrice=1000&maxPrice=50000&page=0&size=21
+
+### 추천 상품
+GET {{host}}/api/products/featured
+
+### 인기 상품 (최근 30일 판매량)
+GET {{host}}/api/products/popular?size=20
+
+### 상품 상세
+GET {{host}}/api/products/1
+
+
+### ===== 장바구니 (로그인 필요) =====
+
+### 장바구니 조회
+GET {{host}}/api/cart
+
+### 장바구니 담기
+POST {{host}}/api/cart/items
+Content-Type: application/json
+
+{
+  "productId": 1,
+  "optionId": null,
+  "quantity": 2
+}
+
+### 수량 / 선택 여부 변경 (보낸 값만 변경)
+PATCH {{host}}/api/cart/items/1
+Content-Type: application/json
+
+{
+  "quantity": 3,
+  "checked": true
+}
+
+### 장바구니 상품 삭제
+DELETE {{host}}/api/cart/items/1
+
+
+### ===== 주문 (로그인 필요) =====
+
+### 주문서 - 장바구니 선택 상품
+GET {{host}}/api/orders/checkout/cart
+
+### 주문서 - 바로구매
+GET {{host}}/api/orders/checkout/buy-now?productId=1&quantity=1
+
+### 주문 생성 (결제 전). orderType: CART면 cartProductIds, BUY_NOW면 productId/quantity/optionId
+POST {{host}}/api/orders
+Content-Type: application/json
+
+{
+  "orderType": "BUY_NOW",
+  "productId": 1,
+  "quantity": 1,
+  "optionId": null,
+  "name": "홍길동",
+  "phone": "01012345678",
+  "address": "서울",
+  "addressDetail": "101호",
+  "requestNote": "문 앞에 놔주세요"
+}
+
+### 주문 목록
+GET {{host}}/api/orders?page=0&size=10
+
+### 주문 상세
+GET {{host}}/api/orders/{orderNumber}
+
+### 주문 취소 (결제된 주문이면 토스 결제 취소)
+POST {{host}}/api/orders/{orderNumber}/cancel
+
+
+### ===== 결제 (로그인 필요) =====
+
+### 결제 승인 (토스 결제창 successUrl로 돌아온 값)
+POST {{host}}/api/payments/confirm
+Content-Type: application/json
+
+{
+  "paymentKey": "tgen_xxx",
+  "orderId": "{orderNumber}",
+  "amount": 13000
+}
+
+### 결제 결과 조회
+GET {{host}}/api/payments/{orderNumber}
+
+
+### ===== 내 정보 (로그인 필요) =====
+
+### 내 정보 조회
+GET {{host}}/api/users/me
+
+### 내 정보 수정
+PUT {{host}}/api/users/me
+Content-Type: application/json
+
+{
+  "name": "홍길동",
+  "phone": "01012345678",
+  "address": "서울",
+  "addressDetail": "101호",
+  "email": "test@example.com"
+}
