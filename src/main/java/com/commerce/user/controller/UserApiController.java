@@ -12,7 +12,6 @@ import com.commerce.common.dto.GeneralResponse;
 import com.commerce.common.util.SecurityUtil;
 import com.commerce.user.domain.User;
 import com.commerce.user.dto.UserDTO;
-import com.commerce.user.dto.UserMapper;
 import com.commerce.user.service.UserService;
 
 import jakarta.validation.Valid;
@@ -24,20 +23,20 @@ import lombok.RequiredArgsConstructor;
 public class UserApiController {
 
 	private final SecurityUtil securityUtil;
-	private final UserMapper userMapper;
 	private final UserService userService;
 
 	@GetMapping
 	public ResponseEntity<GeneralResponse<UserDTO>> getMyInfo() {
 		User user = securityUtil.getCurrentUser();
-		return GeneralResponse.toResponseEntity(GeneralResponseCode.OK, userMapper.toUserDTO(user));
+		return GeneralResponse.toResponseEntity(GeneralResponseCode.OK, UserDTO.from(user));
 	}
 
 	@PutMapping
 	public ResponseEntity<GeneralResponse<UserDTO>> updateMyInfo(@Valid @RequestBody UserDTO request) {
 		User user = securityUtil.getCurrentUser();
-		user.updateInfo(request);
+		user.updateInfo(request.getName(), request.getPhone(), request.getAddress(), request.getAddressDetail(),
+			request.getEmail());
 		userService.save(user);
-		return GeneralResponse.toResponseEntity(GeneralResponseCode.OK, userMapper.toUserDTO(user));
+		return GeneralResponse.toResponseEntity(GeneralResponseCode.OK, UserDTO.from(user));
 	}
 }

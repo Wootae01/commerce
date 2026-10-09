@@ -7,7 +7,6 @@ import com.commerce.product.domain.ProductOption;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
-import com.commerce.admin.domain.Admin;
 import com.commerce.product.domain.Product;
 import com.commerce.common.util.ProductImageUtil;
 
@@ -20,27 +19,6 @@ public class ProductMapper {
 	@Value("${file.url-path}")
 	private String baseUrl;
 	private final ProductImageUtil productImageUtil;
-
-	public ProductOption toProductOption(ProductOptionDTO dto) {
-        int stock = dto.getStock() != null ? dto.getStock() : 0;
-        int additionalPrice = dto.getAdditionalPrice() != null ? dto.getAdditionalPrice() : 0;
-        return new ProductOption(dto.getName(), stock, additionalPrice);
-	}
-
-	public Product toEntity(ProductDTO dto, Admin admin) {
-		List<ProductOptionDTO> optionDTOList = dto.getProductOptionDTOList();
-
-		Product product = new Product(admin, dto.getPrice(), dto.getStock(), dto.getName(), dto.getDescription());
-		if (optionDTOList != null) {
-			for (ProductOptionDTO optionDTO : optionDTOList) {
-				if (optionDTO.getName() != null && !optionDTO.getName().isBlank()) {
-					product.addOption(toProductOption(optionDTO));
-				}
-			}
-		}
-
-		return product;
-	}
 
 	public ProductResponseDTO toProductResponseDTO(Product product) {
 		ProductResponseDTO dto = new ProductResponseDTO();

@@ -275,17 +275,17 @@ public class ProductService {
         Set<Long> incomingIds = new HashSet<>();
         for (ProductOptionDTO dto : optionDTOList) {
             // 기존에 있는 옵션이면 업데이트, 아니면 옵션 추가
-            int stock = dto.getStock() != null ? dto.getStock() : 0;
-            int additionalPrice = dto.getAdditionalPrice() != null ? dto.getAdditionalPrice() : 0;
             if (dto.getId() != null && existingOptions.containsKey(dto.getId())) {
+                int stock = dto.getStock() != null ? dto.getStock() : 0;
+                int additionalPrice = dto.getAdditionalPrice() != null ? dto.getAdditionalPrice() : 0;
                 existingOptions.get(dto.getId()).update(dto.getName(), stock, additionalPrice);
                 incomingIds.add(dto.getId());
             } else {
-                product.addOption(new ProductOption(dto.getName(), stock, additionalPrice));
+                product.addOption(ProductOption.createOption(dto.getName(), dto.getStock(), dto.getAdditionalPrice()));
             }
         }
-        // DTO에 없는 기존 옵션 삭제
-        product.getOptions().removeIf(o -> !incomingIds.contains(o.getId()));
+        // DTO에 없는 기존 옵션 삭제 (방금 추가한 옵션은 아직 id가 없으므로 제외)
+        product.getOptions().removeIf(o -> o.getId() != null && !incomingIds.contains(o.getId()));
 
         // 서브 이미지 삭제
         if (deleteImageIds != null && !deleteImageIds.isEmpty()) {

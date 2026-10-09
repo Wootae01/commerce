@@ -18,7 +18,9 @@ import org.springframework.web.multipart.MultipartFile;
 
 import com.commerce.admin.domain.Admin;
 import com.commerce.product.domain.Product;
+import com.commerce.product.domain.ProductOption;
 import com.commerce.admin.dto.AdminProductListDTO;
+import com.commerce.admin.dto.ProductOptionDTO;
 import com.commerce.product.dto.FeaturedItem;
 import com.commerce.product.dto.FeaturedUpdateForm;
 import com.commerce.product.dto.ProductDTO;
@@ -71,7 +73,18 @@ public class AdminProductController {
 		log.debug("POST /admin/products/new productDTO={}, mainImage={}, images={}", productDTO, mainFile, files);
 
 		Admin admin = securityUtil.getCurrentAdmin();
-		Product product = productMapper.toEntity(productDTO, admin);
+		Product product = new Product(admin, productDTO.getPrice(), productDTO.getStock(), productDTO.getName(),
+			productDTO.getDescription());
+
+		// 이름을 비워둔 옵션 입력란은 등록하지 않는다.
+		if (productDTO.getProductOptionDTOList() != null) {
+			for (ProductOptionDTO optionDTO : productDTO.getProductOptionDTOList()) {
+				if (optionDTO.getName() != null && !optionDTO.getName().isBlank()) {
+					product.addOption(ProductOption.createOption(optionDTO.getName(), optionDTO.getStock(),
+						optionDTO.getAdditionalPrice()));
+				}
+			}
+		}
 
 		productService.saveProduct(product, mainFile, files);
 		return "redirect:/admin/products";
