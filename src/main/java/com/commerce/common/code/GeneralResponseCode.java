@@ -18,10 +18,14 @@ public enum GeneralResponseCode implements ApiResponseCode {
 	USER_NOT_FOUND(HttpStatus.NOT_FOUND, "등록된 사용자가 아닙니다."),
 	ADMIN_NOT_FOUND(HttpStatus.NOT_FOUND, "해당 관리자를 찾을 수 없습니다."),
 
+	// Cart
+	CART_ITEM_NOT_FOUND(HttpStatus.NOT_FOUND, "장바구니에 해당 상품이 없습니다."),
+
 	// Product
 	PRODUCT_NOT_FOUND(HttpStatus.NOT_FOUND, "해당 상품을 찾을 수 없습니다."),
 	PRODUCT_OPTION_NOT_FOUND(HttpStatus.NOT_FOUND, "해당 옵션을 찾을 수 없습니다."),
 	PRODUCT_OUT_OF_STOCK(HttpStatus.BAD_REQUEST, "재고가 부족합니다."),
+	PRODUCT_OPTION_MISMATCH(HttpStatus.BAD_REQUEST, "해당 상품의 옵션이 아닙니다."),
 
 	// Order
 	ORDER_NOT_FOUND(HttpStatus.NOT_FOUND, "해당 주문이 존재하지 않습니다."),

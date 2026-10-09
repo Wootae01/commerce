@@ -83,6 +83,9 @@ public class CartService {
 		if (productOptionId != null) {
 			productOption = productOptionRepository.findById(productOptionId)
 					.orElseThrow(() -> new ApiException(GeneralResponseCode.PRODUCT_OPTION_NOT_FOUND));
+			if (!productOption.getProduct().getId().equals(productId)) {
+				throw new ApiException(GeneralResponseCode.PRODUCT_OPTION_MISMATCH);
+			}
 		}
 
 		User user = securityUtil.getCurrentUser();
@@ -111,26 +114,31 @@ public class CartService {
 	}
 
 	public void addProductQuantity(Long cartProductId, int quantity) {
-		CartProduct cartProduct = cartProductRepository.findById(cartProductId)
-			.orElseThrow();
+		CartProduct cartProduct = findMyCartProduct(cartProductId);
 
 		cartProduct.setQuantity(quantity);
 		cartProductRepository.save(cartProduct);
 	}
 
 	public void updateSelection(Long cartProductId, boolean checked) {
-		CartProduct cartProduct = cartProductRepository.findById(cartProductId)
-			.orElseThrow();
+		CartProduct cartProduct = findMyCartProduct(cartProductId);
 
 		cartProduct.setIsChecked(checked);
 		cartProductRepository.save(cartProduct);
 	}
 
 	public void deleteProduct(Long cartProductId) {
-		CartProduct cartProduct = cartProductRepository.findById(cartProductId)
-			.orElseThrow();
+		CartProduct cartProduct = findMyCartProduct(cartProductId);
 
 		cartProductRepository.delete(cartProduct);
+	}
+
+	// 다른 사용자의 장바구니 상품 ID로 요청하는 경우를 막기 위해 본인 장바구니에서만 조회한다.
+	// 존재 여부를 노출하지 않도록 남의 상품도 404로 응답한다.
+	private CartProduct findMyCartProduct(Long cartProductId) {
+		Long userId = securityUtil.getCurrentUser().getId();
+		return cartProductRepository.findByIdAndUserId(cartProductId, userId)
+			.orElseThrow(() -> new ApiException(GeneralResponseCode.CART_ITEM_NOT_FOUND));
 	}
 
 	public int getTotalPrice(Long cartId) {

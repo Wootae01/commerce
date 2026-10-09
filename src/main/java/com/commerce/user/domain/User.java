@@ -6,7 +6,6 @@ import java.util.List;
 import com.commerce.common.domain.BaseEntity;
 import com.commerce.common.enums.RoleType;
 import com.commerce.auth.dto.Oauth2Response;
-import com.commerce.user.dto.UserDTO;
 import com.commerce.order.domain.Orders;
 import jakarta.persistence.*;
 import lombok.*;
@@ -54,12 +53,12 @@ public class User extends BaseEntity{
         this.email = oauth2Response.getEmail();
     }
 
-    public void updateInfo(UserDTO dto) {
-        this.name = dto.getName();
-        this.phone = normalizePhone(dto.getPhone());
-        this.address = dto.getAddress();
-        this.addressDetail = dto.getAddressDetail();
-        this.email = dto.getEmail();
+    public void updateInfo(String name, String phone, String address, String addressDetail, String email) {
+        this.name = name;
+        this.phone = normalizePhone(phone);
+        this.address = address;
+        this.addressDetail = addressDetail;
+        this.email = email;
     }
 
     private String normalizePhone(String phone) {

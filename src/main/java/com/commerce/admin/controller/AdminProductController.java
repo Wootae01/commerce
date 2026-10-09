@@ -8,7 +8,6 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.validation.BindingResult;
-import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.ModelAttribute;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -19,7 +18,9 @@ import org.springframework.web.multipart.MultipartFile;
 
 import com.commerce.admin.domain.Admin;
 import com.commerce.product.domain.Product;
+import com.commerce.product.domain.ProductOption;
 import com.commerce.admin.dto.AdminProductListDTO;
+import com.commerce.admin.dto.ProductOptionDTO;
 import com.commerce.product.dto.FeaturedItem;
 import com.commerce.product.dto.FeaturedUpdateForm;
 import com.commerce.product.dto.ProductDTO;
@@ -28,6 +29,7 @@ import com.commerce.product.dto.ProductMapper;
 import com.commerce.product.service.ProductService;
 import com.commerce.common.util.SecurityUtil;
 
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
@@ -60,7 +62,7 @@ public class AdminProductController {
 	}
 
 	@PostMapping("/new")
-	public String registerProduct(@Validated @ModelAttribute("product") ProductDTO productDTO, BindingResult bindingResult,
+	public String registerProduct(@Valid @ModelAttribute("product") ProductDTO productDTO, BindingResult bindingResult,
 		@RequestParam(value = "mainImage", required = false) MultipartFile mainFile,
 		@RequestParam(value = "images", required = false) List<MultipartFile> files) throws
 		IOException {
@@ -71,7 +73,18 @@ public class AdminProductController {
 		log.debug("POST /admin/products/new productDTO={}, mainImage={}, images={}", productDTO, mainFile, files);
 
 		Admin admin = securityUtil.getCurrentAdmin();
-		Product product = productMapper.toEntity(productDTO, admin);
+		Product product = new Product(admin, productDTO.getPrice(), productDTO.getStock(), productDTO.getName(),
+			productDTO.getDescription());
+
+		// 이름을 비워둔 옵션 입력란은 등록하지 않는다.
+		if (productDTO.getProductOptionDTOList() != null) {
+			for (ProductOptionDTO optionDTO : productDTO.getProductOptionDTOList()) {
+				if (optionDTO.getName() != null && !optionDTO.getName().isBlank()) {
+					product.addOption(ProductOption.createOption(optionDTO.getName(), optionDTO.getStock(),
+						optionDTO.getAdditionalPrice()));
+				}
+			}
+		}
 
 		productService.saveProduct(product, mainFile, files);
 		return "redirect:/admin/products";
@@ -89,7 +102,7 @@ public class AdminProductController {
 	}
 
 	@PostMapping("/edit/{id}")
-	public String update(@PathVariable Long id, @Validated @ModelAttribute("product") ProductResponseDTO updatedProduct, BindingResult bindingResult,
+	public String update(@PathVariable Long id, @Valid @ModelAttribute("product") ProductResponseDTO updatedProduct, BindingResult bindingResult,
 		@RequestParam(value = "mainImage", required = false) MultipartFile mainFile,
 		@RequestParam(value = "newImages", required = false) List<MultipartFile> files,
 		@RequestParam(value = "deleteImageIds", required = false) List<Long> deleteImageIds,

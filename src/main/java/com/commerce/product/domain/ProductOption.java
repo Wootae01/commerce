@@ -29,6 +29,11 @@ public class ProductOption {
         this.additionalPrice = additionalPrice;
     }
 
+    // 관리자 폼에서 재고, 추가 금액을 비워두면 0으로 등록한다.
+    public static ProductOption createOption(String name, Integer stock, Integer additionalPrice) {
+        return new ProductOption(name, stock != null ? stock : 0, additionalPrice != null ? additionalPrice : 0);
+    }
+
     public void deductStock(int quantity) {
         this.stock -= quantity;
     }

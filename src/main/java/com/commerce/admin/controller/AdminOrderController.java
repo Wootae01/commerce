@@ -18,7 +18,6 @@ import com.commerce.order.domain.Orders;
 import com.commerce.common.enums.OrderStatus;
 import com.commerce.admin.dto.AdminOrderListResponseDTO;
 import com.commerce.admin.dto.AdminOrderSearchCond;
-import com.commerce.order.dto.OrderMapper;
 import com.commerce.order.service.OrderService;
 
 import lombok.RequiredArgsConstructor;
@@ -31,7 +30,6 @@ import lombok.extern.slf4j.Slf4j;
 public class AdminOrderController {
 
 	private final OrderService orderService;
-	private final OrderMapper orderMapper;
 
 	@GetMapping
 	public String orderList(AdminOrderSearchCond cond, @RequestParam(defaultValue = "0") int page, Model model) {
@@ -43,7 +41,9 @@ public class AdminOrderController {
 		// 1. 모든 주문 찾아서 dto로 변환
 		int size = 20; // page size
 		Page<Orders> pageOrder = orderService.getOrderList(cond, PageRequest.of(page, size));
-		List<AdminOrderListResponseDTO> dtos = orderMapper.toAdminOrderListResponseDTOS(pageOrder.getContent());
+		List<AdminOrderListResponseDTO> dtos = pageOrder.getContent().stream()
+			.map(AdminOrderListResponseDTO::from)
+			.toList();
 		model.addAttribute("orders", dtos);
 		model.addAttribute("page", pageOrder);
 
