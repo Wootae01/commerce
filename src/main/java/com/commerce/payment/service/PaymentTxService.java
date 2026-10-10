@@ -23,6 +23,7 @@ import com.commerce.order.repository.OrderRepository;
 import com.commerce.product.repository.ProductJdbcRepository;
 import com.fasterxml.jackson.databind.JsonNode;
 
+import com.commerce.common.util.SecurityUtil;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
@@ -133,7 +134,7 @@ public class PaymentTxService {
 		if (order.getOrderType() == OrderType.CART) {
 			List<Long> ids = order.getCartProductIds();
 			if (!ids.isEmpty()) {
-				cartProductRepository.deleteSelectedFromUserCart(ids, userId);
+				cartProductRepository.deleteSelectedFromUserCart(ids, userId, SecurityUtil.findCurrentUsername().orElse(null));
 			}
 		}
 	}

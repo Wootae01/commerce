@@ -116,7 +116,8 @@ public class CartService {
 	public void deleteProduct(Long cartProductId) {
 		CartProduct cartProduct = findMyCartProduct(cartProductId);
 
-		cartProductRepository.delete(cartProduct);
+		cartProduct.softDelete(SecurityUtil.getCurrentUsername());
+		cartProductRepository.save(cartProduct);
 	}
 
 	// 다른 사용자의 장바구니 상품 ID로 요청하는 경우를 막기 위해 본인 장바구니에서만 조회한다.

@@ -9,6 +9,8 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Component;
 
+import java.util.Optional;
+
 import com.commerce.auth.PrincipalDetails;
 import com.commerce.admin.domain.Admin;
 import com.commerce.user.domain.User;
@@ -40,7 +42,20 @@ public class SecurityUtil {
 		throw new AccessDeniedException("관리자 로그인 상태가 아닙니다.");
 	}
 
-	private String extractUsername(Authentication auth) {
+	// DB 조회 없이 principal에서 username만 꺼낸다. 감사 필드(createdBy 등)와 soft delete의 deletedBy에 쓴다.
+	public static Optional<String> findCurrentUsername() {
+		Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+		if (auth == null || auth instanceof AnonymousAuthenticationToken || !auth.isAuthenticated()) {
+			return Optional.empty();
+		}
+		return Optional.of(extractUsername(auth));
+	}
+
+	public static String getCurrentUsername() {
+		return extractUsername(getAuthentication());
+	}
+
+	private static String extractUsername(Authentication auth) {
 
 		Object principal = auth.getPrincipal();
 
@@ -55,14 +70,14 @@ public class SecurityUtil {
 
 	}
 
-	private boolean hasRole(Authentication auth, RoleType role) {
+	private static boolean hasRole(Authentication auth, RoleType role) {
 		if (auth == null) return false;
 
 		return auth.getAuthorities().stream()
 			.anyMatch(a -> role.name().equals(a.getAuthority()));
 	}
 
-	private Authentication getAuthentication() {
+	private static Authentication getAuthentication() {
 		Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
 
 		if (authentication == null || authentication instanceof AnonymousAuthenticationToken) {

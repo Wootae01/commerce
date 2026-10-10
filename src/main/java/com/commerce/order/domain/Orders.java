@@ -1,6 +1,6 @@
 package com.commerce.order.domain;
 
-import com.commerce.common.domain.BaseEntity;
+import com.commerce.common.domain.BaseUpdatableEntity;
 import com.commerce.common.enums.OrderStatus;
 import com.commerce.common.enums.OrderType;
 import com.commerce.common.enums.PaymentType;
@@ -21,7 +21,7 @@ import java.util.List;
 @Getter
 @Setter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
-public class Orders extends BaseEntity{
+public class Orders extends BaseUpdatableEntity {
 
     @Id
     @Column(name = "order_id")

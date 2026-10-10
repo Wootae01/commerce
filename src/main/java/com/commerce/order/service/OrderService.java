@@ -143,8 +143,10 @@ public class OrderService {
 	}
 
 	// 주문 삭제
+	@Transactional
 	public void deleteOrderByOrderNumber(String orderNumber) {
-		orderRepository.deleteByOrderNumber(orderNumber);
+		Orders order = findByOrderNumber(orderNumber);
+		order.softDelete(SecurityUtil.findCurrentUsername().orElse(null));
 	}
 
 	// 주문 상태 변경
@@ -196,8 +198,7 @@ public class OrderService {
 			throw new ApiException(GeneralResponseCode.INVALID_REQUEST);
 		}
 
-		Product product = productRepository.findById(dto.getProductId())
-			.orElseThrow(() -> new ApiException(GeneralResponseCode.PRODUCT_NOT_FOUND));
+		Product product = productService.findById(dto.getProductId());
 
 		ProductOption option = productService.resolveOption(product.getId(), dto.getOptionId());
 
@@ -330,6 +331,13 @@ public class OrderService {
 
 	private static void validateStock(List<CartProduct> cartProducts) {
 		for (CartProduct cartProduct : cartProducts) {
+			// 장바구니에 담은 뒤 판매 중지된 상품·옵션은 주문할 수 없다.
+			if (cartProduct.getProduct().isDeleted()) {
+				throw new ApiException(GeneralResponseCode.PRODUCT_NOT_FOUND);
+			}
+			if (cartProduct.getProductOption().isDeleted()) {
+				throw new ApiException(GeneralResponseCode.PRODUCT_OPTION_NOT_FOUND);
+			}
 			validateStock(cartProduct.getProductOption(), cartProduct.getQuantity());
 		}
 	}

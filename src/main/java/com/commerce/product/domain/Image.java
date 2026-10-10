@@ -1,6 +1,6 @@
 package com.commerce.product.domain;
 
-import com.commerce.common.domain.BaseEntity;
+import com.commerce.common.domain.BaseUpdatableEntity;
 import com.commerce.common.storage.UploadFile;
 
 import jakarta.persistence.Column;
@@ -16,7 +16,7 @@ import lombok.Getter;
 
 @Entity
 @Getter
-public class Image extends BaseEntity {
+public class Image extends BaseUpdatableEntity {
 	@Id
 	@GeneratedValue(strategy = GenerationType.IDENTITY)
 	@Column(name = "image_id")

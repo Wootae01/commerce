@@ -3,7 +3,7 @@ package com.commerce.user.domain;
 import java.util.ArrayList;
 import java.util.List;
 
-import com.commerce.common.domain.BaseEntity;
+import com.commerce.common.domain.BaseUpdatableEntity;
 import com.commerce.common.enums.RoleType;
 import com.commerce.auth.dto.Oauth2Response;
 import com.commerce.order.domain.Orders;
@@ -15,7 +15,7 @@ import org.springframework.context.annotation.Primary;
 @Entity
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
-public class User extends BaseEntity{
+public class User extends BaseUpdatableEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)

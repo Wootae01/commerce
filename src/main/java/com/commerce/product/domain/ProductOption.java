@@ -1,5 +1,6 @@
 package com.commerce.product.domain;
 
+import com.commerce.common.domain.BaseUpdatableEntity;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -8,7 +9,7 @@ import lombok.Setter;
 @Entity
 @Getter
 @NoArgsConstructor
-public class ProductOption {
+public class ProductOption extends BaseUpdatableEntity {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;

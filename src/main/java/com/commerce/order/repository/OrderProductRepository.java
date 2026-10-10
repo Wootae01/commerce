@@ -40,6 +40,7 @@ public interface OrderProductRepository extends JpaRepository<OrderProduct, Long
 	  from OrderProduct op
 	  join op.order o
 	  where o.orderStatus in :statuses
+		and o.deletedAt is null
 		and o.approvedAt >= :since
 	  group by op.product.id
 	  order by sum(op.quantity) desc
