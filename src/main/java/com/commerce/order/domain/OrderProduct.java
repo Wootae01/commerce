@@ -30,8 +30,8 @@ public class OrderProduct extends BaseEntity{
     @ManyToOne(fetch = FetchType.LAZY)
     private Orders order;
 
-    @JoinColumn(name = "product_option_id")
-    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "product_option_id", nullable = false)
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
     private ProductOption productOption;
 
     private int quantity;

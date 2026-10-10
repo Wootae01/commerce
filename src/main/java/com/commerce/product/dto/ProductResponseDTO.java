@@ -14,7 +14,6 @@ public class ProductResponseDTO {
 	private String name;
 	private String description;
 	private int price;
-	private int stock;
 	List<ProductOptionDTO> productOptionDTOList;
 	private String mainImageUrl;
 	private List<ImageResponseDTO> images;

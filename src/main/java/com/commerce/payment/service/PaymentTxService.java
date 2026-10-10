@@ -36,19 +36,19 @@ public class PaymentTxService {
 	private final OrderProductRepository orderProductRepository;
 	private final ProductJdbcRepository productJdbcRepository;
 
-	// 재고 수정
+	// 재고 수정. 재고는 옵션에 있다.
 	@Transactional
 	public void updateStock(Long orderId, boolean isIncrease) {
 
 		List<OrderProduct> orderProducts = orderProductRepository.findOrderProductByOrderIdWithProduct(
 			orderId);
-		Map<Long, Integer> qtyByProductId = orderProducts.stream()
+		Map<Long, Integer> qtyByOptionId = orderProducts.stream()
 			.collect(Collectors.groupingBy(
-				op -> op.getProduct().getId(),
+				op -> op.getProductOption().getId(),
 				Collectors.summingInt(OrderProduct::getQuantity)
 			));
 
-		productJdbcRepository.updateStock(qtyByProductId, isIncrease);
+		productJdbcRepository.updateOptionStock(qtyByOptionId, isIncrease);
 	}
 
 	// 취소 시작: 주문 잠금 + CANCEL_REQUESTED 전이 (동시 취소 요청 방지)

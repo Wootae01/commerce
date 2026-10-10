@@ -25,7 +25,6 @@ public class ProductMapper {
 		dto.setId(product.getId());
 		dto.setName(product.getName());
 		dto.setPrice(product.getPrice());
-		dto.setStock(product.getStock());
 		dto.setCreatedAt(product.getCreatedAt());
 		dto.setMainImageUrl(productImageUtil.getMainImageUrl(product));
 		dto.setImages(

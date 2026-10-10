@@ -73,8 +73,7 @@ public class AdminProductController {
 		log.debug("POST /admin/products/new productDTO={}, mainImage={}, images={}", productDTO, mainFile, files);
 
 		Admin admin = securityUtil.getCurrentAdmin();
-		Product product = new Product(admin, productDTO.getPrice(), productDTO.getStock(), productDTO.getName(),
-			productDTO.getDescription());
+		Product product = new Product(admin, productDTO.getPrice(), productDTO.getName(), productDTO.getDescription());
 
 		// 이름을 비워둔 옵션 입력란은 등록하지 않는다.
 		if (productDTO.getProductOptionDTOList() != null) {
@@ -84,6 +83,12 @@ public class AdminProductController {
 						optionDTO.getAdditionalPrice()));
 				}
 			}
+		}
+
+		// 재고가 옵션에 있으므로 옵션을 1개 이상 등록해야 한다.
+		if (product.getOptions().isEmpty()) {
+			bindingResult.rejectValue("productOptionDTOList", "required", "옵션을 1개 이상 입력해주세요.");
+			return "admin/product-new";
 		}
 
 		productService.saveProduct(product, mainFile, files);

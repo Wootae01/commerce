@@ -25,7 +25,7 @@ public class OrderProductJdbcRepository {
 		jdbcTemplate.batchUpdate(sql, rows, 1000, (ps, row) -> {
 			ps.setLong(1, row.orderId());
 			ps.setLong(2, row.productId());
-			if (row.optionId() != null) ps.setLong(3, row.optionId()); else ps.setNull(3, java.sql.Types.BIGINT);
+			ps.setLong(3, row.optionId());
 			ps.setInt(4, row.price());
 			ps.setInt(5, row.quantity());
 		});

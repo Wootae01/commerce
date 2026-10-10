@@ -41,7 +41,7 @@ public interface OrderRepository extends JpaRepository<Orders, Long> {
 			select o from Orders o
 			join fetch o.orderProducts op
 			join fetch op.product p
-			left join fetch op.productOption
+			join fetch op.productOption
 			where o.orderNumber = :orderNumber
 	""")
 	Optional<Orders> findByOrderNumberWithProduct(@Param("orderNumber") String orderNumber);

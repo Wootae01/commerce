@@ -41,7 +41,6 @@ public class Product extends BaseEntity{
     private List<ProductOption> options = new ArrayList<>();
 
     private int price;
-    private int stock;
 
     private String name;
     private String description;
@@ -52,10 +51,9 @@ public class Product extends BaseEntity{
 
     public Product() {}
 
-    public Product(Admin admin, int price, int stock, String name, String description) {
+    public Product(Admin admin, int price, String name, String description) {
         this.admin = admin;
         this.price = price;
-        this.stock = stock;
         this.name = name;
         this.description = description;
     }
@@ -65,13 +63,8 @@ public class Product extends BaseEntity{
         productOption.setProduct(this);
     }
 
-    public void deductStock(int quantity) {
-        this.stock -= quantity;
-    }
-
-    public void update(int price, int stock, String name, String description) {
+    public void update(int price, String name, String description) {
         this.price = price;
-        this.stock = stock;
         this.name = name;
         this.description = description;
     }

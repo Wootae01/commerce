@@ -20,7 +20,6 @@ import com.commerce.common.code.GeneralResponseCode;
 import com.commerce.common.dto.GeneralResponse;
 import com.commerce.common.dto.PageResponse;
 import com.commerce.common.enums.OrderType;
-import com.commerce.common.exception.ApiException;
 import com.commerce.common.util.SecurityUtil;
 import com.commerce.order.domain.Orders;
 import com.commerce.order.dto.OrderCheckoutResponse;
@@ -79,10 +78,7 @@ public class OrderApiController {
 		@RequestParam(required = false) Long optionId, @RequestParam @Min(1) int quantity) {
 
 		Product product = productService.findById(productId);
-		ProductOption option = optionId != null ? productService.findOptionById(optionId) : null;
-		if (option != null && !option.getProduct().getId().equals(productId)) {
-			throw new ApiException(GeneralResponseCode.PRODUCT_OPTION_MISMATCH);
-		}
+		ProductOption option = productService.resolveOption(productId, optionId);
 
 		OrderItemDTO item = orderMapper.toOrderItemDTOFromCart(product, quantity, option);
 		return GeneralResponse.toResponseEntity(GeneralResponseCode.OK,

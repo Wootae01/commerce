@@ -26,7 +26,7 @@ public interface OrderProductRepository extends JpaRepository<OrderProduct, Long
 		    from OrderProduct op
 		    join op.order o
 		    join op.product p
-		    left join op.productOption po
+		    join op.productOption po
 		    where o.id in :orderIds
 		    order by o.createdAt desc
 		""")

@@ -24,12 +24,14 @@ import org.wiremock.spring.EnableWireMock;
 import com.commerce.config.IntegrationTest;
 import com.commerce.order.domain.Orders;
 import com.commerce.product.domain.Product;
+import com.commerce.product.domain.ProductOption;
 import com.commerce.user.domain.User;
 import com.commerce.common.enums.OrderType;
 import com.commerce.common.enums.RoleType;
 import com.commerce.order.dto.OrderCreateRequestDTO;
 import com.commerce.payment.dto.PayConfirmDTO;
 import com.commerce.product.repository.ProductRepository;
+import com.commerce.product.repository.ProductOptionRepository;
 import com.commerce.user.repository.UserRepository;
 import com.commerce.common.util.SecurityUtil;
 import com.commerce.payment.service.PayService;
@@ -90,7 +92,9 @@ public class PayConfirmPerformTest {
 		Mockito.when(securityUtil.getCurrentUser()).thenReturn(user);
 
 		Product product = new Product();
-		product.update(1000, 100, "상품1", "설명");
+		product.update(1000, "상품1", "설명");
+		ProductOption option = new ProductOption("단품", 100, 0);
+		product.addOption(option);
 		product = productRepository.save(product);
 
 		OrderCreateRequestDTO dto = new OrderCreateRequestDTO();
@@ -100,6 +104,7 @@ public class PayConfirmPerformTest {
 		dto.setAddressDetail("어딘가");
 		dto.setOrderType(OrderType.BUY_NOW);
 		dto.setProductId(product.getId());
+		dto.setOptionId(option.getId());
 		dto.setQuantity(1);
 
 		// 서로 다른 주문/결제 요청 준비(원본/개선 각각 2번씩 돌릴 거라 2배)

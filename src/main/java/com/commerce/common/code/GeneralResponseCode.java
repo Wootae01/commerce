@@ -26,6 +26,7 @@ public enum GeneralResponseCode implements ApiResponseCode {
 	PRODUCT_OPTION_NOT_FOUND(HttpStatus.NOT_FOUND, "해당 옵션을 찾을 수 없습니다."),
 	PRODUCT_OUT_OF_STOCK(HttpStatus.BAD_REQUEST, "재고가 부족합니다."),
 	PRODUCT_OPTION_MISMATCH(HttpStatus.BAD_REQUEST, "해당 상품의 옵션이 아닙니다."),
+	PRODUCT_OPTION_REQUIRED(HttpStatus.BAD_REQUEST, "옵션을 선택해주세요."),
 
 	// Order
 	ORDER_NOT_FOUND(HttpStatus.NOT_FOUND, "해당 주문이 존재하지 않습니다."),
