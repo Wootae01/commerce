@@ -31,13 +31,13 @@
         WHERE NOT EXISTS(SELECT 1 FROM user);
 
     -- 상품 100개 삽입
-    INSERT INTO product (price, stock, admin_id, name, description, featured, created_at, updated_at)
+    INSERT INTO product (price, admin_id, name, description, featured, created_at, updated_at)
     WITH RECURSIVE seq(n) AS (
         SELECT 0
         UNION ALL
         SELECT n+1 FROM seq WHERE n < 100
     )
-    SELECT n*1000, 1000000, 1, CONCAT('상품', n), n, false, NOW(), NOW()
+    SELECT n*1000, 1, CONCAT('상품', n), n, false, NOW(), NOW()
     FROM seq;
 
     -- 이미지 삽입
@@ -187,14 +187,23 @@
         SELECT 1 FROM product_option po WHERE po.product_id = p.product_id
     );
 
-    -- 옵션 있는 상품의 order_product에 옵션 연결 (S/M/L 균등 분배)
+    -- 나머지 상품은 '단품' 옵션 1개 (재고는 옵션에만 있다)
+    INSERT INTO product_option (name, stock, additional_price, product_id)
+    SELECT '단품', 1000000, 0, p.product_id
+    FROM product p
+    WHERE NOT EXISTS (
+        SELECT 1 FROM product_option po WHERE po.product_id = p.product_id
+    );
+
+    -- order_product에 옵션 연결 (옵션이 여러 개면 균등 분배)
     UPDATE order_product op
     JOIN (
         SELECT po.id AS option_id, po.product_id,
-               ROW_NUMBER() OVER (PARTITION BY po.product_id ORDER BY po.id) AS rn
+               ROW_NUMBER() OVER (PARTITION BY po.product_id ORDER BY po.id) AS rn,
+               COUNT(*) OVER (PARTITION BY po.product_id) AS cnt
         FROM product_option po
     ) ranked ON ranked.product_id = op.product_id
-        AND ranked.rn = (MOD(op.order_product_id, 3) + 1)
+        AND ranked.rn = (MOD(op.order_product_id, ranked.cnt) + 1)
     SET op.product_option_id = ranked.option_id
     WHERE op.product_option_id IS NULL;
 
@@ -204,11 +213,12 @@
         0, 1, c.cart_id, rp.product_id, NOW(), NOW(),
         (
             SELECT ranked.id FROM (
-                SELECT po.id, ROW_NUMBER() OVER (ORDER BY po.id) - 1 AS rn
+                SELECT po.id, ROW_NUMBER() OVER (ORDER BY po.id) - 1 AS rn,
+                       COUNT(*) OVER () AS cnt
                 FROM product_option po
                 WHERE po.product_id = rp.product_id
             ) ranked
-            WHERE ranked.rn = MOD(c.cart_id, 3)
+            WHERE ranked.rn = MOD(c.cart_id, ranked.cnt)
         )
     FROM cart c
     JOIN (

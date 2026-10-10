@@ -24,8 +24,8 @@ public class CartProduct extends BaseEntity{
     @ManyToOne(fetch = FetchType.LAZY)
     private Product product;
 
-    @JoinColumn(name = "product_option_id")
-    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "product_option_id", nullable = false)
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
     private ProductOption productOption;
 
     private int quantity;
@@ -40,6 +40,11 @@ public class CartProduct extends BaseEntity{
         this.productOption = productOption;
         this.quantity = quantity;
         this.isChecked = isChecked;
+    }
+
+    // 상품 가격 + 옵션 추가 금액
+    public int getUnitPrice() {
+        return product.getPrice() + productOption.getAdditionalPrice();
     }
 
     public void addQuantity(int quantity) {

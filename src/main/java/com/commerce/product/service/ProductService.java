@@ -170,6 +170,22 @@ public class ProductService {
                 .orElseThrow(() -> new ApiException(GeneralResponseCode.PRODUCT_OPTION_NOT_FOUND));
     }
 
+    /**
+     * 장바구니 담기, 주문에 사용할 옵션을 찾는다. 재고와 추가 금액이 옵션에 있으므로 모든 상품은 옵션을 골라야 한다.
+     */
+    public ProductOption resolveOption(Long productId, Long optionId) {
+        if (optionId == null) {
+            throw new ApiException(GeneralResponseCode.PRODUCT_OPTION_REQUIRED);
+        }
+
+        ProductOption option = findOptionById(optionId);
+        // 다른 상품의 옵션이면 가격과 재고가 그 옵션 기준으로 계산되므로 막는다.
+        if (!option.getProduct().getId().equals(productId)) {
+            throw new ApiException(GeneralResponseCode.PRODUCT_OPTION_MISMATCH);
+        }
+        return option;
+    }
+
     public Product findByIdWithOptions(Long id) {
         return productRepository.findByIdWithOptions(id)
                 .orElseThrow(() -> new ApiException(GeneralResponseCode.PRODUCT_NOT_FOUND));
@@ -259,7 +275,6 @@ public class ProductService {
             .orElseThrow(() -> new ApiException(GeneralResponseCode.PRODUCT_NOT_FOUND));
         product.update(
             updatedProduct.getPrice(),
-            updatedProduct.getStock(),
             updatedProduct.getName(),
             updatedProduct.getDescription()
         );
@@ -269,23 +284,12 @@ public class ProductService {
             : updatedProduct.getProductOptionDTOList().stream()
                 .filter(o -> o.getName() != null && !o.getName().isBlank())
                 .toList();
-        Map<Long, ProductOption> existingOptions = product.getOptions().stream()
-            .collect(Collectors.toMap(ProductOption::getId, o -> o));
 
-        Set<Long> incomingIds = new HashSet<>();
-        for (ProductOptionDTO dto : optionDTOList) {
-            // 기존에 있는 옵션이면 업데이트, 아니면 옵션 추가
-            if (dto.getId() != null && existingOptions.containsKey(dto.getId())) {
-                int stock = dto.getStock() != null ? dto.getStock() : 0;
-                int additionalPrice = dto.getAdditionalPrice() != null ? dto.getAdditionalPrice() : 0;
-                existingOptions.get(dto.getId()).update(dto.getName(), stock, additionalPrice);
-                incomingIds.add(dto.getId());
-            } else {
-                product.addOption(ProductOption.createOption(dto.getName(), dto.getStock(), dto.getAdditionalPrice()));
-            }
+        // 재고가 옵션에 있으므로 옵션을 모두 지울 수 없다.
+        if (optionDTOList.isEmpty()) {
+            throw new ApiException(GeneralResponseCode.PRODUCT_OPTION_REQUIRED);
         }
-        // DTO에 없는 기존 옵션 삭제 (방금 추가한 옵션은 아직 id가 없으므로 제외)
-        product.getOptions().removeIf(o -> o.getId() != null && !incomingIds.contains(o.getId()));
+        updateOptions(product, optionDTOList);
 
         // 서브 이미지 삭제
         if (deleteImageIds != null && !deleteImageIds.isEmpty()) {
@@ -306,6 +310,27 @@ public class ProductService {
             addExtraImages(files, product);
         }
         productRepository.save(product);
+    }
+
+    // 입력한 옵션으로 갱신한다. 기존 옵션은 수정하고, 새 옵션은 추가하고, 빠진 옵션은 지운다.
+    private void updateOptions(Product product, List<ProductOptionDTO> optionDTOList) {
+        Map<Long, ProductOption> existingOptions = product.getOptions().stream()
+            .collect(Collectors.toMap(ProductOption::getId, o -> o));
+
+        Set<Long> incomingIds = new HashSet<>();
+        for (ProductOptionDTO dto : optionDTOList) {
+            // 기존에 있는 옵션이면 업데이트, 아니면 옵션 추가
+            if (dto.getId() != null && existingOptions.containsKey(dto.getId())) {
+                int stock = dto.getStock() != null ? dto.getStock() : 0;
+                int additionalPrice = dto.getAdditionalPrice() != null ? dto.getAdditionalPrice() : 0;
+                existingOptions.get(dto.getId()).update(dto.getName(), stock, additionalPrice);
+                incomingIds.add(dto.getId());
+            } else {
+                product.addOption(ProductOption.createOption(dto.getName(), dto.getStock(), dto.getAdditionalPrice()));
+            }
+        }
+        // DTO에 없는 기존 옵션 삭제 (방금 추가한 옵션은 아직 id가 없으므로 제외)
+        product.getOptions().removeIf(o -> o.getId() != null && !incomingIds.contains(o.getId()));
     }
 
     private void addExtraImages(List<MultipartFile> files, Product product) throws IOException {

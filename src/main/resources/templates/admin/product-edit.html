@@ -68,10 +68,6 @@
                 <input type="text" th:field="*{price}" placeholder="가격을 입력하세요" class="form-control" th:errorclass="field-error">
                 <div th:errors="*{price}" class="field-error small mt-1"></div>
             </div>
-            <div id="stockField">
-                <label class="form-label fw-semibold">재고</label>
-                <input type="number" th:field="*{stock}" placeholder="재고를 입력하세요" class="form-control" min="0">
-            </div>
             <div class="mt-3">
                 <label class="form-label fw-semibold">상품 설명</label>
                 <textarea th:field="*{description}" rows="4" placeholder="상품 설명을 입력하세요" class="form-control"></textarea>
@@ -81,6 +77,7 @@
         <!-- 옵션 -->
         <div class="card form-card p-4 mb-4">
             <p class="section-title">옵션</p>
+            <p class="small text-muted mb-2">옵션이 없는 상품은 옵션 1개(예: 단품)에 재고를 입력하세요.</p>
             <div id="optionList">
                 <div th:each="option, stat : *{productOptionDTOList}" class="d-flex gap-2 mb-2 option-row">
                     <input type="hidden" th:name="|productOptionDTOList[${stat.index}].id|" th:value="${option.id}">
@@ -133,11 +130,13 @@
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 <script>
-    updateStockVisibility();
+    ensureOneOption();
 
-    function updateStockVisibility() {
-        const hasOptions = document.querySelectorAll('#optionList .option-row').length > 0;
-        document.getElementById('stockField').style.display = hasOptions ? 'none' : '';
+    // 재고는 옵션에 있으므로 옵션 입력란을 최소 1개 둔다.
+    function ensureOneOption() {
+        if (document.querySelectorAll('#optionList .option-row').length === 0) {
+            addOption();
+        }
     }
 
     function addOption() {
@@ -153,13 +152,15 @@
             <button type="button" class="btn btn-outline-danger btn-sm" onclick="removeOption(this)">삭제</button>
         `;
         list.appendChild(row);
-        updateStockVisibility();
     }
 
     function removeOption(btn) {
+        if (document.querySelectorAll('#optionList .option-row').length <= 1) {
+            alert('옵션은 1개 이상 있어야 합니다.');
+            return;
+        }
         btn.closest('.option-row').remove();
         reindex();
-        updateStockVisibility();
     }
 
     function reindex() {

@@ -77,7 +77,7 @@ public class OrderController {
     public String buyNow(Long productId, @RequestParam(required = false) Long optionId, int quantity, Model model) {
         // 1. 상품 정보 담기
         Product product = productService.findById(productId);
-        ProductOption option = optionId != null ? productService.findOptionById(optionId) : null;
+        ProductOption option = productService.resolveOption(productId, optionId);
         OrderItemDTO dto = orderMapper.toOrderItemDTOFromCart(product, quantity, option);
         model.addAttribute("orderItems", List.of(dto));
 
@@ -91,7 +91,7 @@ public class OrderController {
         model.addAttribute("orderForm", orderDTO);
 
         // 3. 주문 가격
-        int additionalPrice = option != null ? option.getAdditionalPrice() : 0;
+        int additionalPrice = option.getAdditionalPrice();
         int totalPrice = (product.getPrice() + additionalPrice) * quantity;
         int deliveryFee = DeliveryPolicy.DELIVERY_FEE;
         OrderPriceDTO orderPriceDTO = new OrderPriceDTO(totalPrice, deliveryFee, totalPrice + deliveryFee);

@@ -5,7 +5,7 @@ GET {{host}}/orders/cart
 Accept: text/html
 
 ### Buy now (Thymeleaf)
-GET {{host}}/orders/buy-now?productId=1&quantity=2
+GET {{host}}/orders/buy-now?productId=1&optionId=1&quantity=2
 Accept: text/html
 
 ### My order list (Thymeleaf)

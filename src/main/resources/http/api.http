@@ -26,7 +26,7 @@ Content-Type: application/json
 
 {
   "productId": 1,
-  "optionId": null,
+  "optionId": 1,
   "quantity": 2
 }
 
@@ -49,9 +49,9 @@ DELETE {{host}}/api/cart/items/1
 GET {{host}}/api/orders/checkout/cart
 
 ### 주문서 - 바로구매
-GET {{host}}/api/orders/checkout/buy-now?productId=1&quantity=1
+GET {{host}}/api/orders/checkout/buy-now?productId=1&optionId=1&quantity=1
 
-### 주문 생성 (결제 전). orderType: CART면 cartProductIds, BUY_NOW면 productId/quantity/optionId
+### 주문 생성 (결제 전). orderType: CART면 cartProductIds, BUY_NOW면 productId/optionId/quantity (optionId 필수)
 POST {{host}}/api/orders
 Content-Type: application/json
 
@@ -59,7 +59,7 @@ Content-Type: application/json
   "orderType": "BUY_NOW",
   "productId": 1,
   "quantity": 1,
-  "optionId": null,
+  "optionId": 1,
   "name": "홍길동",
   "phone": "01012345678",
   "address": "서울",

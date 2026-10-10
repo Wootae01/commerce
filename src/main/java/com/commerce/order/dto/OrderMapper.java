@@ -40,7 +40,7 @@ public class OrderMapper {
 	}
 
 	public OrderItemDTO toOrderItemDTOFromCart(Product product, int quantity, ProductOption option) {
-		int additionalPrice = option != null ? option.getAdditionalPrice() : 0;
+		int additionalPrice = option.getAdditionalPrice();
 		int unitPrice = product.getPrice() + additionalPrice;
 
 		return OrderItemDTO.builder()
@@ -50,7 +50,7 @@ public class OrderMapper {
 			.totalPrice(quantity * unitPrice)
 			.mainImageUrl(productImageUtil.getMainImageUrl(product))
 			.name(product.getName())
-			.optionName(option != null ? option.getName() : null)
+			.optionName(option.getName())
 			.build();
 	}
 
@@ -66,7 +66,7 @@ public class OrderMapper {
 	public OrderItemDTO toOrderItemDTOFromCart(CartProduct cartProduct) {
 		Product product = cartProduct.getProduct();
 		ProductOption option = cartProduct.getProductOption();
-		int additionalPrice = option != null ? option.getAdditionalPrice() : 0;
+		int additionalPrice = option.getAdditionalPrice();
 		int unitPrice = product.getPrice() + additionalPrice;
 		String mainImageUrl = productImageUtil.getMainImageUrl(product);
 
@@ -77,7 +77,7 @@ public class OrderMapper {
 			.totalPrice(unitPrice * cartProduct.getQuantity())
 			.mainImageUrl(mainImageUrl)
 			.name(product.getName())
-			.optionName(option != null ? option.getName() : null)
+			.optionName(option.getName())
 			.build();
 	}
 

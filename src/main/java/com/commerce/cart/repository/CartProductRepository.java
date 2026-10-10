@@ -27,7 +27,7 @@ public interface CartProductRepository extends JpaRepository<CartProduct, Long> 
 			cp.id,
 			cp.isChecked,
 			cp.quantity,
-			p.price + coalesce(po.additionalPrice, 0),
+			p.price + po.additionalPrice,
 			mi.storeFileName,
 			p.name,
 			po.name
@@ -35,41 +35,41 @@ public interface CartProductRepository extends JpaRepository<CartProduct, Long> 
 		from CartProduct cp
 		join cp.product p
 		left join p.mainImage mi
-		left join cp.productOption po
+		join cp.productOption po
 		where cp.cart.id = :cartId
 		""")
 	List<CartProductDTO> findCartRows(Long cartId);
 
-	@Query("select cp from CartProduct cp join fetch cp.product p left join fetch p.mainImage left join fetch cp.productOption where cp.id in (:cartProductIds)")
+	@Query("select cp from CartProduct cp join fetch cp.product p left join fetch p.mainImage join fetch cp.productOption where cp.id in (:cartProductIds)")
 	List<CartProduct> findAllByIdWithProduct(List<Long> cartProductIds);
 
 	// 본인 장바구니에 담긴 상품만 조회
 	@Query("select cp from CartProduct cp where cp.id = :id and cp.cart.user.id = :userId")
 	Optional<CartProduct> findByIdAndUserId(@Param("id") Long id, @Param("userId") Long userId);
 
-	@Query("select cp from CartProduct cp join fetch cp.product p left join fetch p.mainImage left join fetch cp.productOption where cp.id in (:cartProductIds) and cp.cart.user.id = :userId")
+	@Query("select cp from CartProduct cp join fetch cp.product p left join fetch p.mainImage join fetch cp.productOption where cp.id in (:cartProductIds) and cp.cart.user.id = :userId")
 	List<CartProduct> findAllByIdWithProductAndUserId(@Param("cartProductIds") List<Long> cartProductIds,
 		@Param("userId") Long userId);
 
-	@Query("select cp from CartProduct cp join fetch cp.product left join fetch cp.productOption where cp.cart.id = :cartId")
+	@Query("select cp from CartProduct cp join fetch cp.product join fetch cp.productOption where cp.cart.id = :cartId")
 	List<CartProduct> findByCartIdWithProductAndOption(@Param("cartId") Long cartId);
 
-	@Query("select cp from CartProduct cp join fetch cp.product left join fetch cp.productOption where cp.cart.user = :user and cp.isChecked = true")
+	@Query("select cp from CartProduct cp join fetch cp.product join fetch cp.productOption where cp.cart.user = :user and cp.isChecked = true")
 	List<CartProduct> findCheckedByUser(@Param("user") com.commerce.user.domain.User user);
 
 	@Query("""
 			select new com.commerce.order.dto.OrderItemDTO(
 				cp.id,
 				cp.quantity,
-				p.price + coalesce(po.additionalPrice, 0),
-				(p.price + coalesce(po.additionalPrice, 0)) * cp.quantity,
+				p.price + po.additionalPrice,
+				(p.price + po.additionalPrice) * cp.quantity,
 				mi.storeFileName,
 				p.name,
 				po.name
 			) from CartProduct cp
 			join cp.product p
 			left join p.mainImage mi
-			left join cp.productOption po
+			join cp.productOption po
 			where cp.id in (:cartProductIds)
 		""")
 	List<OrderItemDTO> findOrderItemDTO(List<Long> cartProductIds);

@@ -31,6 +31,7 @@ import org.wiremock.spring.EnableWireMock;
 import com.commerce.config.IntegrationTest;
 import com.commerce.order.domain.Orders;
 import com.commerce.product.domain.Product;
+import com.commerce.product.domain.ProductOption;
 import com.commerce.user.domain.User;
 import com.commerce.common.enums.OrderStatus;
 import com.commerce.common.enums.OrderType;
@@ -42,6 +43,7 @@ import com.commerce.cart.repository.CartRepository;
 import com.commerce.order.repository.OrderProductRepository;
 import com.commerce.order.repository.OrderRepository;
 import com.commerce.product.repository.ProductRepository;
+import com.commerce.product.repository.ProductOptionRepository;
 import com.commerce.user.repository.UserRepository;
 import com.commerce.common.util.SecurityUtil;
 import com.commerce.payment.service.PayService;
@@ -72,6 +74,7 @@ class PayServiceTest {
 	private OrderProductRepository orderProductRepository;
 
 	@Autowired ProductRepository productRepository;
+	@Autowired ProductOptionRepository productOptionRepository;
 
 	@MockitoBean SecurityUtil securityUtil;
 	@Autowired
@@ -104,6 +107,7 @@ class PayServiceTest {
 		orderRepository.deleteAllInBatch();        // user를 물고 있음(자식)
 		cartProductRepository.deleteAllInBatch();
 		cartRepository.deleteAllInBatch();
+		productOptionRepository.deleteAllInBatch();
 		productRepository.deleteAllInBatch();      // 더 이상 참조 없을 때
 		userRepository.deleteAllInBatch();         // orders가 먼저 삭제되어야 안전
 	}
@@ -130,11 +134,13 @@ class PayServiceTest {
 
 		// 상품 생성
 		Product product = new Product();
-		product.update(1000, stock, "상품1", "설명");
+		product.update(1000, "상품1", "설명");
+		ProductOption option = new ProductOption("단품", stock, 0);
+		product.addOption(option);
 		product = productRepository.save(product);
 
 		// 카트 담기
-		cartService.addCart(product.getId(), null, quantity);
+		cartService.addCart(product.getId(), option.getId(), quantity);
 
 		// 주문 준비
 		OrderCreateRequestDTO dto = new OrderCreateRequestDTO();
@@ -144,6 +150,7 @@ class PayServiceTest {
 		dto.setAddressDetail("어딘가");
 		dto.setOrderType(OrderType.CART);
 		dto.setProductId(product.getId());
+		dto.setOptionId(option.getId());
 		dto.setQuantity(quantity);
 
 		Orders orders = orderService.prepareOrderFromBuyNow(dto);
@@ -160,10 +167,10 @@ class PayServiceTest {
 		payService.confirm(payConfirmDTO,user.getId());
 
 		// then
-		Product afterProduct = productRepository.findById(product.getId()).orElseThrow();
+		ProductOption afterOption = productOptionRepository.findById(option.getId()).orElseThrow();
 		Orders afterOrder = orderRepository.findByOrderNumber(orderNumber).orElseThrow();
 
-		assertThat(afterProduct.getStock()).isEqualTo(stock - quantity);
+		assertThat(afterOption.getStock()).isEqualTo(stock - quantity);
 		assertThat(afterOrder.getOrderStatus()).isEqualTo(OrderStatus.PAID);
 		assertThat(afterOrder.getApprovedAt()).isEqualTo(LocalDateTime.of(2026, 1, 3, 1, 23, 45));
 	}
@@ -190,7 +197,9 @@ class PayServiceTest {
 
 		// 상품 생성
 		Product product = new Product();
-		product.update(1000, 100, "상품1", "설명");
+		product.update(1000, "상품1", "설명");
+		ProductOption option = new ProductOption("단품", 100, 0);
+		product.addOption(option);
 		product = productRepository.save(product);
 
 		// 주문 준비
@@ -201,6 +210,7 @@ class PayServiceTest {
 		dto.setAddressDetail("어딘가");
 		dto.setOrderType(OrderType.BUY_NOW);
 		dto.setProductId(product.getId());
+		dto.setOptionId(option.getId());
 		dto.setQuantity(1);
 
 		int n = 50;
@@ -244,12 +254,12 @@ class PayServiceTest {
 
 
 		// then
-		Product product1 = productRepository.findById(product.getId())
+		ProductOption option1 = productOptionRepository.findById(option.getId())
 			.orElseThrow();
 		List<Orders> all = orderRepository.findAll();
 		assertThat(finished).isTrue();
 		assertThat(fail.get()).isEqualTo(0);
-		assertThat(product1.getStock()).isEqualTo(50);
+		assertThat(option1.getStock()).isEqualTo(50);
 
 		for (Orders orders : all) {
 			assertThat(orders.getOrderStatus()).isEqualTo(OrderStatus.PAID);
@@ -276,7 +286,9 @@ class PayServiceTest {
 
 		// 재고 1인 상품 생성
 		Product product = new Product();
-		product.update(1000, 1, "상품1", "설명");
+		product.update(1000, "상품1", "설명");
+		ProductOption option = new ProductOption("단품", 1, 0);
+		product.addOption(option);
 		product = productRepository.save(product);
 
 		OrderCreateRequestDTO dto = new OrderCreateRequestDTO();
@@ -286,6 +298,7 @@ class PayServiceTest {
 		dto.setAddressDetail("어딘가");
 		dto.setOrderType(OrderType.BUY_NOW);
 		dto.setProductId(product.getId());
+		dto.setOptionId(option.getId());
 		dto.setQuantity(1);
 
 		Orders order1 = orderService.prepareOrderFromBuyNow(dto);
@@ -325,7 +338,9 @@ class PayServiceTest {
 
 		int initialStock = 10;
 		Product product = new Product();
-		product.update(1000, initialStock, "상품1", "설명");
+		product.update(1000, "상품1", "설명");
+		ProductOption option = new ProductOption("단품", initialStock, 0);
+		product.addOption(option);
 		product = productRepository.save(product);
 
 		OrderCreateRequestDTO dto = new OrderCreateRequestDTO();
@@ -335,6 +350,7 @@ class PayServiceTest {
 		dto.setAddressDetail("어딘가");
 		dto.setOrderType(OrderType.BUY_NOW);
 		dto.setProductId(product.getId());
+		dto.setOptionId(option.getId());
 		dto.setQuantity(1);
 
 		Orders order = orderService.prepareOrderFromBuyNow(dto);
@@ -355,10 +371,55 @@ class PayServiceTest {
 			.extracting("responseCode").isEqualTo(ExternalResponseCode.PG_APPROVAL_ERROR);
 
 		// then - 재고 복원, 주문 CANCELED
-		Product afterProduct = productRepository.findById(product.getId()).orElseThrow();
+		ProductOption afterOption = productOptionRepository.findById(option.getId()).orElseThrow();
 		Orders afterOrder = orderRepository.findByOrderNumber(order.getOrderNumber()).orElseThrow();
-		assertThat(afterProduct.getStock()).isEqualTo(initialStock);
+		assertThat(afterOption.getStock()).isEqualTo(initialStock);
 		assertThat(afterOrder.getOrderStatus()).isEqualTo(OrderStatus.CANCELED);
+	}
+
+	@Test
+	@DisplayName("옵션 상품 결제 시 주문한 옵션의 재고만 차감")
+	void payConfirmDeductsOnlyOrderedOptionStock() {
+		// given
+		User user = User.builder()
+			.customerPaymentKey("customerPaymentKey")
+			.email("c@naver.com")
+			.name("홍길동")
+			.phone("01012345678")
+			.role(RoleType.ROLE_USER)
+			.username("username")
+			.build();
+		user = userRepository.save(user);
+		Long userId = user.getId();
+		Mockito.when(securityUtil.getCurrentUser()).thenReturn(user);
+
+		Product product = new Product();
+		product.update(1000, "티셔츠", "설명");
+		ProductOption m = new ProductOption("M", 10, 0);
+		ProductOption l = new ProductOption("L", 10, 1000);
+		product.addOption(m);
+		product.addOption(l);
+		product = productRepository.save(product);
+
+		OrderCreateRequestDTO dto = new OrderCreateRequestDTO();
+		dto.setName("홍길동");
+		dto.setPhone("01012345678");
+		dto.setAddress("서울");
+		dto.setAddressDetail("어딘가");
+		dto.setOrderType(OrderType.BUY_NOW);
+		dto.setProductId(product.getId());
+		dto.setOptionId(l.getId());
+		dto.setQuantity(2);
+
+		Orders order = orderService.prepareOrderFromBuyNow(dto);
+
+		// when
+		payService.confirm(new PayConfirmDTO(
+			UUID.randomUUID().toString(), order.getOrderNumber(), order.getFinalPrice()), userId);
+
+		// then - L만 2개 줄고 M은 그대로
+		assertThat(productOptionRepository.findById(l.getId()).orElseThrow().getStock()).isEqualTo(8);
+		assertThat(productOptionRepository.findById(m.getId()).orElseThrow().getStock()).isEqualTo(10);
 	}
 
 }

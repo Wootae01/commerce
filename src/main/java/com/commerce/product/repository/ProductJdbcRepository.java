@@ -22,63 +22,66 @@ public class ProductJdbcRepository {
 
 
 	/**
-	 * UPDATE product p
+	 * UPDATE product_option o
 	 * JOIN (
-	 *   SELECT ? AS product_id, ? AS qty
+	 *   SELECT ? AS option_id, ? AS qty
 	 *   UNION ALL SELECT ?, ?
 	 *   ...
-	 * ) t ON p.product_id = t.product_id
-	 * SET p.stock = p.stock - t.qty
+	 * ) t ON o.id = t.option_id
+	 * SET o.stock = o.stock - t.qty
+	 *
+	 * 재고는 옵션에만 있다.
+	 * 데드락을 막기 위해 option id 오름차순으로 락을 잡는다.
 	 *
 	 * 반드시 transactional 안에서 사용할 것.
 	 */
-	public int  updateStock(Map<Long, Integer> qtyByProductId, boolean isIncrease) {
+	public int updateOptionStock(Map<Long, Integer> qtyByOptionId, boolean isIncrease) {
 
-		if (qtyByProductId == null || qtyByProductId.isEmpty()) return 0;
+		if (qtyByOptionId == null || qtyByOptionId.isEmpty()) return 0;
 
-		List<Long> productIds = qtyByProductId.keySet().stream().sorted().distinct().toList();
+		List<Long> optionIds = qtyByOptionId.keySet().stream().sorted().distinct().toList();
 
 		// qty 검증
-		for (Long id : productIds) {
-			Integer qty = qtyByProductId.get(id);
+		for (Long id : optionIds) {
+			Integer qty = qtyByOptionId.get(id);
 			if (qty == null || qty <= 0) {
-				throw new IllegalArgumentException("invalid qty: productId=" + id + ", qty=" + qty);
+				throw new IllegalArgumentException("invalid qty: optionId=" + id + ", qty=" + qty);
 			}
 		}
 
 		StringBuilder sql = new StringBuilder();
-		sql.append("update product p join (");
+		sql.append("update product_option o join (");
 
 		List<Object> params = new ArrayList<>();
 
 		boolean first = true;
-		for (Long productId : productIds) {
-			int qty = qtyByProductId.get(productId);
+		for (Long optionId : optionIds) {
+			int qty = qtyByOptionId.get(optionId);
 
 			if (first) {
-				sql.append("select ? as product_id, ? as qty ");
+				sql.append("select ? as option_id, ? as qty ");
 				first = false;
 			} else {
 				sql.append("union all select ?, ? ");
 			}
 
-			params.add(productId);
+			params.add(optionId);
 			params.add(qty);
 		}
 
-		sql.append(") t on p.product_id = t.product_id ");
+		sql.append(") t on o.id = t.option_id ");
 
 		if (isIncrease) {
-			sql.append("set p.stock = p.stock + t.qty");
+			sql.append("set o.stock = o.stock + t.qty");
 			// 증가면 부족 조건 없음
 		} else {
-			sql.append("set p.stock = p.stock - t.qty ");
-			sql.append("where p.stock >= t.qty");
+			sql.append("set o.stock = o.stock - t.qty ");
+			sql.append("where o.stock >= t.qty");
 		}
 
 		int updated = jdbcTemplate.update(sql.toString(), params.toArray());
 
-		if (!isIncrease && updated != productIds.size()) {
+		if (!isIncrease && updated != optionIds.size()) {
 			throw new ApiException(GeneralResponseCode.PRODUCT_OUT_OF_STOCK);
 
 		}

@@ -189,11 +189,7 @@ public class PayService {
 		Orders orderWithProducts = orderRepository.findByOrderNumberWithProduct(req.getOrderId())
 			.orElseThrow();
 		for (OrderProduct orderProduct : orderWithProducts.getOrderProducts()) {
-			if (orderProduct.getProductOption() != null) {
-				orderProduct.getProductOption().deductStock(orderProduct.getQuantity());
-			} else {
-				orderProduct.getProduct().deductStock(orderProduct.getQuantity());
-			}
+			orderProduct.getProductOption().deductStock(orderProduct.getQuantity());
 		}
 
 		// 장바구니 삭제
