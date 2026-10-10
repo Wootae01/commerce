@@ -1,11 +1,10 @@
 package com.commerce.payment.service;
 
-import static org.assertj.core.api.Assertions.*;
-import static org.mockito.BDDMockito.*;
-
-import java.util.List;
-import java.util.Map;
-
+import com.commerce.order.domain.OrderProduct;
+import com.commerce.order.repository.OrderProductRepository;
+import com.commerce.product.domain.Product;
+import com.commerce.product.domain.ProductOption;
+import com.commerce.product.repository.ProductJdbcRepository;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -15,11 +14,11 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.util.ReflectionTestUtils;
 
-import com.commerce.order.domain.OrderProduct;
-import com.commerce.order.repository.OrderProductRepository;
-import com.commerce.product.domain.Product;
-import com.commerce.product.domain.ProductOption;
-import com.commerce.product.repository.ProductJdbcRepository;
+import java.util.List;
+import java.util.Map;
+
+import static org.mockito.BDDMockito.given;
+import static org.mockito.BDDMockito.verify;
 
 @ExtendWith(MockitoExtension.class)
 class PaymentTxServiceTest {
