@@ -3,14 +3,14 @@ package com.commerce.cart.domain;
 import java.util.ArrayList;
 import java.util.List;
 
-import com.commerce.common.domain.BaseEntity;
+import com.commerce.common.domain.BaseUpdatableEntity;
 import com.commerce.user.domain.User;
 import jakarta.persistence.*;
 import lombok.Getter;
 
 @Entity
 @Getter
-public class Cart extends BaseEntity{
+public class Cart extends BaseUpdatableEntity {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "cart_id")
@@ -26,11 +26,6 @@ public class Cart extends BaseEntity{
     public void addProduct(CartProduct cartProduct) {
         cartProducts.add(cartProduct);
         cartProduct.setCart(this);
-    }
-
-    public void deleteProduct(CartProduct cartProduct) {
-        cartProducts.remove(cartProduct);
-        cartProduct.setCart(null);
     }
 
 

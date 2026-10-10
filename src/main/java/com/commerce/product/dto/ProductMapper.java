@@ -28,12 +28,12 @@ public class ProductMapper {
 		dto.setCreatedAt(product.getCreatedAt());
 		dto.setMainImageUrl(productImageUtil.getMainImageUrl(product));
 		dto.setImages(
-			product.getImages().stream()
+			product.getActiveImages().stream()
 				.map(image -> new ImageResponseDTO(image.getId(), baseUrl + image.getStoreFileName()))
 				.toList()
 		);
 		dto.setProductOptionDTOList(
-			product.getOptions().stream()
+			product.getActiveOptions().stream()
 				.map(o -> new ProductOptionDTO(o.getId(), o.getName(), o.getStock(), o.getAdditionalPrice()))
 				.toList()
 		);

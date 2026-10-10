@@ -6,6 +6,7 @@ import static org.mockito.BDDMockito.*;
 import java.util.List;
 import java.util.Optional;
 
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -15,6 +16,8 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.security.authentication.TestingAuthenticationToken;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import com.commerce.cart.domain.Cart;
@@ -210,6 +213,37 @@ class CartServiceTest {
 
 			// then
 			assertThat(total).isEqualTo(22000 + 12000);
+		}
+	}
+
+	@Nested
+	@DisplayName("deleteProduct - 장바구니 상품 삭제")
+	class DeleteProduct {
+
+		@AfterEach
+		void clearSecurityContext() {
+			SecurityContextHolder.clearContext();
+		}
+
+		@Test
+		@DisplayName("본인 장바구니 상품을 soft delete하고 저장한다")
+		void softDeletesOwnCartProduct() {
+			// given
+			SecurityContextHolder.getContext().setAuthentication(new TestingAuthenticationToken(
+				org.springframework.security.core.userdetails.User.withUsername("user").password("pw").roles("USER").build(),
+				null, "ROLE_USER"));
+			CartProduct cartProduct = new CartProduct(cart, product, option, 1, false);
+			given(securityUtil.getCurrentUser()).willReturn(user);
+			given(cartProductRepository.findByIdAndUserId(1L, user.getId())).willReturn(Optional.of(cartProduct));
+
+			// when
+			cartService.deleteProduct(1L);
+
+			// then
+			assertThat(cartProduct.isDeleted()).isTrue();
+			assertThat(cartProduct.getDeletedBy()).isEqualTo("user");
+			verify(cartProductRepository).save(cartProduct);
+			verify(cartProductRepository, never()).delete(any());
 		}
 	}
 

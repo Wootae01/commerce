@@ -8,7 +8,6 @@ import com.commerce.common.enums.ProductSortType;
 import com.commerce.product.domain.ProductOption;
 import com.commerce.product.dto.*;
 import com.commerce.admin.dto.AdminProductListDTO;
-import com.commerce.product.repository.ImageRepository;
 import com.commerce.order.repository.OrderProductRepository;
 import com.commerce.product.repository.ProductJdbcRepository;
 import com.commerce.product.repository.ProductOptionRepository;
@@ -19,6 +18,7 @@ import com.commerce.common.storage.FileStorage;
 import com.commerce.common.storage.UploadFile;
 import com.commerce.common.template.CacheTemplate;
 import com.commerce.common.util.ProductImageUtil;
+import com.commerce.common.util.SecurityUtil;
 import com.fasterxml.jackson.core.type.TypeReference;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -47,7 +47,6 @@ import static com.commerce.common.support.ProductCachePolicy.*;
 public class ProductService {
 
     private final ProductRepository productRepository;
-    private final ImageRepository imageRepository;
     private final ProductJdbcRepository productJdbcRepository;
     private final OrderProductRepository orderProductRepository;
     private final ProductOptionRepository productOptionRepository;
@@ -133,8 +132,11 @@ public class ProductService {
     @Transactional
     public void updateFeatured(List<FeaturedItem> items) {
         productJdbcRepository.updateFeaturedBatch(items);
+        evictFeaturedCacheAfterCommit();
+    }
 
-        // 트랜잭션 커밋 후 캐시 무효화
+    // 트랜잭션 커밋 후 홈 노출 상품 캐시 무효화
+    private void evictFeaturedCacheAfterCommit() {
         TransactionSynchronizationManager.registerSynchronization(
                 new TransactionSynchronization() {
                     @Override
@@ -145,14 +147,10 @@ public class ProductService {
         );
     }
 
-    public Image findImageById(Long imageId) {
-        return imageRepository.findById(imageId)
-            .orElseThrow();
-    }
-
-    // id로 상품 검색
+    // id로 상품 검색. 삭제된 상품은 없는 상품으로 본다.
     public Product findById(Long id) {
         return productRepository.findById(id)
+                .filter(p -> !p.isDeleted())
                 .orElseThrow(() -> new ApiException(GeneralResponseCode.PRODUCT_NOT_FOUND));
     }
 
@@ -167,6 +165,7 @@ public class ProductService {
 
     public ProductOption findOptionById(Long id) {
         return productOptionRepository.findById(id)
+                .filter(o -> !o.isDeleted())
                 .orElseThrow(() -> new ApiException(GeneralResponseCode.PRODUCT_OPTION_NOT_FOUND));
     }
 
@@ -245,25 +244,17 @@ public class ProductService {
         productRepository.save(product);
     }
 
-    // 상품 삭제
+    // 상품 삭제. 지난 주문이 상품·옵션·이미지를 참조하므로 행과 이미지 파일은 남기고 soft delete한다.
     @Transactional
     public void deleteProduct(Long id) {
-        Product product = productRepository.findById(id)
-            .orElseThrow(() -> new ApiException(GeneralResponseCode.PRODUCT_NOT_FOUND));
+        Product product = findById(id);
 
-        // 대표 이미지 삭제
-        Image mainImage = product.getMainImage();
-        if (mainImage != null) {
-            fileStorage.delete(mainImage.getStoreFileName());
+        product.softDelete(SecurityUtil.getCurrentUsername());
+
+        // 홈 노출 상품이면 캐시에 남지 않도록 커밋 후 무효화
+        if (product.isFeatured()) {
+            evictFeaturedCacheAfterCommit();
         }
-
-        // 서브 이미지 삭제
-        List<Image> images = product.getImages();
-        for (Image image : images) {
-            fileStorage.delete(image.getStoreFileName());
-        }
-
-        productRepository.delete(product);
     }
 
     // 상품 수정
@@ -271,8 +262,7 @@ public class ProductService {
     public void updateProduct(Long id, ProductResponseDTO updatedProduct, List<Long> deleteImageIds,
                               MultipartFile mainFile, List<MultipartFile> files) throws IOException {
 
-        Product product = productRepository.findByIdWithOptions(id)
-            .orElseThrow(() -> new ApiException(GeneralResponseCode.PRODUCT_NOT_FOUND));
+        Product product = findByIdWithOptions(id);
         product.update(
             updatedProduct.getPrice(),
             updatedProduct.getName(),
@@ -291,13 +281,12 @@ public class ProductService {
         }
         updateOptions(product, optionDTOList);
 
-        // 서브 이미지 삭제
+        // 서브 이미지 삭제. 이 상품의 이미지만 지울 수 있다.
         if (deleteImageIds != null && !deleteImageIds.isEmpty()) {
-            for (Long imageId : deleteImageIds) {
-                Image image = findImageById(imageId);
-                fileStorage.delete(image.getStoreFileName());
-                product.getImages().remove(image);
-            }
+            String deletedBy = SecurityUtil.getCurrentUsername();
+            product.getActiveImages().stream()
+                .filter(image -> deleteImageIds.contains(image.getId()))
+                .forEach(image -> image.softDelete(deletedBy));
         }
 
         // 기존 대표 이미지 교체
@@ -314,7 +303,7 @@ public class ProductService {
 
     // 입력한 옵션으로 갱신한다. 기존 옵션은 수정하고, 새 옵션은 추가하고, 빠진 옵션은 지운다.
     private void updateOptions(Product product, List<ProductOptionDTO> optionDTOList) {
-        Map<Long, ProductOption> existingOptions = product.getOptions().stream()
+        Map<Long, ProductOption> existingOptions = product.getActiveOptions().stream()
             .collect(Collectors.toMap(ProductOption::getId, o -> o));
 
         Set<Long> incomingIds = new HashSet<>();
@@ -329,8 +318,11 @@ public class ProductService {
                 product.addOption(ProductOption.createOption(dto.getName(), dto.getStock(), dto.getAdditionalPrice()));
             }
         }
-        // DTO에 없는 기존 옵션 삭제 (방금 추가한 옵션은 아직 id가 없으므로 제외)
-        product.getOptions().removeIf(o -> o.getId() != null && !incomingIds.contains(o.getId()));
+        // DTO에 없는 기존 옵션 삭제. 주문·장바구니가 참조하므로 soft delete한다.
+        String deletedBy = SecurityUtil.getCurrentUsername();
+        existingOptions.values().stream()
+            .filter(o -> !incomingIds.contains(o.getId()))
+            .forEach(o -> o.softDelete(deletedBy));
     }
 
     private void addExtraImages(List<MultipartFile> files, Product product) throws IOException {
@@ -351,10 +343,10 @@ public class ProductService {
     }
 
     private void replaceMainImage(MultipartFile mainFile, Product product) throws IOException {
-        // 기존 대표 이미지 삭제
+        // 기존 대표 이미지 삭제. 지난 주문 내역이 이미지를 보여줄 수 있도록 파일은 남긴다.
         Image oldMainImage = product.getMainImage();
         if (oldMainImage != null) {
-            fileStorage.delete(oldMainImage.getStoreFileName());
+            oldMainImage.softDelete(SecurityUtil.getCurrentUsername());
         }
 
         // 새 대표 이미지 저장

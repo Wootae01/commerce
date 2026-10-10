@@ -1,6 +1,6 @@
 package com.commerce.order.domain;
 
-import com.commerce.common.domain.BaseEntity;
+import com.commerce.common.domain.BaseUpdatableEntity;
 import com.commerce.product.domain.Product;
 import com.commerce.product.domain.ProductOption;
 import jakarta.persistence.*;
@@ -15,7 +15,7 @@ import lombok.Setter;
 @Getter
 @Setter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
-public class OrderProduct extends BaseEntity{
+public class OrderProduct extends BaseUpdatableEntity {
 
     @Id
     @Column(name = "order_product_id")

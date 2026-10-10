@@ -1,6 +1,6 @@
 package com.commerce.cart.domain;
 
-import com.commerce.common.domain.BaseEntity;
+import com.commerce.common.domain.BaseUpdatableEntity;
 import com.commerce.product.domain.Product;
 import com.commerce.product.domain.ProductOption;
 import jakarta.persistence.*;
@@ -9,7 +9,7 @@ import lombok.Setter;
 
 @Entity
 @Getter
-public class CartProduct extends BaseEntity{
+public class CartProduct extends BaseUpdatableEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)

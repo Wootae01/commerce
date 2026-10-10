@@ -22,7 +22,7 @@ public class ProductImageUtil {
 	private final FileStorage fileStorage;
 
 	public List<String> getSubImagesUrl(Product product) {
-		return product.getImages().stream()
+		return product.getActiveImages().stream()
 				.map(image -> {
 					if (!image.getStoreFileName().equals(imageDefaultPath)) {
 						return fileStorage.getImageUrl(image.getStoreFileName());

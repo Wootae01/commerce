@@ -18,20 +18,19 @@ import java.util.Optional;
 
 public interface OrderRepository extends JpaRepository<Orders, Long> {
 
-	void deleteByOrderNumber(String orderNumber);
-
-	Optional<Orders> findByOrderNumber(String orderNumber);
+	@Query("select o from Orders o where o.orderNumber = :orderNumber and o.deletedAt is null")
+	Optional<Orders> findByOrderNumber(@Param("orderNumber") String orderNumber);
 
 	/**
 	 * 결제 처리 시 동일 주문에 대한 중복 요청을 막기 위해 비관적 락(FOR UPDATE)으로 조회한다.
 	 */
 	@Lock(LockModeType.PESSIMISTIC_WRITE)
-	@Query("select o from Orders o where o.id = :id")
+	@Query("select o from Orders o where o.id = :id and o.deletedAt is null")
 	Optional<Orders> findByIdWithLock(@Param("id") Long id);
 
 	/** {@link #findByIdWithLock}과 동일하나 orderNumber로 조회한다. */
 	@Lock(LockModeType.PESSIMISTIC_WRITE)
-	@Query("select o from Orders o where o.orderNumber = :orderNumber")
+	@Query("select o from Orders o where o.orderNumber = :orderNumber and o.deletedAt is null")
 	Optional<Orders> findByOrderNumberWithLock(@Param("orderNumber") String orderNumber);
 
 	@Query("""
@@ -40,13 +39,15 @@ public interface OrderRepository extends JpaRepository<Orders, Long> {
 			join fetch op.product p
 			join fetch op.productOption
 			where o.orderNumber = :orderNumber
+			and o.deletedAt is null
 	""")
 	Optional<Orders> findByOrderNumberWithProduct(@Param("orderNumber") String orderNumber);
 
 	@Query("""
 		select o from Orders o
 		 join fetch o.user u
-		where(:orderStatus is null or o.orderStatus = :orderStatus)
+		where o.deletedAt is null
+		and (:orderStatus is null or o.orderStatus = :orderStatus)
 		and (:paymentType is null or o.paymentType =:paymentType)
 		and (:keyword is null
 			or o.orderNumber like concat('%', :keyword, '%')
@@ -70,10 +71,10 @@ public interface OrderRepository extends JpaRepository<Orders, Long> {
         o.id, o.orderNumber, o.createdAt, o.orderStatus, o.finalPrice
     )
     from Orders o
-    where o.user = :user
+    where o.user = :user and o.deletedAt is null
     order by o.createdAt desc
 """, countQuery = """
-    select count(o) from Orders o where o.user = :user
+    select count(o) from Orders o where o.user = :user and o.deletedAt is null
 """)
 	Page<OrderHeaderRow> findOrderHeaders(@Param("user") User user, Pageable pageable);
 

@@ -15,6 +15,7 @@ import com.commerce.payment.dto.CancelResponseDTO;
 import com.commerce.payment.dto.PayConfirmDTO;
 import com.commerce.payment.external.TossPaymentClient;
 import com.fasterxml.jackson.databind.JsonNode;
+import com.commerce.common.util.SecurityUtil;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatusCode;
@@ -196,7 +197,7 @@ public class PayService {
 		if (order.getOrderType() == OrderType.CART) {
 			List<Long> ids = order.getCartProductIds();
 			if (!ids.isEmpty()) {
-				cartProductRepository.deleteSelectedFromUserCart(ids, userId);
+				cartProductRepository.deleteSelectedFromUserCart(ids, userId, SecurityUtil.findCurrentUsername().orElse(null));
 			}
 		}
 	}
