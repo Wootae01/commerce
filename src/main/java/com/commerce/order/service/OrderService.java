@@ -142,13 +142,6 @@ public class OrderService {
 		return new PageImpl<>(result, pageable, orderHeaders.getTotalElements());
 	}
 
-	// 주문 삭제
-	@Transactional
-	public void deleteOrderByOrderNumber(String orderNumber) {
-		Orders order = findByOrderNumber(orderNumber);
-		order.softDelete(SecurityUtil.findCurrentUsername().orElse(null));
-	}
-
 	// 주문 상태 변경
 	@Transactional
 	public void changeStatus(List<Long> orderIds,OrderStatus status) {
