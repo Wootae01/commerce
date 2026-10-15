@@ -4,7 +4,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 import com.commerce.admin.domain.Admin;
-import com.commerce.common.domain.BaseUpdatableEntity;
+import com.commerce.common.domain.BaseSoftDeletableEntity;
 import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -19,7 +19,7 @@ import lombok.Getter;
 
 @Entity
 @Getter
-public class Product extends BaseUpdatableEntity {
+public class Product extends BaseSoftDeletableEntity {
 
     @Id
     @Column(name = "product_id")

@@ -161,11 +161,9 @@ public class PayService {
 				.block();
 		} catch (WebClientResponseException e) {
 			log.error("toss confirm failed: status={}, body={}", e.getStatusCode(), e.getResponseBodyAsString(), e);
-			orderService.deleteOrderByOrderNumber(req.getOrderId());
 			throw new ApiException(ExternalResponseCode.PG_APPROVAL_ERROR);
 		} catch (Exception e) {
 			log.error("toss confirm exception", e);
-			orderService.deleteOrderByOrderNumber(req.getOrderId());
 			throw e;
 		}
 		log.info("request toss duration in confirm_before: {}", System.currentTimeMillis() - startTime);
