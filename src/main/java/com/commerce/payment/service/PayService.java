@@ -103,7 +103,7 @@ public class PayService {
 		log.info("request toss duration in confirm: {}", System.currentTimeMillis() - startTime);
 
 		// 4. 장바구니 삭제, 결제 일시, 상태 변경
-		paymentTxService.applyPaymentSuccess(req.getOrderId(), tossResponse, userId, req.getPaymentKey());
+		paymentTxService.applyPaymentSuccess(req.getOrderId(), tossResponse, req.getPaymentKey());
 	}
 
 	// 트랜잭션 범위 축소 전 이전 코드. 성능 비교 위해 남김
@@ -248,7 +248,7 @@ public class PayService {
 			String status = payment.path("status").asText();
 			if ("DONE".equals(status)) {
 				log.info("Toss 결제 확인됨, 승인 처리: orderId={}", req.getOrderId());
-				paymentTxService.applyPaymentSuccess(req.getOrderId(), payment, userId, req.getPaymentKey());
+				paymentTxService.applyPaymentSuccess(req.getOrderId(), payment, req.getPaymentKey());
 			} else {
 				log.info("Toss 미결제 확인, 재고 복원: orderId={}, status={}", req.getOrderId(), status);
 				paymentTxService.restoreStockOnTossFailure(req.getOrderId());
