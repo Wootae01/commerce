@@ -42,3 +42,11 @@ commerce-key
 terraform.tfvars
 ### bench ###
 bench/results-ps/
+
+### terraform ###
+.terraform/
+*.tfstate
+*.tfstate.*
+
+### keys ###
+*.pem
