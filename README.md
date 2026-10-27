@@ -92,11 +92,34 @@ Spring Boot 기반 이커머스 플랫폼을 직접 구현하며 주문, 결제,
 - **결과**: avg 4,345ms → 1,012ms (약 76.7% 개선, 동시 스레드 100 기준)
 
 #### 다건 주문 시 데드락
-- **문제**: 두 가지 패턴으로 데드락 발생
+- **문제**: 장바구니 다건 주문 부하 테스트 중 `SQL Error: 1213 (Deadlock found)`로 결제 실패 발생. `SHOW ENGINE INNODB STATUS`와 `innodb_print_all_deadlocks`로 두 가지 패턴 확인
   - 패턴 1 — 동시 결제 확정: 트랜잭션 A·B가 각자 다른 순서로 `product` row에 X락을 획득하면서 순환 대기 발생
   - 패턴 2 — 주문 생성 + 결제 확정 동시 실행: `order_product` INSERT 시 FK 무결성 검증으로 `product` row에 S락을 요청하는데, 동시에 다른 트랜잭션이 동일 row에 X락(재고 차감 UPDATE)을 보유 중이면 충돌
 
+  ```
+  -- 패턴 1
+  TRX 9461: update product ... where product_id=32   HOLDS X(6, 26)      WAITING X(32)
+  TRX 9460: update product ... where product_id=26   HOLDS X(1, 32, 84)  WAITING X(26)
+
+  -- 패턴 2
+  TRX 9092: insert into order_product ...            HOLDS S(..., 64)    WAITING S(26)
+  TRX 9090: update product ... where product_id=64   HOLDS X(..., 26)    WAITING X(64)
+  ```
+
 - **해결**: product_id 오름차순 정렬로 모든 트랜잭션의 락 획득 순서를 통일 → 순환 대기 제거
+  - 결제 확정: `SELECT ... FOR UPDATE ORDER BY product_id`로 상품 락을 먼저 순서대로 획득
+  - 주문 생성: `order_product` Batch INSERT 행도 product_id 순으로 정렬
+- **결과**:
+
+  | | 수정 전 | 수정 후 |
+  |---|---|---|
+  | 데드락 발생 | 431건 | 0건 |
+  | 전체 주문 성공률 | 52.1% (472/906) | 100% (941/941) |
+  | 장바구니 다건 주문 성공률 | 36.8% (249/676) | 100% (697/697) |
+
+  - 측정 조건: 앱·DB 각각 2 vCPU / 1GiB(EC2·RDS t3.micro 사양)로 제한, 상품 100개·유저 1,000명(장바구니당 약 15개 상품을 무작위 순서로 담음), 장바구니 주문 75%·바로구매 25% 비율로 초당 최대 20건의 주문을 70초간 발생(k6). 토스 승인 API는 실측 응답 시간(423~1,205ms) 기준 600ms 지연으로 모킹
+  - 데드락 재현을 위해 상품 수 대비 주문 상품 수가 많은, 경합이 심한 조건으로 설계
+  - 한계: 데드락은 사라졌지만 같은 상품 락을 순서대로 기다리는 대기는 남음 (결제 확정 p95 3.63s, 락 획득 쿼리 평균 대기 421ms) → 락 보유 시간 단축이 다음 과제
 
 #### 중복 결제 요청
 - **문제**: 결제 확정 요청이 중복으로 들어올 경우, 두 요청이 동시에 검증을 통과하면서 결제가 중복 처리되는 문제 발생
