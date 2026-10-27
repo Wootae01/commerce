@@ -75,6 +75,7 @@
             </div>
             <input type="hidden" th:if="${orderForm.orderType == T(com.commerce.common.enums.OrderType).BUY_NOW}" th:field="*{productId}"/>
             <input type="hidden" th:if="${orderForm.orderType == T(com.commerce.common.enums.OrderType).BUY_NOW}" th:field="*{quantity}"/>
+            <input type="hidden" th:if="${orderForm.orderType == T(com.commerce.common.enums.OrderType).BUY_NOW}" th:field="*{optionId}"/>
         </div>
 
         <!-- 배송 정보 -->
