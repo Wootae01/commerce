@@ -23,7 +23,7 @@ import com.commerce.order.repository.OrderRepository;
 import com.commerce.product.repository.ProductJdbcRepository;
 import com.fasterxml.jackson.databind.JsonNode;
 
-import com.commerce.common.util.SecurityUtil;
+import com.commerce.user.domain.User;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
@@ -97,13 +97,14 @@ public class PaymentTxService {
 
 	// 결제 성공 시 재고 차감, 장바구니 삭제, 결제 일시, 상태 변경
 	@Transactional
-	public void applyPaymentSuccess(String orderNumber, JsonNode tossResponse, Long userId, String paymentKey) {
-		Orders order = orderRepository.findByOrderNumber(orderNumber)
+	public void applyPaymentSuccess(String orderNumber, JsonNode tossResponse, String paymentKey) {
+		Orders order = orderRepository.findByOrderNumberWithLock(orderNumber)
 			.orElseThrow(() -> new ApiException(GeneralResponseCode.ORDER_NOT_FOUND));
 
+		// 이미 처리된 주문(즉시 확정·보정 스케줄러 중 먼저 반영된 쪽이 있음)이면 아무것도 하지 않는다
 		if (order.getOrderStatus() != OrderStatus.PAYMENT_PENDING) {
 			log.warn("이미 처리된 주문입니다. orderNumber={}, status={}", orderNumber, order.getOrderStatus());
-			throw new ApiException(GeneralResponseCode.PAYMENT_ALREADY_PROCESSED);
+			return;
 		}
 
 		// 결제 수단, paymentKey
@@ -130,11 +131,12 @@ public class PaymentTxService {
 		order.setOrderStatus(OrderStatus.PAID);
 
 
-		// 장바구니 삭제
+		// 장바구니 삭제 - 보정 스케줄러에는 로그인 정보가 없으므로 주문자 기준으로 지운다
 		if (order.getOrderType() == OrderType.CART) {
 			List<Long> ids = order.getCartProductIds();
 			if (!ids.isEmpty()) {
-				cartProductRepository.deleteSelectedFromUserCart(ids, userId, SecurityUtil.findCurrentUsername().orElse(null));
+				User orderer = order.getUser();
+				cartProductRepository.deleteSelectedFromUserCart(ids, orderer.getId(), orderer.getUsername());
 			}
 		}
 	}
@@ -154,8 +156,14 @@ public class PaymentTxService {
 
 	@Transactional
 	public void restoreStockOnTossFailure(String orderNumber) {
-		Orders order = orderRepository.findByOrderNumber(orderNumber)
+		Orders order = orderRepository.findByOrderNumberWithLock(orderNumber)
 			.orElseThrow(() -> new ApiException(GeneralResponseCode.ORDER_NOT_FOUND));
+
+		if (order.getOrderStatus() != OrderStatus.PAYMENT_PENDING) {
+			log.warn("이미 처리된 주문입니다. orderNumber={}, status={}", orderNumber, order.getOrderStatus());
+			return;
+		}
+
 		updateStock(order.getId(), true);
 		order.setOrderStatus(OrderStatus.CANCELED);
 	}
