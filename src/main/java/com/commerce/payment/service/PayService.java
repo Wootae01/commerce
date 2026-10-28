@@ -23,6 +23,9 @@ import java.util.Objects;
 @Slf4j
 public class PayService {
 
+	// 사용자가 기다리는 중이라, 응답을 모르면 그 자리에서 같은 멱등키로 1번만 다시 요청한다. 그래도 모르면 202 확인 중
+	private static final int CONFIRM_MAX_RETRIES = 1;
+
 	private final OrderService orderService;
 	private final PaymentTxService paymentTxService;
 	private final TossPaymentClient tossPaymentClient;
@@ -83,7 +86,7 @@ public class PayService {
 		paymentTxService.lockAndDeductStock(req.getOrderId(), req.getPaymentKey());
 
 		// 5. 토스 승인 요청 + 결과 반영. 응답을 모르면 같은 멱등키로 1번 다시 요청한다
-		return paymentApprovalService.approve(req, 2);
+		return paymentApprovalService.approve(req, CONFIRM_MAX_RETRIES).status();
 	}
 
 	private boolean isAlreadyRequested(Orders order, PayConfirmDTO req) {
