@@ -79,7 +79,7 @@ public class SecurityConfig {
 
 	// (3) 일반 사용자용 보안 설정
 	@Bean
-	@Profile("prod")
+	@Profile({"prod", "dev", "test"})
 	public SecurityFilterChain userSecurity(HttpSecurity http) throws Exception {
 		http
 			.csrf(csrf -> csrf.disable())
@@ -106,7 +106,7 @@ public class SecurityConfig {
 	}
 
 	@Bean
-	@Profile({"local", "dev"})
+	@Profile("local")
 	public SecurityFilterChain userSecurityDev(HttpSecurity http, @Qualifier("devUserDetailService")
 		UserDetailsService devUserDetailService) throws Exception {
 		http

@@ -15,7 +15,7 @@ import lombok.RequiredArgsConstructor;
 
 @Controller
 @RequiredArgsConstructor
-@Profile({"dev", "local"})
+@Profile("local")
 public class TestSupportController {
 	private final CartProductRepository cartProductRepository;
 	private final CartService cartService;

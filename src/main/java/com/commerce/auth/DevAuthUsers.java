@@ -9,7 +9,7 @@ import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.provisioning.InMemoryUserDetailsManager;
 
-@Profile({"local", "dev"})
+@Profile("local")
 @Configuration
 public class DevAuthUsers {
 
@@ -18,11 +18,12 @@ public class DevAuthUsers {
 	public UserDetailsService devUserDetailService(PasswordEncoder passwordEncoder) {
 		InMemoryUserDetailsManager manager = new InMemoryUserDetailsManager();
 		int n = 1000;
-		String rawPw = "password!";
+		// 모두 같은 비밀번호라 BCrypt 해시는 한 번만 만든다 (1000번 만들면 컨텍스트마다 약 1분)
+		String encodedPw = passwordEncoder.encode("password!");
 		for (int i = 0; i < n; i++) {
 			manager.createUser(
 				User.withUsername("user" + i)
-					.password(passwordEncoder.encode(rawPw))
+					.password(encodedPw)
 					.roles("USER")
 					.build()
 			);

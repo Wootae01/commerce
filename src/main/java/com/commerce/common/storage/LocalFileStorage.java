@@ -13,7 +13,7 @@ import com.commerce.common.code.GeneralResponseCode;
 import com.commerce.common.exception.ApiException;
 
 @Component
-@Profile(value = "local")
+@Profile({"local", "test"})
 public class LocalFileStorage implements FileStorage{
 	@Value("${file.url-path}")
 	private String urlPath;
