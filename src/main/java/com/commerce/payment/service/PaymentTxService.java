@@ -14,6 +14,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.commerce.order.domain.OrderProduct;
 import com.commerce.order.domain.Orders;
+import com.commerce.common.enums.OrderStatus;
 import com.commerce.common.enums.OrderType;
 import com.commerce.common.enums.PaymentType;
 import com.commerce.cart.repository.CartProductRepository;
@@ -82,9 +83,9 @@ public class PaymentTxService {
 		order.revertCancel();
 	}
 
-	// 결제 성공 시 재고 차감, 장바구니 삭제, 결제 일시, 상태 변경
+	// 결제 성공 시 장바구니 삭제, 결제 일시, 상태 변경. 반영 후 주문 상태를 돌려준다
 	@Transactional
-	public void applyPaymentSuccess(String orderNumber, JsonNode tossResponse, String paymentKey) {
+	public OrderStatus applyPaymentSuccess(String orderNumber, JsonNode tossResponse, String paymentKey) {
 		Orders order = orderRepository.findByOrderNumberWithLock(orderNumber)
 			.orElseThrow(() -> new ApiException(GeneralResponseCode.ORDER_NOT_FOUND));
 
@@ -108,7 +109,7 @@ public class PaymentTxService {
 		// 이미 처리된 주문(즉시 확정·보정 스케줄러 중 먼저 반영된 쪽이 있음)이면 아무것도 하지 않는다
 		if (!order.markPaid(paymentKey, paymentType, approvedAt)) {
 			log.warn("이미 처리된 주문입니다. orderNumber={}, status={}", orderNumber, order.getOrderStatus());
-			return;
+			return order.getOrderStatus();
 		}
 
 		// 장바구니 삭제 - 보정 스케줄러에는 로그인 정보가 없으므로 주문자 기준으로 지운다
@@ -119,6 +120,7 @@ public class PaymentTxService {
 				cartProductRepository.deleteSelectedFromUserCart(ids, orderer.getId(), orderer.getUsername());
 			}
 		}
+		return order.getOrderStatus();
 	}
 
 	@Transactional
@@ -130,16 +132,18 @@ public class PaymentTxService {
 		updateStock(order.getId(), false);
 	}
 
+	// 토스가 실패를 알려 주면 재고 복원 + 취소. 반영 후 주문 상태를 돌려준다
 	@Transactional
-	public void restoreStockOnTossFailure(String orderNumber) {
+	public OrderStatus restoreStockOnTossFailure(String orderNumber) {
 		Orders order = orderRepository.findByOrderNumberWithLock(orderNumber)
 			.orElseThrow(() -> new ApiException(GeneralResponseCode.ORDER_NOT_FOUND));
 
 		if (!order.cancelPending()) {
 			log.warn("이미 처리된 주문입니다. orderNumber={}, status={}", orderNumber, order.getOrderStatus());
-			return;
+			return order.getOrderStatus();
 		}
 
 		updateStock(order.getId(), true);
+		return order.getOrderStatus();
 	}
 }

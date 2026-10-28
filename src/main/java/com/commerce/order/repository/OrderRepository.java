@@ -6,6 +6,7 @@ import com.commerce.order.domain.Orders;
 import com.commerce.order.dto.OrderHeaderRow;
 import com.commerce.user.domain.User;
 import jakarta.persistence.LockModeType;
+import org.springframework.data.domain.Limit;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -14,6 +15,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Optional;
 
 public interface OrderRepository extends JpaRepository<Orders, Long> {
@@ -32,6 +34,17 @@ public interface OrderRepository extends JpaRepository<Orders, Long> {
 	@Lock(LockModeType.PESSIMISTIC_WRITE)
 	@Query("select o from Orders o where o.orderNumber = :orderNumber")
 	Optional<Orders> findByOrderNumberWithLock(@Param("orderNumber") String orderNumber);
+
+	/** 보정 스케줄러 대상: 지정 시각 이전에 마지막으로 바뀐 상태의 주문을 오래된 순으로 조회한다. */
+	@Query("""
+		select o from Orders o
+		where o.orderStatus = :orderStatus
+		and o.updatedAt <= :updatedBefore
+		order by o.updatedAt asc
+	""")
+	List<Orders> findOldestByStatusUpdatedBefore(@Param("orderStatus") OrderStatus orderStatus,
+		@Param("updatedBefore") LocalDateTime updatedBefore,
+		Limit limit);
 
 	@Query("""
 			select o from Orders o

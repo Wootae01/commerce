@@ -5,12 +5,14 @@ import static org.assertj.core.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -24,6 +26,7 @@ import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.Mockito;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
@@ -45,6 +48,7 @@ import com.commerce.payment.dto.PayConfirmDTO;
 import com.commerce.common.exception.ApiException;
 import com.commerce.common.code.ExternalResponseCode;
 import com.commerce.payment.external.TossPaymentClient;
+import com.commerce.payment.scheduler.PaymentRecoveryScheduler;
 import com.commerce.payment.service.PayService;
 import com.commerce.product.domain.Product;
 import com.commerce.product.domain.ProductOption;
@@ -83,6 +87,8 @@ class PayConsistencyTest {
 	@Autowired UserRepository userRepository;
 	@Autowired CartRepository cartRepository;
 	@Autowired CartProductRepository cartProductRepository;
+	@Autowired PaymentRecoveryScheduler paymentRecoveryScheduler;
+	@Autowired JdbcTemplate jdbcTemplate;
 
 	@MockitoBean SecurityUtil securityUtil;
 	@MockitoSpyBean ProductJdbcRepository productJdbcRepository;
@@ -490,8 +496,8 @@ class PayConsistencyTest {
 	}
 
 	@Test
-	@DisplayName("재요청까지 응답이 끊기고 토스 조회까지 실패(404)하면, 취소하지 않고 PENDING을 돌려준다")
-	void responseLost_queryAlsoFails_pending() {
+	@DisplayName("재요청까지 응답이 끊기고 토스 조회까지 실패(404)하면 PENDING으로 남고, 1분 뒤 보정 스케줄러가 같은 멱등키로 다시 요청해 PAID로 확정한다")
+	void responseLost_queryAlsoFails_pendingThenSchedulerPaid() {
 		// given
 		Orders order = prepareOrder();
 		PayConfirmDTO req = new PayConfirmDTO(UUID.randomUUID().toString(), order.getOrderNumber(), order.getFinalPrice());
@@ -504,14 +510,74 @@ class PayConsistencyTest {
 					{ "code": "NOT_FOUND_PAYMENT", "message": "존재하지 않는 결제 정보 입니다." }
 					""")));
 
-		// when
+		// when 1 - 결제 여부를 알 수 없으므로 임의로 취소/승인하지 않고 보류 상태로 둔다
 		OrderStatus result = payService.confirm(req, userId);
 
-		// then - 결제 여부를 알 수 없으므로 임의로 취소/승인하지 않고 보류 상태로 둔다 (스케줄러 확정은 #15)
+		// then 1
 		assertThat(result).isEqualTo(OrderStatus.PAYMENT_PENDING);
-		Orders after = orderRepository.findByOrderNumber(order.getOrderNumber()).orElseThrow();
-		assertThat(after.getOrderStatus()).isEqualTo(OrderStatus.PAYMENT_PENDING);
+		assertThat(orderRepository.findByOrderNumber(order.getOrderNumber()).orElseThrow().getOrderStatus())
+			.isEqualTo(OrderStatus.PAYMENT_PENDING);
 		assertThat(stock()).isEqualTo(INITIAL_STOCK - 1);
+
+		// when 2 - 토스가 회복된 뒤 1분이 지나 스케줄러가 실행된다
+		stubFor(post(urlEqualTo("/v1/payments/confirm"))
+			.willReturn(aResponse()
+				.withStatus(200)
+				.withHeader("Content-Type", "application/json")
+				.withBody("""
+					{ "method": "카드", "approvedAt": "2026-01-03T01:23:45+09:00" }
+					""")));
+		markUpdatedAt(order, LocalDateTime.now().minusMinutes(2));
+		paymentRecoveryScheduler.recoverPendingPayments();
+
+		// then 2 - 재고는 이미 차감돼 있으므로 그대로
+		Orders after = orderRepository.findByOrderNumber(order.getOrderNumber()).orElseThrow();
+		assertThat(after.getOrderStatus()).isEqualTo(OrderStatus.PAID);
+		assertThat(stock()).isEqualTo(INITIAL_STOCK - 1);
+		verify(3, postRequestedFor(urlEqualTo("/v1/payments/confirm"))
+			.withHeader("Idempotency-Key", equalTo(order.getOrderNumber())));
+	}
+
+	@Test
+	@DisplayName("확정 요청과 보정 스케줄러가 같은 주문을 동시에 확정해도, 둘 다 PAID를 받고 재고 차감은 1번, 복원은 0번이다")
+	void confirmAndSchedulerConcurrently_appliedOnce() throws Exception {
+		// given - 확정 요청이 PENDING으로 바꾸고 토스 응답을 기다리는 동안 1분이 지나, 스케줄러가 같은 주문을 꺼낸 상황
+		Orders order = prepareOrder();
+		PayConfirmDTO req = new PayConfirmDTO(UUID.randomUUID().toString(), order.getOrderNumber(), order.getFinalPrice());
+
+		CountDownLatch confirmInFlight = new CountDownLatch(1);
+		CountDownLatch bothRequested = new CountDownLatch(2);
+		doAnswer(invocation -> {
+			if (confirmInFlight.getCount() == 1) { // 첫 호출은 확정 요청
+				markUpdatedAt(order, LocalDateTime.now().minusMinutes(2));
+				confirmInFlight.countDown();
+			}
+			// 두 승인 요청이 모두 토스에 도착한 뒤 응답을 받게 한다 (같은 멱등키라 토스는 같은 200을 돌려준다)
+			bothRequested.countDown();
+			bothRequested.await(5, TimeUnit.SECONDS);
+			return invocation.callRealMethod();
+		}).when(tossPaymentClient).confirm(any());
+
+		// when
+		ExecutorService pool = Executors.newFixedThreadPool(2);
+		Future<OrderStatus> confirmResult = pool.submit(() -> payService.confirm(req, userId));
+		Future<?> schedulerRun = pool.submit(() -> {
+			confirmInFlight.await();
+			paymentRecoveryScheduler.recoverPendingPayments();
+			return null;
+		});
+
+		// then
+		assertThat(confirmResult.get(30, TimeUnit.SECONDS)).isEqualTo(OrderStatus.PAID);
+		schedulerRun.get(30, TimeUnit.SECONDS);
+		pool.shutdown();
+
+		Orders after = orderRepository.findByOrderNumber(order.getOrderNumber()).orElseThrow();
+		assertThat(after.getOrderStatus()).isEqualTo(OrderStatus.PAID);
+		assertThat(stock()).isEqualTo(INITIAL_STOCK - 1);
+		Mockito.verify(tossPaymentClient, times(2)).confirm(any()); // 확정 요청 1번 + 스케줄러 1번
+		Mockito.verify(productJdbcRepository, times(1)).updateOptionStock(anyMap(), eq(false));
+		Mockito.verify(productJdbcRepository, never()).updateOptionStock(anyMap(), eq(true));
 	}
 
 	private Orders prepareOrder() {
@@ -529,6 +595,12 @@ class PayConsistencyTest {
 
 	private int stock() {
 		return productOptionRepository.findById(optionId).orElseThrow().getStock();
+	}
+
+	// 보정 스케줄러의 시간 조건(PENDING이 된 지 1분)을 만든다
+	private void markUpdatedAt(Orders order, LocalDateTime updatedAt) {
+		jdbcTemplate.update("update orders set updated_at = ? where order_number = ?",
+			updatedAt, order.getOrderNumber());
 	}
 
 	// 토스가 요청을 받은 뒤 응답 도중 연결이 끊기는 상황
