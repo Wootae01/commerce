@@ -74,6 +74,13 @@ public class Orders extends BaseUpdatableEntity {
 
     private LocalDateTime approvedAt; // Toss Payments 결제 승인 시각
 
+    /**
+     * 보정 스케줄러가 이 주문을 마지막으로 처리한 시각. 다음 차례를 정하는 데 쓴다.
+     * updated_at(PENDING이 된 시각)이 바뀌지 않도록 엔티티가 아니라 벌크 update로만 바꾼다
+     * ({@link com.commerce.order.repository.OrderRepository#markRecoveryAttempted}).
+     */
+    private LocalDateTime lastRecoveryAt;
+
     @Builder
     private Orders(User user, String orderName, int finalPrice, String receiverName, String receiverAddress, String orderNumber,
         String receiverPhone, String orderAddressDetail, String requestNote, PaymentType paymentType, OrderStatus orderStatus, OrderType orderType) {

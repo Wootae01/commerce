@@ -11,8 +11,10 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Lock;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -35,16 +37,36 @@ public interface OrderRepository extends JpaRepository<Orders, Long> {
 	@Query("select o from Orders o where o.orderNumber = :orderNumber")
 	Optional<Orders> findByOrderNumberWithLock(@Param("orderNumber") String orderNumber);
 
-	/** 보정 스케줄러 대상: 지정 시각 이전에 마지막으로 바뀐 상태의 주문을 오래된 순으로 조회한다. */
+	/**
+	 * 보정 스케줄러 대상: updatedAfter 이후 updatedBefore 이전에 마지막으로 바뀐 상태의 주문.
+	 * 아직 처리하지 않은 주문, 처리한 지 오래된 주문 순으로 꺼내서, 결과를 계속 모르는 주문이 앞자리를 차지하지 않게 한다.
+	 */
 	@Query("""
 		select o from Orders o
 		where o.orderStatus = :orderStatus
 		and o.updatedAt <= :updatedBefore
-		order by o.updatedAt asc
+		and o.updatedAt > :updatedAfter
+		order by o.lastRecoveryAt asc nulls first, o.updatedAt asc
 	""")
-	List<Orders> findOldestByStatusUpdatedBefore(@Param("orderStatus") OrderStatus orderStatus,
+	List<Orders> findRecoveryTargets(@Param("orderStatus") OrderStatus orderStatus,
 		@Param("updatedBefore") LocalDateTime updatedBefore,
+		@Param("updatedAfter") LocalDateTime updatedAfter,
 		Limit limit);
+
+	/** 보정 스케줄러가 자동 처리를 그만둔 주문: updatedBefore 이전에 마지막으로 바뀐 상태의 주문 */
+	@Query("""
+		select o from Orders o
+		where o.orderStatus = :orderStatus
+		and o.updatedAt <= :updatedBefore
+	""")
+	List<Orders> findRecoveryExpired(@Param("orderStatus") OrderStatus orderStatus,
+		@Param("updatedBefore") LocalDateTime updatedBefore);
+
+	/** 보정 스케줄러가 처리한 시각을 남긴다. 벌크 update라 updated_at(PENDING이 된 시각)은 바뀌지 않는다. */
+	@Transactional
+	@Modifying
+	@Query("update Orders o set o.lastRecoveryAt = :at where o.id = :id")
+	void markRecoveryAttempted(@Param("id") Long id, @Param("at") LocalDateTime at);
 
 	@Query("""
 			select o from Orders o
