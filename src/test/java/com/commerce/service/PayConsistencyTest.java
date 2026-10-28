@@ -16,47 +16,19 @@ import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
-import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.Mockito;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.jdbc.core.JdbcTemplate;
-import org.springframework.test.context.TestPropertySource;
-import org.springframework.test.context.bean.override.mockito.MockitoBean;
-import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
-import org.wiremock.spring.EnableWireMock;
 
-import com.commerce.cart.repository.CartProductRepository;
-import com.commerce.cart.repository.CartRepository;
-import com.commerce.common.enums.OrderStatus;
-import com.commerce.common.enums.OrderType;
-import com.commerce.common.enums.RoleType;
-import com.commerce.common.util.SecurityUtil;
-import com.commerce.config.IntegrationTest;
-import com.commerce.order.domain.Orders;
-import com.commerce.order.dto.OrderCreateRequestDTO;
-import com.commerce.order.repository.OrderProductRepository;
-import com.commerce.order.repository.OrderRepository;
-import com.commerce.order.service.OrderService;
-import com.commerce.payment.dto.PayConfirmDTO;
-import com.commerce.common.exception.ApiException;
 import com.commerce.common.code.ExternalResponseCode;
-import com.commerce.payment.external.TossPaymentClient;
-import com.commerce.payment.scheduler.PaymentRecoveryScheduler;
-import com.commerce.payment.service.PayService;
-import com.commerce.product.domain.Product;
-import com.commerce.product.domain.ProductOption;
-import com.commerce.product.repository.ProductJdbcRepository;
-import com.commerce.product.repository.ProductOptionRepository;
-import com.commerce.product.repository.ProductRepository;
-import com.commerce.user.domain.User;
-import com.commerce.user.repository.UserRepository;
+import com.commerce.common.enums.OrderStatus;
+import com.commerce.common.exception.ApiException;
+import com.commerce.order.domain.Orders;
+import com.commerce.payment.dto.PayConfirmDTO;
 import com.github.tomakehurst.wiremock.client.ResponseDefinitionBuilder;
 import com.github.tomakehurst.wiremock.http.Fault;
 import com.github.tomakehurst.wiremock.stubbing.Scenario;
@@ -67,39 +39,14 @@ import lombok.extern.slf4j.Slf4j;
  * 결제 확정 정합성 테스트
  * 1) 같은 주문에 확정 요청이 동시에 2건 들어오는 경우
  * 2) 토스 승인 요청 후 응답이 끊기는 경우
+ * 3) 결과를 모르는 주문을 보정 스케줄러가 확정하는 경우
  */
-@IntegrationTest
 @Slf4j
-@EnableWireMock
-@TestPropertySource(properties = {
-	"toss.base-url=${wiremock.server.baseUrl}"
-})
-class PayConsistencyTest {
+class PayConsistencyTest extends PaymentIntegrationTestSupport {
 
-	private static final int INITIAL_STOCK = 10;
-
-	@Autowired PayService payService;
-	@Autowired OrderService orderService;
-	@Autowired OrderRepository orderRepository;
-	@Autowired OrderProductRepository orderProductRepository;
-	@Autowired ProductRepository productRepository;
-	@Autowired ProductOptionRepository productOptionRepository;
-	@Autowired UserRepository userRepository;
-	@Autowired CartRepository cartRepository;
-	@Autowired CartProductRepository cartProductRepository;
-	@Autowired PaymentRecoveryScheduler paymentRecoveryScheduler;
-	@Autowired JdbcTemplate jdbcTemplate;
-
-	@MockitoBean SecurityUtil securityUtil;
-	@MockitoSpyBean ProductJdbcRepository productJdbcRepository;
-	@MockitoSpyBean TossPaymentClient tossPaymentClient;
-
-	private Long userId;
-	private Long productId;
-	private Long optionId;
-
+	// 기본 승인 응답: 200
 	@BeforeEach
-	void setUp() {
+	void stubConfirmApproved() {
 		stubFor(post(urlEqualTo("/v1/payments/confirm"))
 			.willReturn(aResponse()
 				.withStatus(200)
@@ -108,35 +55,6 @@ class PayConsistencyTest {
 				.withBody("""
 					{ "method": "카드", "approvedAt": "2026-01-03T01:23:45+09:00" }
 					""")));
-
-		User user = userRepository.save(User.builder()
-			.customerPaymentKey("customerPaymentKey")
-			.email("c@naver.com")
-			.name("홍길동")
-			.phone("01012345678")
-			.role(RoleType.ROLE_USER)
-			.username("username")
-			.build());
-		when(securityUtil.getCurrentUser()).thenReturn(user);
-		userId = user.getId();
-
-		Product product = new Product();
-		product.update(1000, "상품1", "설명");
-		ProductOption option = new ProductOption("단품", INITIAL_STOCK, 0);
-		product.addOption(option);
-		productId = productRepository.save(product).getId();
-		optionId = option.getId();
-	}
-
-	@AfterEach
-	void cleanUp() {
-		orderProductRepository.deleteAllInBatch();
-		orderRepository.deleteAllInBatch();
-		cartProductRepository.deleteAllInBatch();
-		cartRepository.deleteAllInBatch();
-		productOptionRepository.deleteAllInBatch();
-		productRepository.deleteAllInBatch();
-		userRepository.deleteAllInBatch();
 	}
 
 	@Test
@@ -539,22 +457,33 @@ class PayConsistencyTest {
 	}
 
 	@Test
-	@DisplayName("확정 요청과 보정 스케줄러가 같은 주문을 동시에 확정해도, 둘 다 PAID를 받고 재고 차감은 1번, 복원은 0번이다")
+	@DisplayName("확정 요청과 보정 스케줄러가 같은 주문에 동시에 거절을 받아도, 취소와 재고 복원은 1번만 일어난다")
 	void confirmAndSchedulerConcurrently_appliedOnce() throws Exception {
-		// given - 확정 요청이 PENDING으로 바꾸고 토스 응답을 기다리는 동안 1분이 지나, 스케줄러가 같은 주문을 꺼낸 상황
+		// given - 확정 요청이 PENDING으로 바꾸고 토스 응답을 기다리는 동안 1분이 지나, 스케줄러가 같은 주문을 꺼낸 상황.
+		// 거절로 확인하는 이유: 성공 반영은 재고를 건드리지 않아 두 번 반영돼도 드러나지 않지만, 재고 복원은 두 번이면 재고가 늘어난다
 		Orders order = prepareOrder();
 		PayConfirmDTO req = new PayConfirmDTO(UUID.randomUUID().toString(), order.getOrderNumber(), order.getFinalPrice());
+		stubFor(post(urlEqualTo("/v1/payments/confirm"))
+			.willReturn(aResponse()
+				.withStatus(400)
+				.withHeader("Content-Type", "application/json")
+				.withBody("""
+					{ "code": "REJECT_CARD_PAYMENT", "message": "한도초과 혹은 잔액부족으로 결제에 실패했습니다." }
+					""")));
 
 		CountDownLatch confirmInFlight = new CountDownLatch(1);
 		CountDownLatch bothRequested = new CountDownLatch(2);
+		AtomicInteger overlapped = new AtomicInteger();
 		doAnswer(invocation -> {
 			if (confirmInFlight.getCount() == 1) { // 첫 호출은 확정 요청
 				markUpdatedAt(order, LocalDateTime.now().minusMinutes(2));
 				confirmInFlight.countDown();
 			}
-			// 두 승인 요청이 모두 토스에 도착한 뒤 응답을 받게 한다 (같은 멱등키라 토스는 같은 200을 돌려준다)
+			// 두 승인 요청이 모두 토스에 도착한 뒤 응답을 받게 한다 (같은 멱등키라 토스는 같은 응답을 돌려준다)
 			bothRequested.countDown();
-			bothRequested.await(5, TimeUnit.SECONDS);
+			if (bothRequested.await(5, TimeUnit.SECONDS)) {
+				overlapped.incrementAndGet();
+			}
 			return invocation.callRealMethod();
 		}).when(tossPaymentClient).confirm(any());
 
@@ -568,39 +497,17 @@ class PayConsistencyTest {
 		});
 
 		// then
-		assertThat(confirmResult.get(30, TimeUnit.SECONDS)).isEqualTo(OrderStatus.PAID);
+		assertThat(confirmResult.get(30, TimeUnit.SECONDS)).isEqualTo(OrderStatus.CANCELED);
 		schedulerRun.get(30, TimeUnit.SECONDS);
 		pool.shutdown();
 
+		assertThat(overlapped.get()).as("두 승인 요청이 겹쳤는지").isEqualTo(2);
 		Orders after = orderRepository.findByOrderNumber(order.getOrderNumber()).orElseThrow();
-		assertThat(after.getOrderStatus()).isEqualTo(OrderStatus.PAID);
-		assertThat(stock()).isEqualTo(INITIAL_STOCK - 1);
+		assertThat(after.getOrderStatus()).isEqualTo(OrderStatus.CANCELED);
+		assertThat(stock()).isEqualTo(INITIAL_STOCK);
 		Mockito.verify(tossPaymentClient, times(2)).confirm(any()); // 확정 요청 1번 + 스케줄러 1번
 		Mockito.verify(productJdbcRepository, times(1)).updateOptionStock(anyMap(), eq(false));
-		Mockito.verify(productJdbcRepository, never()).updateOptionStock(anyMap(), eq(true));
-	}
-
-	private Orders prepareOrder() {
-		OrderCreateRequestDTO dto = new OrderCreateRequestDTO();
-		dto.setName("홍길동");
-		dto.setPhone("01012345678");
-		dto.setAddress("서울");
-		dto.setAddressDetail("어딘가");
-		dto.setOrderType(OrderType.BUY_NOW);
-		dto.setProductId(productId);
-		dto.setOptionId(optionId);
-		dto.setQuantity(1);
-		return orderService.prepareOrderFromBuyNow(dto);
-	}
-
-	private int stock() {
-		return productOptionRepository.findById(optionId).orElseThrow().getStock();
-	}
-
-	// 보정 스케줄러의 시간 조건(PENDING이 된 지 1분)을 만든다
-	private void markUpdatedAt(Orders order, LocalDateTime updatedAt) {
-		jdbcTemplate.update("update orders set updated_at = ? where order_number = ?",
-			updatedAt, order.getOrderNumber());
+		Mockito.verify(productJdbcRepository, times(1)).updateOptionStock(anyMap(), eq(true));
 	}
 
 	// 토스가 요청을 받은 뒤 응답 도중 연결이 끊기는 상황

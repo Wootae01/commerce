@@ -49,7 +49,7 @@ public class PaymentApprovalService {
 				return checkByPaymentQuery(req);
 			}
 			// 토스가 거절·만료 등을 명시적으로 알려 줌
-			return paymentTxService.restoreStockOnTossFailure(req.getOrderId());
+			return paymentTxService.applyPaymentFailure(req.getOrderId());
 		} catch (Exception e) {
 			// 네트워크 오류, 응답 해석 실패 등. 토스에서는 승인됐을 수 있으므로 취소하지 않는다
 			log.warn("승인 결과 모름: orderId={}", req.getOrderId(), e);
@@ -101,7 +101,7 @@ public class PaymentApprovalService {
 			}
 			case "ABORTED", "EXPIRED", "CANCELED" -> {
 				log.info("Toss 결제 실패 확인, 재고 복원: orderId={}, status={}", req.getOrderId(), status);
-				return paymentTxService.restoreStockOnTossFailure(req.getOrderId());
+				return paymentTxService.applyPaymentFailure(req.getOrderId());
 			}
 			case "READY", "IN_PROGRESS" -> {
 				log.info("Toss 결제 처리 중, PENDING 유지: orderId={}, status={}", req.getOrderId(), status);

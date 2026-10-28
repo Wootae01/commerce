@@ -134,7 +134,7 @@ public class PaymentTxService {
 
 	// 토스가 실패를 알려 주면 재고 복원 + 취소. 반영 후 주문 상태를 돌려준다
 	@Transactional
-	public OrderStatus restoreStockOnTossFailure(String orderNumber) {
+	public OrderStatus applyPaymentFailure(String orderNumber) {
 		Orders order = orderRepository.findByOrderNumberWithLock(orderNumber)
 			.orElseThrow(() -> new ApiException(GeneralResponseCode.ORDER_NOT_FOUND));
 

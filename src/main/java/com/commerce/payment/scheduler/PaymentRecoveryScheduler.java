@@ -2,6 +2,7 @@ package com.commerce.payment.scheduler;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 
 import org.springframework.data.domain.Limit;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -34,7 +35,7 @@ public class PaymentRecoveryScheduler {
 	private final OrderRepository orderRepository;
 	private final PaymentApprovalService paymentApprovalService;
 
-	@Scheduled(fixedDelay = 60_000)
+	@Scheduled(fixedDelay = 1, timeUnit = TimeUnit.MINUTES)
 	public void recoverPendingPayments() {
 		LocalDateTime updatedBefore = LocalDateTime.now().minusMinutes(PENDING_MINUTES_BEFORE_RECOVERY);
 		List<Orders> orders = orderRepository.findOldestByStatusUpdatedBefore(

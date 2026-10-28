@@ -8,106 +8,18 @@ import static org.mockito.Mockito.*;
 import java.time.LocalDateTime;
 import java.util.UUID;
 
-import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.jdbc.core.JdbcTemplate;
-import org.springframework.test.context.TestPropertySource;
-import org.springframework.test.context.bean.override.mockito.MockitoBean;
-import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
-import org.wiremock.spring.EnableWireMock;
 
-import com.commerce.cart.repository.CartProductRepository;
-import com.commerce.cart.repository.CartRepository;
 import com.commerce.common.enums.OrderStatus;
-import com.commerce.common.enums.OrderType;
-import com.commerce.common.enums.RoleType;
-import com.commerce.common.util.SecurityUtil;
-import com.commerce.config.IntegrationTest;
 import com.commerce.order.domain.Orders;
-import com.commerce.order.dto.OrderCreateRequestDTO;
-import com.commerce.order.repository.OrderProductRepository;
-import com.commerce.order.repository.OrderRepository;
-import com.commerce.order.service.OrderService;
 import com.commerce.payment.dto.PayConfirmDTO;
-import com.commerce.payment.external.TossPaymentClient;
-import com.commerce.payment.scheduler.PaymentRecoveryScheduler;
-import com.commerce.payment.service.PayService;
-import com.commerce.product.domain.Product;
-import com.commerce.product.domain.ProductOption;
-import com.commerce.product.repository.ProductJdbcRepository;
-import com.commerce.product.repository.ProductOptionRepository;
-import com.commerce.product.repository.ProductRepository;
-import com.commerce.user.domain.User;
-import com.commerce.user.repository.UserRepository;
 
 /**
  * 보정 스케줄러: PAYMENT_PENDING이 된 지 1분 지난 주문을 같은 멱등키로 다시 승인 요청해 확정한다.
  * 스케줄러 실행 메서드를 직접 호출하고, 시간 조건은 updated_at을 과거로 바꿔 만든다.
- * (PayConsistencyTest와 같은 설정이라 스프링 컨텍스트를 같이 쓴다)
  */
-@IntegrationTest
-@EnableWireMock
-@TestPropertySource(properties = {
-	"toss.base-url=${wiremock.server.baseUrl}"
-})
-class PaymentRecoverySchedulerTest {
-
-	private static final int INITIAL_STOCK = 10;
-
-	@Autowired PaymentRecoveryScheduler paymentRecoveryScheduler;
-	@Autowired PayService payService;
-	@Autowired OrderService orderService;
-	@Autowired OrderRepository orderRepository;
-	@Autowired OrderProductRepository orderProductRepository;
-	@Autowired ProductRepository productRepository;
-	@Autowired ProductOptionRepository productOptionRepository;
-	@Autowired UserRepository userRepository;
-	@Autowired CartRepository cartRepository;
-	@Autowired CartProductRepository cartProductRepository;
-	@Autowired JdbcTemplate jdbcTemplate;
-
-	@MockitoBean SecurityUtil securityUtil;
-	@MockitoSpyBean ProductJdbcRepository productJdbcRepository;
-	@MockitoSpyBean TossPaymentClient tossPaymentClient;
-
-	private Long userId;
-	private Long productId;
-	private Long optionId;
-
-	@BeforeEach
-	void setUp() {
-		User user = userRepository.save(User.builder()
-			.customerPaymentKey("customerPaymentKey")
-			.email("c@naver.com")
-			.name("홍길동")
-			.phone("01012345678")
-			.role(RoleType.ROLE_USER)
-			.username("username")
-			.build());
-		when(securityUtil.getCurrentUser()).thenReturn(user);
-		userId = user.getId();
-
-		Product product = new Product();
-		product.update(1000, "상품1", "설명");
-		ProductOption option = new ProductOption("단품", INITIAL_STOCK, 0);
-		product.addOption(option);
-		productId = productRepository.save(product).getId();
-		optionId = option.getId();
-	}
-
-	@AfterEach
-	void cleanUp() {
-		orderProductRepository.deleteAllInBatch();
-		orderRepository.deleteAllInBatch();
-		cartProductRepository.deleteAllInBatch();
-		cartRepository.deleteAllInBatch();
-		productOptionRepository.deleteAllInBatch();
-		productRepository.deleteAllInBatch();
-		userRepository.deleteAllInBatch();
-	}
+class PaymentRecoverySchedulerTest extends PaymentIntegrationTestSupport {
 
 	@Test
 	@DisplayName("PENDING이 된 지 1분 지난 주문은 같은 멱등키·paymentKey·금액으로 1번 승인을 다시 요청하고, 200이면 PAID로 확정한다")
@@ -255,36 +167,10 @@ class PaymentRecoverySchedulerTest {
 		return orderRepository.findByOrderNumber(order.getOrderNumber()).orElseThrow();
 	}
 
-	private Orders prepareOrder() {
-		OrderCreateRequestDTO dto = new OrderCreateRequestDTO();
-		dto.setName("홍길동");
-		dto.setPhone("01012345678");
-		dto.setAddress("서울");
-		dto.setAddressDetail("어딘가");
-		dto.setOrderType(OrderType.BUY_NOW);
-		dto.setProductId(productId);
-		dto.setOptionId(optionId);
-		dto.setQuantity(1);
-		return orderService.prepareOrderFromBuyNow(dto);
-	}
-
 	// 주문마다 paymentKey를 주문번호에서 만들어, 확정 요청과 스케줄러 재요청의 값을 비교할 수 있게 한다
 	private PayConfirmDTO confirmRequestOf(Orders order) {
 		String paymentKey = UUID.nameUUIDFromBytes(order.getOrderNumber().getBytes()).toString();
 		return new PayConfirmDTO(paymentKey, order.getOrderNumber(), order.getFinalPrice());
-	}
-
-	private void markUpdatedAt(Orders order, LocalDateTime updatedAt) {
-		jdbcTemplate.update("update orders set updated_at = ? where order_number = ?",
-			updatedAt, order.getOrderNumber());
-	}
-
-	private OrderStatus statusOf(Orders order) {
-		return orderRepository.findByOrderNumber(order.getOrderNumber()).orElseThrow().getOrderStatus();
-	}
-
-	private int stock() {
-		return productOptionRepository.findById(optionId).orElseThrow().getStock();
 	}
 
 	private void stubConfirm(int status, String body) {
