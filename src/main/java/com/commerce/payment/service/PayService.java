@@ -1,13 +1,8 @@
 package com.commerce.payment.service;
 
-import com.commerce.cart.repository.CartProductRepository;
 import com.commerce.common.enums.OrderStatus;
-import com.commerce.common.enums.OrderType;
-import com.commerce.common.enums.PaymentType;
-import com.commerce.common.code.ExternalResponseCode;
 import com.commerce.common.code.GeneralResponseCode;
 import com.commerce.common.exception.ApiException;
-import com.commerce.order.domain.OrderProduct;
 import com.commerce.order.domain.Orders;
 import com.commerce.order.repository.OrderRepository;
 import com.commerce.order.service.OrderService;
@@ -15,20 +10,13 @@ import com.commerce.payment.dto.CancelResponseDTO;
 import com.commerce.payment.dto.PayConfirmDTO;
 import com.commerce.payment.external.TossPaymentClient;
 import com.fasterxml.jackson.databind.JsonNode;
-import com.commerce.common.util.SecurityUtil;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.http.HttpStatusCode;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-import org.springframework.web.reactive.function.client.WebClient;
 import org.springframework.web.reactive.function.client.WebClientRequestException;
-import org.springframework.web.reactive.function.client.WebClientResponseException;
 
 import java.time.LocalDateTime;
-import java.time.OffsetDateTime;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 
@@ -39,9 +27,7 @@ public class PayService {
 
 	private final OrderService orderService;
 	private final PaymentTxService paymentTxService;
-	private final CartProductRepository cartProductRepository;
 	private final TossPaymentClient tossPaymentClient;
-	private final WebClient tossWebClient;
 	private final OrderRepository orderRepository;
 
 	public CancelResponseDTO cancel(String orderNumber, String cancelReason, Long userId) {
@@ -104,100 +90,6 @@ public class PayService {
 
 		// 4. 장바구니 삭제, 결제 일시, 상태 변경
 		paymentTxService.applyPaymentSuccess(req.getOrderId(), tossResponse, req.getPaymentKey());
-	}
-
-	// 트랜잭션 범위 축소 전 이전 코드. 성능 비교 위해 남김
-	@Transactional
-	public void confirm_before(PayConfirmDTO req, Long userId) {
-		log.info("confirm start: orderId={}, paymentKey={}, amount={}",
-			req.getOrderId(), req.getPaymentKey(), req.getAmount());
-
-		// 1, 주문 조회
-		Orders order = orderService.findByOrderNumber(req.getOrderId());
-		log.info("order loaded: orderNumber={}, status={}, finalPrice={}",
-			order.getOrderNumber(), order.getOrderStatus(), order.getFinalPrice());
-
-		if (!Objects.equals(order.getUser().getId(), userId)) {
-			throw new ApiException(GeneralResponseCode.ORDER_ACCESS_DENIED);
-		}
-
-		// 2. 중복 주문 방지
-		if (order.getOrderStatus() == OrderStatus.PAID) {
-			if (Objects.equals(order.getPaymentKey(), req.getPaymentKey())) return;
-			log.info("이미 처리된 주문입니다.");
-			throw new ApiException(GeneralResponseCode.PAYMENT_ALREADY_PROCESSED);
-		}
-
-		// 3. 상태 확인
-		if (order.getOrderStatus() != OrderStatus.READY) {
-			log.info("결제 가능한 상태가 아닙니다.");
-			throw new ApiException(GeneralResponseCode.PAYMENT_NOT_PAYABLE);
-		}
-
-		// 4. 금액 검증
-		if (order.getFinalPrice() != req.getAmount()) {
-			log.info("결제 금액이 일치하지 않습니다.");
-			throw new ApiException(GeneralResponseCode.PAYMENT_AMOUNT_INVALID);
-		}
-		log.info("calling toss confirm");
-
-		// 5. 토스 요청
-		JsonNode tossResponse;
-		long startTime = System.currentTimeMillis();
-		try {
-			tossResponse = tossWebClient.post()
-				.uri("/v1/payments/confirm")
-				.bodyValue(new PayConfirmDTO(req.getPaymentKey(), req.getOrderId(), req.getAmount()))
-				.retrieve()
-				.onStatus(HttpStatusCode::isError, res ->
-					res.bodyToMono(String.class)
-						.defaultIfEmpty("")
-						.map(body -> {
-							log.error("toss confirm error: status={}, body={}", res.statusCode(), body);
-							return new ApiException(ExternalResponseCode.PG_APPROVAL_ERROR);
-						})
-				)
-				.bodyToMono(JsonNode.class)
-				.block();
-		} catch (WebClientResponseException e) {
-			log.error("toss confirm failed: status={}, body={}", e.getStatusCode(), e.getResponseBodyAsString(), e);
-			throw new ApiException(ExternalResponseCode.PG_APPROVAL_ERROR);
-		} catch (Exception e) {
-			log.error("toss confirm exception", e);
-			throw e;
-		}
-		log.info("request toss duration in confirm_before: {}", System.currentTimeMillis() - startTime);
-		log.info("toss confirm ok: {}", tossResponse);
-
-		// 6. 재고 차감, 장바구니 삭제, 결제 일시, 상태 변경
-		order.setOrderStatus(OrderStatus.PAID);
-		order.setPaymentType(PaymentType.fromTossMethod(tossResponse.path("method").asText()));
-		order.setPaymentKey(req.getPaymentKey());
-
-		String approvedAtStr = tossResponse.path("approvedAt").asText();
-
-		// 결제 일시
-		LocalDateTime approvedAt = null;
-		if (approvedAtStr != null && !approvedAtStr.isBlank()) {
-			approvedAt = OffsetDateTime.parse(approvedAtStr).toLocalDateTime();
-		}
-
-		order.setApprovedAt(approvedAt);
-
-		// 재고 차감
-		Orders orderWithProducts = orderRepository.findByOrderNumberWithProduct(req.getOrderId())
-			.orElseThrow();
-		for (OrderProduct orderProduct : orderWithProducts.getOrderProducts()) {
-			orderProduct.getProductOption().deductStock(orderProduct.getQuantity());
-		}
-
-		// 장바구니 삭제
-		if (order.getOrderType() == OrderType.CART) {
-			List<Long> ids = order.getCartProductIds();
-			if (!ids.isEmpty()) {
-				cartProductRepository.deleteSelectedFromUserCart(ids, userId, SecurityUtil.findCurrentUsername().orElse(null));
-			}
-		}
 	}
 
 	public void validatePayment(PayConfirmDTO req, Long userId) {

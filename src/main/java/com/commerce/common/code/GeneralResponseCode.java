@@ -34,6 +34,7 @@ public enum GeneralResponseCode implements ApiResponseCode {
 	ORDER_EMPTY(HttpStatus.BAD_REQUEST, "주문 상품이 없습니다."),
 	ORDER_CREATE_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "주문 생성 중 오류가 발생했습니다."),
 	ORDER_CANCEL_NOT_ALLOWED(HttpStatus.CONFLICT, "현재 상태에서는 주문을 취소할 수 없습니다."),
+	ORDER_STATUS_CHANGE_NOT_ALLOWED(HttpStatus.CONFLICT, "현재 상태에서는 해당 상태로 변경할 수 없습니다."),
 
 	// Payment
 	PAYMENT_ALREADY_PROCESSED(HttpStatus.CONFLICT, "이미 처리된 주문입니다."),

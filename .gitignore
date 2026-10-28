@@ -50,3 +50,6 @@ bench/results-ps/
 
 ### keys ###
 *.pem
+
+### handoff ###
+.handoffs/
