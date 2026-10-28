@@ -170,12 +170,13 @@ public class OrderService {
 	}
 
 	// 타인의 주문번호로 요청하는 경우를 막기 위해 주문 소유자를 검증한다.
+	// 남의 주문도 없는 주문과 같은 응답을 줘서 주문번호가 있는지 알 수 없게 한다. 구별은 경고 로그로만 한다.
 	public Orders findMyOrder(String orderNumber, Long userId) {
 		Orders order = findByOrderNumber(orderNumber);
 		if (!order.getUser().getId().equals(userId)) {
 			log.warn("본인 주문이 아닙니다. orderNumber={}, orderUserId={}, userId={}", orderNumber,
 				order.getUser().getId(), userId);
-			throw new ApiException(GeneralResponseCode.ORDER_ACCESS_DENIED);
+			throw new ApiException(GeneralResponseCode.ORDER_NOT_FOUND);
 		}
 		return order;
 	}
