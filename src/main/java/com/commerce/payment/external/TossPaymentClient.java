@@ -11,6 +11,7 @@ import com.commerce.common.code.ExternalResponseCode;
 import com.commerce.common.exception.ApiException;
 import com.commerce.payment.dto.PayConfirmDTO;
 import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -21,6 +22,7 @@ import lombok.extern.slf4j.Slf4j;
 public class TossPaymentClient {
 
 	private final WebClient tossWebClient;
+	private final ObjectMapper objectMapper;
 
 	public JsonNode cancel(String paymentKey, Map<String, Object> data) {
 		JsonNode jsonNode;
@@ -41,10 +43,11 @@ public class TossPaymentClient {
 		return jsonNode;
 	}
 
-	public JsonNode getPayment(String orderId) {
+	// paymentKey로 조회하면 승인 전 결제도 IN_PROGRESS로 보인다. 주문번호 조회는 테스트 키에서 404만 돌아왔다(#10)
+	public JsonNode getPayment(String paymentKey) {
 		try {
 			return tossWebClient.get()
-				.uri("/v1/payments/orders/{orderId}", orderId)
+				.uri("/v1/payments/{paymentKey}", paymentKey)
 				.retrieve()
 				.bodyToMono(JsonNode.class)
 				.block();
@@ -71,7 +74,7 @@ public class TossPaymentClient {
 						.defaultIfEmpty("")
 						.map(body -> {
 							log.error("toss confirm error: status={}, body={}", res.statusCode(), body);
-							return new TossApiException(ExternalResponseCode.PG_APPROVAL_ERROR, res.statusCode());
+							return new TossApiException(ExternalResponseCode.PG_APPROVAL_ERROR, res.statusCode(), errorCode(body));
 						})
 				)
 				.bodyToMono(JsonNode.class)
@@ -87,5 +90,14 @@ public class TossPaymentClient {
 
 
 		return tossResponse;
+	}
+
+	// 토스 에러 응답 본문 { "code": ..., "message": ... }에서 code를 꺼낸다
+	private String errorCode(String body) {
+		try {
+			return objectMapper.readTree(body).path("code").asText();
+		} catch (Exception e) {
+			return "";
+		}
 	}
 }

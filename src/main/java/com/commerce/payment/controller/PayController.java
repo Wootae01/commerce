@@ -16,6 +16,9 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseBody;
 
+import com.commerce.common.code.ExternalResponseCode;
+import com.commerce.common.code.GeneralResponseCode;
+import com.commerce.common.enums.OrderStatus;
 import com.commerce.common.enums.OrderType;
 import com.commerce.common.exception.ApiException;
 import com.commerce.common.util.SecurityUtil;
@@ -114,9 +117,16 @@ public class PayController {
 		log.info("confirm req: orderId={}, paymentKey={}, amount={}",
 			req.getOrderId(), req.getPaymentKey(), req.getAmount());
 		Long userId = securityUtil.getCurrentUser().getId();
-		payService.confirm(req, userId);
+		OrderStatus status = payService.confirm(req, userId);
 
-		return ResponseEntity.ok(Map.of("ok", true));
+		// PAID → 200, 결과를 모르면(PAYMENT_PENDING) 202 확인 중, CANCELED → 실패
+		return switch (status) {
+			case PAID -> ResponseEntity.ok(Map.of("ok", true));
+			case PAYMENT_PENDING -> ResponseEntity.status(GeneralResponseCode.PAYMENT_CONFIRMING.getStatus())
+				.body(Map.of("ok", true, "message", GeneralResponseCode.PAYMENT_CONFIRMING.getMessage()));
+			default -> ResponseEntity.status(ExternalResponseCode.PG_APPROVAL_ERROR.getStatus())
+				.body(Map.of("message", ExternalResponseCode.PG_APPROVAL_ERROR.getMessage()));
+		};
 	}
 
 	@PostMapping("/{orderNumber}/cancel")

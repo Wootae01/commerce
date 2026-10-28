@@ -37,6 +37,7 @@ public enum GeneralResponseCode implements ApiResponseCode {
 	ORDER_STATUS_CHANGE_NOT_ALLOWED(HttpStatus.CONFLICT, "현재 상태에서는 해당 상태로 변경할 수 없습니다."),
 
 	// Payment
+	PAYMENT_CONFIRMING(HttpStatus.ACCEPTED, "결제를 확인하고 있습니다."),
 	PAYMENT_ALREADY_PROCESSED(HttpStatus.CONFLICT, "이미 처리된 주문입니다."),
 	PAYMENT_NOT_PAYABLE(HttpStatus.CONFLICT, "결제 가능한 상태가 아닙니다."),
 	PAYMENT_AMOUNT_INVALID(HttpStatus.BAD_REQUEST, "결제 금액이 일치하지 않습니다."),
