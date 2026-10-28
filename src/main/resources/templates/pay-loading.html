@@ -20,11 +20,11 @@
 <div class="container py-5" style="max-width: 520px;">
     <div class="card loading-card">
         <div class="card-body p-4 text-center">
-            <div class="spinner-border" role="status" aria-label="결제 승인 처리 중">
+            <div class="spinner-border" role="status" aria-label="결제 승인 처리 중" id="spinner">
                 <span class="visually-hidden">Loading...</span>
             </div>
-            <h4 class="mt-3 mb-1">결제 승인 처리 중...</h4>
-            <p class="text-muted mb-0">잠시만 기다려 주세요. 창을 닫거나 새로고침하지 마세요.</p>
+            <h4 class="mt-3 mb-1" id="titleText">결제 승인 처리 중...</h4>
+            <p class="text-muted mb-0" id="descText">잠시만 기다려 주세요. 창을 닫거나 새로고침하지 마세요.</p>
             <hr class="my-4"/>
             <div class="text-start small text-muted">
                 <div>주문번호: <span id="orderIdText">-</span></div>
@@ -32,6 +32,17 @@
             </div>
             <div class="alert alert-danger mt-3 d-none" id="errorBox" role="alert"></div>
             <button type="button" class="btn btn-outline-secondary w-100 mt-2 d-none" id="retryBtn">다시 시도</button>
+            <!-- 30초가 지나도 결과를 모르면 보여 준다. 결제는 서버가 계속 확인한다 -->
+            <div class="d-none" id="pendingBox">
+                <div class="alert alert-warning mt-3 text-start mb-0" role="alert">
+                    결제를 아직 확인하고 있습니다. 중복 결제를 막기 위해 다시 결제하지 마세요.
+                    결과가 확정되면 주문내역에서 확인할 수 있습니다.
+                </div>
+                <div class="d-flex gap-2 mt-3">
+                    <a class="btn btn-outline-secondary flex-fill" href="/orders/list">주문내역으로</a>
+                    <a class="btn btn-primary flex-fill" href="/">홈으로</a>
+                </div>
+            </div>
         </div>
     </div>
 </div>
@@ -47,6 +58,10 @@
         const amountText = document.getElementById("amountText");
         const errorBox = document.getElementById("errorBox");
         const retryBtn = document.getElementById("retryBtn");
+        const spinner = document.getElementById("spinner");
+        const titleText = document.getElementById("titleText");
+        const descText = document.getElementById("descText");
+        const pendingBox = document.getElementById("pendingBox");
 
         orderIdText.textContent = orderId ?? "-";
         amountText.textContent = amount ? (amount + "원") : "-";
@@ -56,9 +71,14 @@
             return;
         }
 
+        // 결과를 모를 때(202) 결제 결과를 3초 간격으로 최대 30초 조회한다
+        const POLL_INTERVAL_MS = 3000;
+        const POLL_TIMEOUT_MS = 30000;
+
         const confirmOnceKey = `confirm_once:${paymentKey}`;
         if (sessionStorage.getItem(confirmOnceKey) === "1") {
-            window.location.replace(`/pay/success?orderId=${encodeURIComponent(orderId)}`);
+            // 새로고침: 확정 요청은 이미 보냈으므로 결과만 조회한다 (확인 중이던 주문을 성공으로 보내지 않도록)
+            pollResult(0);
             return;
         }
 
@@ -82,14 +102,80 @@
                 if (!res.ok) {
                     const msg = json?.message ?? "결제 승인에 실패했습니다.";
                     const code = json?.code ? `(${json.code})` : "";
-                    window.location.replace(`/pay/fail?message=${encodeURIComponent(msg)}&code=${encodeURIComponent(code)}`);
+                    goFail(msg, code);
                     return;
                 }
-                window.location.replace(`/pay/success?orderId=${encodeURIComponent(orderId)}`);
+                if (res.status === 202) {
+                    pollResult(POLL_INTERVAL_MS);
+                    return;
+                }
+                goSuccess();
             } catch (e) {
                 sessionStorage.removeItem(confirmOnceKey);
                 showError("네트워크 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.");
             }
+        }
+
+        // PAID면 성공, CANCELED면 실패 화면으로 이동. 그 외(PAYMENT_PENDING 등)는 계속 조회한다
+        async function pollResult(firstDelayMs) {
+            titleText.textContent = "결제를 확인하고 있습니다...";
+            descText.textContent = "결제 결과를 확인하는 중입니다. 창을 닫지 말고 잠시만 기다려 주세요.";
+
+            const deadline = Date.now() + POLL_TIMEOUT_MS;
+            let delay = firstDelayMs;
+            while (true) {
+                await sleep(delay);
+                delay = POLL_INTERVAL_MS;
+
+                const status = await fetchOrderStatus();
+                if (status === "PAID") {
+                    goSuccess();
+                    return;
+                }
+                if (status === "CANCELED") {
+                    goFail("결제가 승인되지 않았습니다.", "");
+                    return;
+                }
+                if (Date.now() + POLL_INTERVAL_MS > deadline) {
+                    showPending();
+                    return;
+                }
+            }
+        }
+
+        // 조회 실패(네트워크 오류 등)는 null. 다음 조회에서 다시 확인한다
+        async function fetchOrderStatus() {
+            try {
+                const res = await fetch(`/api/payments/${encodeURIComponent(orderId)}`, {
+                    headers: { "Accept": "application/json" }
+                });
+                if (!res.ok) {
+                    return null;
+                }
+                const json = await res.json();
+                return json?.data?.orderStatus ?? null;
+            } catch (e) {
+                return null;
+            }
+        }
+
+        function goSuccess() {
+            window.location.replace(`/pay/success?orderId=${encodeURIComponent(orderId)}`);
+        }
+
+        function goFail(message, code) {
+            window.location.replace(`/pay/fail?message=${encodeURIComponent(message)}&code=${encodeURIComponent(code)}`);
+        }
+
+        function showPending() {
+            spinner.classList.add("d-none");
+            titleText.textContent = "결제 확인 중";
+            descText.textContent = "결제 결과 확인이 늦어지고 있습니다.";
+            pendingBox.classList.remove("d-none");
+        }
+
+        function sleep(ms) {
+            return new Promise(resolve => setTimeout(resolve, ms));
         }
 
         function showError(message) {
