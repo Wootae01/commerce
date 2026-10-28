@@ -309,18 +309,20 @@ class PayConsistencyTest {
 			.withHeader("Idempotency-Key", equalTo(order.getOrderNumber())));
 	}
 
-	@Test
+	@ParameterizedTest(name = "{0} {1}")
+	@CsvSource({
+		"400, REJECT_CARD_PAYMENT",
+		"403, FORBIDDEN_REQUEST" // 금액 불일치. 토스 테스트 키로 확인한 응답(#10)
+	})
 	@DisplayName("승인 요청이 4xx(거절)면 다시 요청하지 않고, 재고를 복원하고 CANCELED를 돌려준다")
-	void clientError_noRetry_canceled() {
+	void clientError_noRetry_canceled(int status, String code) {
 		// given
 		Orders order = prepareOrder();
 		stubFor(post(urlEqualTo("/v1/payments/confirm"))
 			.willReturn(aResponse()
-				.withStatus(400)
+				.withStatus(status)
 				.withHeader("Content-Type", "application/json")
-				.withBody("""
-					{ "code": "REJECT_CARD_PAYMENT", "message": "한도초과 혹은 잔액부족으로 결제에 실패했습니다." }
-					""")));
+				.withBody("{ \"code\": \"" + code + "\", \"message\": \"에러\" }")));
 		PayConfirmDTO req = new PayConfirmDTO(UUID.randomUUID().toString(), order.getOrderNumber(), order.getFinalPrice());
 
 		// when
@@ -332,11 +334,17 @@ class PayConsistencyTest {
 		assertThat(after.getOrderStatus()).isEqualTo(OrderStatus.CANCELED);
 		assertThat(stock()).isEqualTo(INITIAL_STOCK);
 		verify(1, postRequestedFor(urlEqualTo("/v1/payments/confirm")));
+		verify(0, getRequestedFor(urlEqualTo("/v1/payments/" + req.getPaymentKey())));
 	}
 
-	@Test
-	@DisplayName("재요청까지 5xx면 paymentKey로 결제를 조회하고, 토스가 아직 처리 중(IN_PROGRESS)이면 취소하지 않고 PENDING을 돌려준다")
-	void serverErrorTwice_tossInProgress_pending() {
+	@ParameterizedTest(name = "조회 {0} → {1}, 재고 {2}")
+	@CsvSource({
+		"DONE, PAID, 9",
+		"ABORTED, CANCELED, 10",
+		"IN_PROGRESS, PAYMENT_PENDING, 9"
+	})
+	@DisplayName("재요청까지 5xx면 paymentKey로 결제를 조회해, 승인이면 PAID, 실패면 재고 복원 후 CANCELED, 처리 중이면 PENDING을 돌려준다")
+	void serverErrorTwice_queryDecides(String tossStatus, OrderStatus expected, int expectedStock) {
 		// given
 		Orders order = prepareOrder();
 		PayConfirmDTO req = new PayConfirmDTO(UUID.randomUUID().toString(), order.getOrderNumber(), order.getFinalPrice());
@@ -347,18 +355,17 @@ class PayConsistencyTest {
 				.withBody("""
 					{ "code": "FAILED_INTERNAL_SYSTEM_PROCESSING", "message": "내부 시스템 처리 작업이 실패했습니다." }
 					""")));
-		stubGetPayment(req.getPaymentKey(), """
-			{ "status": "IN_PROGRESS" }
-			""");
+		stubGetPayment(req.getPaymentKey(),
+			"{ \"status\": \"" + tossStatus + "\", \"method\": \"카드\", \"approvedAt\": \"2026-01-03T01:23:45+09:00\" }");
 
 		// when
 		OrderStatus result = payService.confirm(req, userId);
 
 		// then
-		assertThat(result).isEqualTo(OrderStatus.PAYMENT_PENDING);
+		assertThat(result).isEqualTo(expected);
 		Orders after = orderRepository.findByOrderNumber(order.getOrderNumber()).orElseThrow();
-		assertThat(after.getOrderStatus()).isEqualTo(OrderStatus.PAYMENT_PENDING);
-		assertThat(stock()).isEqualTo(INITIAL_STOCK - 1);
+		assertThat(after.getOrderStatus()).isEqualTo(expected);
+		assertThat(stock()).isEqualTo(expectedStock);
 		verify(2, postRequestedFor(urlEqualTo("/v1/payments/confirm")));
 		verify(1, getRequestedFor(urlEqualTo("/v1/payments/" + req.getPaymentKey())));
 	}
@@ -390,6 +397,7 @@ class PayConsistencyTest {
 		Orders after = orderRepository.findByOrderNumber(order.getOrderNumber()).orElseThrow();
 		assertThat(after.getOrderStatus()).isEqualTo(OrderStatus.PAID);
 		assertThat(stock()).isEqualTo(INITIAL_STOCK - 1);
+		verify(1, postRequestedFor(urlEqualTo("/v1/payments/confirm"))); // 바로 재요청하지 않고 조회로 확인
 		verify(1, getRequestedFor(urlEqualTo("/v1/payments/" + req.getPaymentKey())));
 	}
 
@@ -410,11 +418,13 @@ class PayConsistencyTest {
 		// when
 		OrderStatus result = payService.confirm(req, userId);
 
-		// then - 결과를 모르므로 재고는 차감된 채로 둔다
+		// then - 결과를 모르므로 재고는 차감된 채로 둔다. 토스가 처리 중이라고 알려 줬으니 재요청·조회하지 않는다
 		assertThat(result).isEqualTo(OrderStatus.PAYMENT_PENDING);
 		Orders after = orderRepository.findByOrderNumber(order.getOrderNumber()).orElseThrow();
 		assertThat(after.getOrderStatus()).isEqualTo(OrderStatus.PAYMENT_PENDING);
 		assertThat(stock()).isEqualTo(INITIAL_STOCK - 1);
+		verify(1, postRequestedFor(urlEqualTo("/v1/payments/confirm")));
+		verify(0, getRequestedFor(urlEqualTo("/v1/payments/" + req.getPaymentKey())));
 	}
 
 	@Test

@@ -65,16 +65,18 @@ public class PaymentApprovalService {
 
 	// 토스는 같은 멱등키의 승인을 한 번만 처리하고 같은 응답을 돌려주므로, 다시 요청해도 이중 승인이 생기지 않는다
 	private JsonNode requestWithRetry(PayConfirmDTO req, int maxAttempts) {
-		for (int attempt = 1; ; attempt++) {
+		for (int attempt = 1; attempt < maxAttempts; attempt++) {
 			try {
 				return tossPaymentClient.confirm(req);
 			} catch (WebClientRequestException | TossApiException e) {
-				if (attempt >= maxAttempts || !isRetryable(e)) {
+				if (!isRetryable(e)) {
 					throw e;
 				}
 				log.warn("승인 응답 모름, 같은 멱등키로 재요청: orderId={}, cause={}", req.getOrderId(), e.toString());
 			}
 		}
+		// 마지막 시도: 실패하면 예외를 그대로 던져 approve가 분류한다
+		return tossPaymentClient.confirm(req);
 	}
 
 	private boolean isRetryable(RuntimeException e) {
