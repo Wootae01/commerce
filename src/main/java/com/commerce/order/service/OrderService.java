@@ -142,12 +142,12 @@ public class OrderService {
 		return new PageImpl<>(result, pageable, orderHeaders.getTotalElements());
 	}
 
-	// 주문 상태 변경
+	// 관리자 주문 상태 변경: 배송 흐름으로 한 단계씩만. 하나라도 허용되지 않으면 예외로 전부 롤백
 	@Transactional
 	public void changeStatus(List<Long> orderIds,OrderStatus status) {
 		List<Orders> orders = orderRepository.findAllById(orderIds);
 		for (Orders order : orders) {
-			order.setOrderStatus(status);
+			order.advanceDelivery(status);
 		}
 	}
 

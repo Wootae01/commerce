@@ -14,7 +14,6 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.commerce.order.domain.OrderProduct;
 import com.commerce.order.domain.Orders;
-import com.commerce.common.enums.OrderStatus;
 import com.commerce.common.enums.OrderType;
 import com.commerce.common.enums.PaymentType;
 import com.commerce.cart.repository.CartProductRepository;
@@ -58,12 +57,7 @@ public class PaymentTxService {
 		Orders order = orderRepository.findByIdWithLock(orderId)
 			.orElseThrow(() -> new ApiException(GeneralResponseCode.ORDER_NOT_FOUND));
 
-		OrderStatus status = order.getOrderStatus();
-		if (!(status == OrderStatus.PAID || status == OrderStatus.READY)) {
-			throw new ApiException(GeneralResponseCode.ORDER_CANCEL_NOT_ALLOWED);
-		}
-
-		order.setOrderStatus(OrderStatus.CANCEL_REQUESTED);
+		order.requestCancel();
 		return order.getPaymentKey();
 	}
 
@@ -73,12 +67,7 @@ public class PaymentTxService {
 		Orders order = orderRepository.findByIdWithLock(orderId)
 			.orElseThrow(() -> new ApiException(GeneralResponseCode.ORDER_NOT_FOUND));
 
-		if (order.getOrderStatus() != OrderStatus.CANCEL_REQUESTED) {
-			log.warn("취소 처리할 수 없는 상태입니다. orderId={}, status={}", orderId, order.getOrderStatus());
-			throw new ApiException(GeneralResponseCode.ORDER_CANCEL_NOT_ALLOWED, "취소 처리할 수 없는 상태입니다.");
-		}
-
-		order.setOrderStatus(OrderStatus.CANCELED);
+		order.completeCancel();
 		if (restoreStock) {
 			updateStock(orderId, true);
 		}
@@ -90,9 +79,7 @@ public class PaymentTxService {
 		Orders order = orderRepository.findByIdWithLock(orderId)
 			.orElseThrow(() -> new ApiException(GeneralResponseCode.ORDER_NOT_FOUND));
 
-		if (order.getOrderStatus() == OrderStatus.CANCEL_REQUESTED) {
-			order.setOrderStatus(OrderStatus.PAID);
-		}
+		order.revertCancel();
 	}
 
 	// 결제 성공 시 재고 차감, 장바구니 삭제, 결제 일시, 상태 변경
@@ -101,15 +88,8 @@ public class PaymentTxService {
 		Orders order = orderRepository.findByOrderNumberWithLock(orderNumber)
 			.orElseThrow(() -> new ApiException(GeneralResponseCode.ORDER_NOT_FOUND));
 
-		// 이미 처리된 주문(즉시 확정·보정 스케줄러 중 먼저 반영된 쪽이 있음)이면 아무것도 하지 않는다
-		if (order.getOrderStatus() != OrderStatus.PAYMENT_PENDING) {
-			log.warn("이미 처리된 주문입니다. orderNumber={}, status={}", orderNumber, order.getOrderStatus());
-			return;
-		}
-
-		// 결제 수단, paymentKey
-		order.setPaymentType(PaymentType.fromTossMethod(tossResponse.path("method").asText()));
-		order.setPaymentKey(paymentKey);
+		// 결제 수단
+		PaymentType paymentType = PaymentType.fromTossMethod(tossResponse.path("method").asText());
 
 		// 결제 일시
 		String approvedAtStr = tossResponse.path("approvedAt").asText();
@@ -125,11 +105,11 @@ public class PaymentTxService {
 
 		}
 
-		order.setApprovedAt(approvedAt);
-
-		// 주문 상태 변경
-		order.setOrderStatus(OrderStatus.PAID);
-
+		// 이미 처리된 주문(즉시 확정·보정 스케줄러 중 먼저 반영된 쪽이 있음)이면 아무것도 하지 않는다
+		if (!order.markPaid(paymentKey, paymentType, approvedAt)) {
+			log.warn("이미 처리된 주문입니다. orderNumber={}, status={}", orderNumber, order.getOrderStatus());
+			return;
+		}
 
 		// 장바구니 삭제 - 보정 스케줄러에는 로그인 정보가 없으므로 주문자 기준으로 지운다
 		if (order.getOrderType() == OrderType.CART) {
@@ -146,11 +126,7 @@ public class PaymentTxService {
 		Orders order = orderRepository.findByOrderNumberWithLock(orderNumber)
 			.orElseThrow(() -> new ApiException(GeneralResponseCode.ORDER_NOT_FOUND));
 
-		if (order.getOrderStatus() != OrderStatus.READY) {
-			throw new ApiException(GeneralResponseCode.PAYMENT_ALREADY_PROCESSED);
-		}
-
-		order.setOrderStatus(OrderStatus.PAYMENT_PENDING);
+		order.startPayment();
 		updateStock(order.getId(), false);
 	}
 
@@ -159,12 +135,11 @@ public class PaymentTxService {
 		Orders order = orderRepository.findByOrderNumberWithLock(orderNumber)
 			.orElseThrow(() -> new ApiException(GeneralResponseCode.ORDER_NOT_FOUND));
 
-		if (order.getOrderStatus() != OrderStatus.PAYMENT_PENDING) {
+		if (!order.cancelPending()) {
 			log.warn("이미 처리된 주문입니다. orderNumber={}, status={}", orderNumber, order.getOrderStatus());
 			return;
 		}
 
 		updateStock(order.getId(), true);
-		order.setOrderStatus(OrderStatus.CANCELED);
 	}
 }

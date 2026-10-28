@@ -92,20 +92,23 @@
         </div>
     </div>
 
+    <div th:if="${statusChangeError}" class="alert alert-danger rounded-3" role="alert"
+         th:text="${statusChangeError}"></div>
+
     <!-- 주문 목록 -->
     <div class="admin-card card">
         <form th:action="@{/admin/orders/status}" method="post">
+            <input type="hidden" name="qs" th:value="${qs}">
+            <input type="hidden" name="page" th:value="${page.number}">
             <div class="card-header bg-white d-flex justify-content-between align-items-center"
                  style="border-radius:16px 16px 0 0; border-bottom: 1px solid #f0f0f0;">
                 <span class="fw-semibold">주문 목록</span>
                 <div class="d-flex align-items-center gap-2">
                     <select name="status" class="form-select form-select-sm w-auto">
                         <option value="">상태 선택</option>
-                        <option value="PAID">결제완료</option>
                         <option value="PREPARING">배송준비중</option>
                         <option value="SHIPPING">배송중</option>
                         <option value="DELIVERED">배송완료</option>
-                        <option value="CANCELED">취소완료</option>
                     </select>
                     <button class="btn btn-sm" type="submit"
                             style="background:#4d9fff; color:#fff; border:none; border-radius:8px;">

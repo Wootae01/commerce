@@ -12,8 +12,10 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 import org.springframework.web.util.UriUtils;
 
+import com.commerce.common.exception.ApiException;
 import com.commerce.order.domain.Orders;
 import com.commerce.common.enums.OrderStatus;
 import com.commerce.admin.dto.AdminOrderListResponseDTO;
@@ -55,13 +57,23 @@ public class AdminOrderController {
 
 	@PostMapping("/status")
 	public String changeStatus(@RequestParam(value = "orderIds", required = false) List<Long> orderIds,
-							   @RequestParam(value = "status", required = false) OrderStatus status) {
+							   @RequestParam(value = "status", required = false) OrderStatus status,
+							   @RequestParam(defaultValue = "") String qs,
+							   @RequestParam(defaultValue = "0") int page,
+							   RedirectAttributes redirectAttributes) {
+		// 보던 검색 조건·페이지로 돌아간다
+		String redirect = "redirect:/admin/orders?page=" + Math.max(page, 0) + (qs.isBlank() ? "" : "&" + qs);
 		if (orderIds == null || orderIds.isEmpty() || status == null) {
-			return "redirect:/admin/orders";
+			return redirect;
 		}
-		orderService.changeStatus(orderIds, status);
+		try {
+			orderService.changeStatus(orderIds, status);
+		} catch (ApiException e) {
+			log.warn("주문 상태 변경 거절: orderIds={}, status={}, message={}", orderIds, status, e.getMessage());
+			redirectAttributes.addFlashAttribute("statusChangeError", e.getMessage());
+		}
 
-		return "redirect:/admin/orders";
+		return redirect;
 	}
 
 	private static String buildQs(AdminOrderSearchCond cond) {

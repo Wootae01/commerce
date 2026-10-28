@@ -1,16 +1,17 @@
 package com.commerce.order.domain;
 
+import com.commerce.common.code.GeneralResponseCode;
 import com.commerce.common.domain.BaseUpdatableEntity;
 import com.commerce.common.enums.OrderStatus;
 import com.commerce.common.enums.OrderType;
 import com.commerce.common.enums.PaymentType;
+import com.commerce.common.exception.ApiException;
 import com.commerce.user.domain.User;
 import jakarta.persistence.*;
 import lombok.AccessLevel;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
-import lombok.Setter;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -19,7 +20,6 @@ import java.util.List;
 @Entity
 @Table(name = "orders")
 @Getter
-@Setter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class Orders extends BaseUpdatableEntity {
 
@@ -89,5 +89,76 @@ public class Orders extends BaseUpdatableEntity {
         this.orderAddressDetail = orderAddressDetail;
         this.requestNote = requestNote;
         this.orderType = orderType;
+    }
+
+    // 결제 확정 시작: READY → PAYMENT_PENDING
+    public void startPayment() {
+        if (orderStatus != OrderStatus.READY) {
+            throw new ApiException(GeneralResponseCode.PAYMENT_ALREADY_PROCESSED);
+        }
+        this.orderStatus = OrderStatus.PAYMENT_PENDING;
+    }
+
+    // 결제 성공 반영: PAYMENT_PENDING → PAID
+    public boolean markPaid(String paymentKey, PaymentType paymentType, LocalDateTime approvedAt) {
+        if (orderStatus != OrderStatus.PAYMENT_PENDING) {
+            return false;
+        }
+        this.paymentKey = paymentKey;
+        this.paymentType = paymentType;
+        this.approvedAt = approvedAt;
+        this.orderStatus = OrderStatus.PAID;
+        return true;
+    }
+
+    // 결제 실패 반영: PAYMENT_PENDING → CANCELED
+    public boolean cancelPending() {
+        if (orderStatus != OrderStatus.PAYMENT_PENDING) {
+            return false;
+        }
+        this.orderStatus = OrderStatus.CANCELED;
+        return true;
+    }
+
+    // 취소 시작: PAID·READY → CANCEL_REQUESTED
+    public void requestCancel() {
+        if (!(orderStatus == OrderStatus.PAID || orderStatus == OrderStatus.READY)) {
+            throw new ApiException(GeneralResponseCode.ORDER_CANCEL_NOT_ALLOWED);
+        }
+        this.orderStatus = OrderStatus.CANCEL_REQUESTED;
+    }
+
+    // 취소 완료: CANCEL_REQUESTED → CANCELED
+    public void completeCancel() {
+        if (orderStatus != OrderStatus.CANCEL_REQUESTED) {
+            throw new ApiException(GeneralResponseCode.ORDER_CANCEL_NOT_ALLOWED, "취소 처리할 수 없는 상태입니다.");
+        }
+        this.orderStatus = OrderStatus.CANCELED;
+    }
+
+    // 토스 취소 실패 시 복원: CANCEL_REQUESTED → PAID
+    public boolean revertCancel() {
+        if (orderStatus != OrderStatus.CANCEL_REQUESTED) {
+            return false;
+        }
+        this.orderStatus = OrderStatus.PAID;
+        return true;
+    }
+
+    // 관리자 배송 상태 변경: PAID → PREPARING → SHIPPING → DELIVERED (한 단계씩)
+    public void advanceDelivery(OrderStatus target) {
+        if (target == null || nextDeliveryStatus() != target) {
+            throw new ApiException(GeneralResponseCode.ORDER_STATUS_CHANGE_NOT_ALLOWED);
+        }
+        this.orderStatus = target;
+    }
+
+    private OrderStatus nextDeliveryStatus() {
+        return switch (orderStatus) {
+            case PAID -> OrderStatus.PREPARING;
+            case PREPARING -> OrderStatus.SHIPPING;
+            case SHIPPING -> OrderStatus.DELIVERED;
+            default -> null;
+        };
     }
 }
