@@ -23,25 +23,27 @@ class OrdersTest {
 	class StartPayment {
 
 		@Test
-		@DisplayName("결제 준비 주문은 결제 진행 중이 된다")
+		@DisplayName("결제 준비 주문은 결제 진행 중이 되고, 재요청에 쓸 paymentKey가 저장된다")
 		void readyToPaymentPending() {
 			Orders order = orderWithStatus(OrderStatus.READY);
 
-			order.startPayment();
+			order.startPayment("pay-key-1");
 
 			assertThat(order.getOrderStatus()).isEqualTo(OrderStatus.PAYMENT_PENDING);
+			assertThat(order.getPaymentKey()).isEqualTo("pay-key-1");
 		}
 
 		@ParameterizedTest
 		@EnumSource(value = OrderStatus.class, mode = EnumSource.Mode.EXCLUDE, names = "READY")
-		@DisplayName("결제 준비가 아닌 주문은 PAYMENT_ALREADY_PROCESSED 예외가 발생하고 상태가 그대로다")
+		@DisplayName("결제 준비가 아닌 주문은 PAYMENT_ALREADY_PROCESSED 예외가 발생하고 상태·paymentKey가 그대로다")
 		void notReadyRejected(OrderStatus status) {
 			Orders order = orderWithStatus(status);
 
-			assertThatThrownBy(order::startPayment)
+			assertThatThrownBy(() -> order.startPayment("pay-key-1"))
 				.isInstanceOf(ApiException.class)
 				.extracting("responseCode").isEqualTo(GeneralResponseCode.PAYMENT_ALREADY_PROCESSED);
 			assertThat(order.getOrderStatus()).isEqualTo(status);
+			assertThat(order.getPaymentKey()).isNull();
 		}
 	}
 

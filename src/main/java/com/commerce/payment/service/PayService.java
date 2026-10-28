@@ -8,6 +8,7 @@ import com.commerce.order.repository.OrderRepository;
 import com.commerce.order.service.OrderService;
 import com.commerce.payment.dto.CancelResponseDTO;
 import com.commerce.payment.dto.PayConfirmDTO;
+import com.commerce.payment.external.TossApiException;
 import com.commerce.payment.external.TossPaymentClient;
 import com.fasterxml.jackson.databind.JsonNode;
 import lombok.RequiredArgsConstructor;
@@ -64,7 +65,8 @@ public class PayService {
 		return new CancelResponseDTO(true, orderNumber, LocalDateTime.now(), cancelAmount, method, null);
 	}
 
-	public void confirm(PayConfirmDTO req, Long userId) {
+	// 확정 후 주문 상태를 돌려준다
+	public OrderStatus confirm(PayConfirmDTO req, Long userId) {
 		log.info("confirm start: orderId={}, paymentKey={}, amount={}",
 			req.getOrderId(), req.getPaymentKey(), req.getAmount());
 
@@ -72,15 +74,18 @@ public class PayService {
 		validatePayment(req, userId);
 
 		// 2. 재고 차감 (토스 호출 전)
-		paymentTxService.lockAndDeductStock(req.getOrderId());
+		paymentTxService.lockAndDeductStock(req.getOrderId(), req.getPaymentKey());
 
 		// 3. 토스 요청
 		long startTime = System.currentTimeMillis();
 		JsonNode tossResponse;
 		try {
-			tossResponse = confirmWithToss(req);
+			tossResponse = confirmWithRetry(req);
 		} catch (WebClientRequestException e) {
-			handleAmbiguousFailure(req, userId);
+			// 조회로 승인을 확인해 보정했으면 성공으로 응답한다
+			if (handleAmbiguousFailure(req)) {
+				return OrderStatus.PAID;
+			}
 			throw e;
 		} catch (Exception e) {
 			paymentTxService.restoreStockOnTossFailure(req.getOrderId());
@@ -90,6 +95,22 @@ public class PayService {
 
 		// 4. 장바구니 삭제, 결제 일시, 상태 변경
 		paymentTxService.applyPaymentSuccess(req.getOrderId(), tossResponse, req.getPaymentKey());
+		return OrderStatus.PAID;
+	}
+
+	// 응답을 모르면(연결 끊김·타임아웃·5xx) 같은 멱등키로 1번만 다시 요청한다. 토스는 같은 키의 승인을 한 번만 처리한다
+	private JsonNode confirmWithRetry(PayConfirmDTO req) {
+		try {
+			return confirmWithToss(req);
+		} catch (WebClientRequestException e) {
+			log.warn("승인 응답 유실, 같은 멱등키로 재요청: orderId={}", req.getOrderId());
+		} catch (TossApiException e) {
+			if (!e.isServerError()) {
+				throw e;
+			}
+			log.warn("승인 요청 5xx, 같은 멱등키로 재요청: orderId={}, status={}", req.getOrderId(), e.getTossStatus());
+		}
+		return confirmWithToss(req);
 	}
 
 	public void validatePayment(PayConfirmDTO req, Long userId) {
@@ -133,7 +154,8 @@ public class PayService {
 		}
 	}
 
-	private void handleAmbiguousFailure(PayConfirmDTO req, Long userId) {
+	// 토스 결제 조회로 결과를 확인한다. 승인돼 있어 PAID로 보정했으면 true
+	private boolean handleAmbiguousFailure(PayConfirmDTO req) {
 		log.warn("응답 유실 가능성, Toss 결제 상태 조회: orderId={}", req.getOrderId());
 		try {
 			JsonNode payment = tossPaymentClient.getPayment(req.getOrderId());
@@ -141,13 +163,14 @@ public class PayService {
 			if ("DONE".equals(status)) {
 				log.info("Toss 결제 확인됨, 승인 처리: orderId={}", req.getOrderId());
 				paymentTxService.applyPaymentSuccess(req.getOrderId(), payment, req.getPaymentKey());
-			} else {
-				log.info("Toss 미결제 확인, 재고 복원: orderId={}, status={}", req.getOrderId(), status);
-				paymentTxService.restoreStockOnTossFailure(req.getOrderId());
+				return true;
 			}
+			log.info("Toss 미결제 확인, 재고 복원: orderId={}, status={}", req.getOrderId(), status);
+			paymentTxService.restoreStockOnTossFailure(req.getOrderId());
 		} catch (Exception e) {
 			log.error("Toss 조회 실패, 수동 처리 필요: orderId={}", req.getOrderId(), e);
 		}
+		return false;
 	}
 
 }

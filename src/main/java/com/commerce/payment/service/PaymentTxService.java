@@ -122,11 +122,11 @@ public class PaymentTxService {
 	}
 
 	@Transactional
-	public void lockAndDeductStock(String orderNumber) {
+	public void lockAndDeductStock(String orderNumber, String paymentKey) {
 		Orders order = orderRepository.findByOrderNumberWithLock(orderNumber)
 			.orElseThrow(() -> new ApiException(GeneralResponseCode.ORDER_NOT_FOUND));
 
-		order.startPayment();
+		order.startPayment(paymentKey);
 		updateStock(order.getId(), false);
 	}
 

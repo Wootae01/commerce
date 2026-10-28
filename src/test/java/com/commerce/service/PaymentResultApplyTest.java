@@ -115,7 +115,7 @@ class PaymentResultApplyTest {
 		// then
 		Orders after = orderRepository.findByOrderNumber(order.getOrderNumber()).orElseThrow();
 		assertThat(after.getOrderStatus()).isEqualTo(OrderStatus.CANCELED);
-		assertThat(after.getPaymentKey()).isNull();
+		assertThat(after.getApprovedAt()).as("결제 성공 정보가 기록되지 않음").isNull();
 		assertThat(stock()).isEqualTo(INITIAL_STOCK);
 	}
 
@@ -145,7 +145,7 @@ class PaymentResultApplyTest {
 		OrderCreateRequestDTO dto = orderForm(OrderType.CART);
 		dto.setCartProductIds(List.of(cartProductId));
 		Orders order = orderService.prepareOrderFromCart(dto);
-		paymentTxService.lockAndDeductStock(order.getOrderNumber());
+		paymentTxService.lockAndDeductStock(order.getOrderNumber(), "paymentKey");
 
 		SecurityContextHolder.clearContext();
 
@@ -202,7 +202,7 @@ class PaymentResultApplyTest {
 	// 바로구매 주문 생성 → 결제 확정 시작(PAYMENT_PENDING, 재고 차감)
 	private Orders pendingOrder() {
 		Orders order = orderService.prepareOrderFromBuyNow(orderForm(OrderType.BUY_NOW));
-		paymentTxService.lockAndDeductStock(order.getOrderNumber());
+		paymentTxService.lockAndDeductStock(order.getOrderNumber(), "paymentKey");
 		return order;
 	}
 
