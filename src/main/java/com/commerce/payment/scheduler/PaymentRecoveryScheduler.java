@@ -40,8 +40,10 @@ public class PaymentRecoveryScheduler {
 
 	// 확정 요청이 아직 처리 중일 수 있으므로 PENDING이 된 지 이만큼 지난 주문만 다시 요청한다
 	private static final Duration RECOVERY_DELAY = Duration.ofMinutes(1);
-	private static final Duration LONG_UNKNOWN = Duration.ofMinutes(30);
-	private static final Duration RECOVERY_LIMIT = Duration.ofHours(24);
+	// PENDING이 된 지 이만큼 지나도 결과를 모르면 에러 로그
+	private static final Duration LONG_UNKNOWN_ALERT_AFTER = Duration.ofMinutes(30);
+	// PENDING이 된 지 이만큼 지나면 자동 처리를 그만두고 사람에게 넘긴다
+	private static final Duration RECOVERY_GIVE_UP_AFTER = Duration.ofHours(24);
 	private static final int MAX_ORDERS_PER_RUN = 100;
 	private static final int MAX_CONSECUTIVE_UNREACHABLE = 3;
 	// 바로 재요청하지 않는다. 결과를 모르면 다음 실행에서 다시 요청한다
@@ -56,7 +58,7 @@ public class PaymentRecoveryScheduler {
 		reportExpired(now);
 
 		List<Orders> orders = orderRepository.findRecoveryTargets(OrderStatus.PAYMENT_PENDING,
-			now.minus(RECOVERY_DELAY), now.minus(RECOVERY_LIMIT), Limit.of(MAX_ORDERS_PER_RUN));
+			now.minus(RECOVERY_DELAY), now.minus(RECOVERY_GIVE_UP_AFTER), Limit.of(MAX_ORDERS_PER_RUN));
 		if (orders.isEmpty()) {
 			return;
 		}
@@ -78,10 +80,9 @@ public class PaymentRecoveryScheduler {
 	// 토스와 통신하지 못했으면 true
 	private boolean recover(Orders order, LocalDateTime now) {
 		LocalDateTime previousRecoveryAt = order.getLastRecoveryAt();
-		orderRepository.markRecoveryAttempted(order.getId(), now);
-
 		PayConfirmDTO req = new PayConfirmDTO(order.getPaymentKey(), order.getOrderNumber(), order.getFinalPrice());
 		try {
+			orderRepository.markRecoveryAttempted(order.getId(), now);
 			ApprovalResult result = paymentApprovalService.approve(req, RECOVERY_MAX_RETRIES);
 			log.info("결제 보정 결과: orderNumber={}, status={}", order.getOrderNumber(), result.status());
 			if (result.status() == OrderStatus.PAYMENT_PENDING) {
@@ -91,16 +92,18 @@ public class PaymentRecoveryScheduler {
 		} catch (Exception e) {
 			// 한 주문의 실패로 나머지 주문의 보정이 멈추지 않게 한다. 주문은 PENDING으로 남아 다음 실행에서 다시 처리된다
 			log.error("결제 보정 실패: orderNumber={}", order.getOrderNumber(), e);
+			// 처리 시각은 이미 남았을 수 있으므로, 여기서 알리지 않으면 30분 로그를 놓친다
+			reportLongUnknown(order, previousRecoveryAt, now);
 			return false;
 		}
 	}
 
 	// 30분을 넘긴 뒤 첫 처리에서만 남긴다 (이전 처리가 30분이 되기 전이었으면 처음 넘긴 것)
 	private void reportLongUnknown(Orders order, LocalDateTime previousRecoveryAt, LocalDateTime now) {
-		LocalDateTime longUnknownAt = order.getUpdatedAt().plus(LONG_UNKNOWN);
-		boolean crossedNow = !now.isBefore(longUnknownAt)
-			&& (previousRecoveryAt == null || previousRecoveryAt.isBefore(longUnknownAt));
-		if (crossedNow) {
+		LocalDateTime alertAt = order.getUpdatedAt().plus(LONG_UNKNOWN_ALERT_AFTER);
+		boolean firstAttemptAfterAlertAt = !now.isBefore(alertAt)
+			&& (previousRecoveryAt == null || previousRecoveryAt.isBefore(alertAt));
+		if (firstAttemptAfterAlertAt) {
 			log.error("결제 결과를 30분 넘게 모름, 확인 필요: orderNumber={}, pendingSince={}",
 				order.getOrderNumber(), order.getUpdatedAt());
 		}
@@ -109,10 +112,10 @@ public class PaymentRecoveryScheduler {
 	// 24시간이 넘어 자동 처리에서 빠지는 주문을 한 번만 알린다.
 	// 자동 처리 중에는 last_recovery_at이 24시간이 되기 전이므로, 24시간 뒤의 값이면 이미 알린 주문이다
 	private void reportExpired(LocalDateTime now) {
-		List<Orders> expired = orderRepository.findByStatusUpdatedBefore(OrderStatus.PAYMENT_PENDING,
-			now.minus(RECOVERY_LIMIT));
+		List<Orders> expired = orderRepository.findRecoveryExpired(OrderStatus.PAYMENT_PENDING,
+			now.minus(RECOVERY_GIVE_UP_AFTER));
 		for (Orders order : expired) {
-			LocalDateTime expiredAt = order.getUpdatedAt().plus(RECOVERY_LIMIT);
+			LocalDateTime expiredAt = order.getUpdatedAt().plus(RECOVERY_GIVE_UP_AFTER);
 			if (order.getLastRecoveryAt() != null && !order.getLastRecoveryAt().isBefore(expiredAt)) {
 				continue;
 			}

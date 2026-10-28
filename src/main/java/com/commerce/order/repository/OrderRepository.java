@@ -53,13 +53,13 @@ public interface OrderRepository extends JpaRepository<Orders, Long> {
 		@Param("updatedAfter") LocalDateTime updatedAfter,
 		Limit limit);
 
-	/** 지정 시각 이전에 마지막으로 바뀐 상태의 주문 */
+	/** 보정 스케줄러가 자동 처리를 그만둔 주문: updatedBefore 이전에 마지막으로 바뀐 상태의 주문 */
 	@Query("""
 		select o from Orders o
 		where o.orderStatus = :orderStatus
 		and o.updatedAt <= :updatedBefore
 	""")
-	List<Orders> findByStatusUpdatedBefore(@Param("orderStatus") OrderStatus orderStatus,
+	List<Orders> findRecoveryExpired(@Param("orderStatus") OrderStatus orderStatus,
 		@Param("updatedBefore") LocalDateTime updatedBefore);
 
 	/** 보정 스케줄러가 처리한 시각을 남긴다. 벌크 update라 updated_at(PENDING이 된 시각)은 바뀌지 않는다. */

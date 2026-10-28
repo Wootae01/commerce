@@ -46,14 +46,14 @@ public class PaymentApprovalService {
 				return new ApprovalResult(OrderStatus.PAYMENT_PENDING, false);
 			}
 			if (e.isResultUnknown()) {
-				return new ApprovalResult(checkByPaymentQuery(req), isRetryable(e));
+				return new ApprovalResult(checkByPaymentQuery(req), isTossUnreachable(e));
 			}
 			// 토스가 거절·만료 등을 명시적으로 알려 줌
 			return new ApprovalResult(paymentTxService.applyPaymentFailure(req.getOrderId()), false);
 		} catch (Exception e) {
 			// 네트워크 오류, 응답 해석 실패 등. 토스에서는 승인됐을 수 있으므로 취소하지 않는다
 			log.warn("승인 결과 모름: orderId={}", req.getOrderId(), e);
-			return new ApprovalResult(checkByPaymentQuery(req), e instanceof WebClientRequestException);
+			return new ApprovalResult(checkByPaymentQuery(req), isTossUnreachable(e));
 		}
 		log.info("request toss duration in confirm: {}", System.currentTimeMillis() - startTime);
 
@@ -68,7 +68,7 @@ public class PaymentApprovalService {
 			try {
 				return tossPaymentClient.confirm(req);
 			} catch (WebClientRequestException | TossApiException e) {
-				if (!isRetryable(e) || retry >= maxRetries) {
+				if (!isTossUnreachable(e) || retry >= maxRetries) {
 					throw e;
 				}
 				log.warn("승인 응답 모름, 같은 멱등키로 재요청({}/{}): orderId={}, cause={}",
@@ -77,7 +77,8 @@ public class PaymentApprovalService {
 		}
 	}
 
-	private boolean isRetryable(RuntimeException e) {
+	// 토스와 통신하지 못함(네트워크 오류·타임아웃·5xx). 결과를 모르므로 같은 멱등키로 다시 요청할 수 있다
+	private boolean isTossUnreachable(Exception e) {
 		return e instanceof WebClientRequestException
 			|| (e instanceof TossApiException tossError && tossError.isServerError());
 	}

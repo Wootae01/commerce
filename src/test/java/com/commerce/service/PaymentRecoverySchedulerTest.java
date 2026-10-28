@@ -167,12 +167,7 @@ class PaymentRecoverySchedulerTest extends PaymentIntegrationTestSupport {
 	@DisplayName("토스 연결 실패(네트워크 오류)가 3번 연속이면 그 실행을 멈추고, 다음 실행에서 시도하지 못한 주문부터 이어 처리한다")
 	void threeConsecutiveConnectionFailures_stopRun_resumeNext() {
 		// given - 오래된 순 o1..o5
-		List<Orders> orders = new ArrayList<>();
-		for (int i = 0; i < 5; i++) {
-			Orders order = pendingOrder();
-			markUpdatedAt(order, LocalDateTime.now().minusMinutes(10 - i));
-			orders.add(order);
-		}
+		List<Orders> orders = pendingOrdersOldestFirst(5);
 		stubFor(post(urlEqualTo("/v1/payments/confirm"))
 			.willReturn(aResponse().withFault(Fault.CONNECTION_RESET_BY_PEER)));
 
@@ -194,22 +189,30 @@ class PaymentRecoverySchedulerTest extends PaymentIntegrationTestSupport {
 	}
 
 	@Test
+	@DisplayName("토스 5xx가 3번 연속이어도 그 실행을 멈춘다")
+	void threeConsecutiveServerErrors_stopRun() {
+		// given
+		pendingOrdersOldestFirst(4);
+		stubConfirm(500, """
+			{ "code": "FAILED_INTERNAL_SYSTEM_PROCESSING", "message": "내부 시스템 처리 작업이 실패했습니다." }
+			""");
+
+		// when
+		paymentRecoveryScheduler.recoverPendingPayments();
+
+		// then
+		verify(3, postRequestedFor(urlEqualTo("/v1/payments/confirm")));
+	}
+
+	@Test
 	@DisplayName("연결 실패 사이에 토스가 응답한 주문이 있으면 연속 횟수를 다시 세므로, 멈추지 않고 모두 요청한다")
 	void connectionFailuresInterrupted_noStop() {
 		// given - 실패, 실패, 409(토스가 응답), 실패, 실패
-		List<Orders> orders = new ArrayList<>();
-		for (int i = 0; i < 5; i++) {
-			Orders order = pendingOrder();
-			markUpdatedAt(order, LocalDateTime.now().minusMinutes(10 - i));
-			orders.add(order);
-		}
+		List<Orders> orders = pendingOrdersOldestFirst(5);
 		for (int i : List.of(0, 1, 3, 4)) {
 			stubConfirmFor(orders.get(i), aResponse().withFault(Fault.CONNECTION_RESET_BY_PEER));
 		}
-		stubConfirmFor(orders.get(2), aResponse()
-			.withStatus(409)
-			.withHeader("Content-Type", "application/json")
-			.withBody("{ \"code\": \"IDEMPOTENT_REQUEST_PROCESSING\", \"message\": \"이전 멱등 요청이 처리중이에요.\" }"));
+		stubConfirmFor(orders.get(2), processingResponse());
 
 		// when
 		paymentRecoveryScheduler.recoverPendingPayments();
@@ -232,9 +235,7 @@ class PaymentRecoverySchedulerTest extends PaymentIntegrationTestSupport {
 			""", LocalDateTime.now().minusMinutes(10));
 		Orders newOrder = pendingOrder();
 		markUpdatedAt(newOrder, LocalDateTime.now().minusMinutes(2));
-		stubConfirm(409, """
-			{ "code": "IDEMPOTENT_REQUEST_PROCESSING", "message": "이전 멱등 요청이 처리중이에요." }
-			""");
+		stubConfirmProcessing();
 		LocalDateTime stuckPendingSince = updatedAtOf(stuck.get(0));
 
 		// when 1 - 오래된 100건이 한 번에 처리할 수 있는 수를 채운다
@@ -260,9 +261,7 @@ class PaymentRecoverySchedulerTest extends PaymentIntegrationTestSupport {
 		Orders shortPending = pendingOrder();
 		markUpdatedAt(longPending, LocalDateTime.now().minusMinutes(31));
 		markUpdatedAt(shortPending, LocalDateTime.now().minusMinutes(10));
-		stubConfirm(409, """
-			{ "code": "IDEMPOTENT_REQUEST_PROCESSING", "message": "이전 멱등 요청이 처리중이에요." }
-			""");
+		stubConfirmProcessing();
 
 		// when
 		paymentRecoveryScheduler.recoverPendingPayments();
@@ -272,6 +271,44 @@ class PaymentRecoverySchedulerTest extends PaymentIntegrationTestSupport {
 		assertThat(logLines(output, "30분 넘게", longPending)).isEqualTo(1);
 		assertThat(logLines(output, "30분 넘게", shortPending)).isZero();
 		verify(4, postRequestedFor(urlEqualTo("/v1/payments/confirm")));
+	}
+
+	@Test
+	@DisplayName("30분이 되기 전에 시도했던 주문은 30분을 넘긴 뒤 첫 시도에서 로그를 남기고, 30분을 넘긴 뒤 이미 시도한 주문은 남기지 않는다")
+	void unknownOver30Minutes_loggedOnlyOnFirstAttemptAfterCrossing(CapturedOutput output) {
+		// given - 둘 다 31분 전에 PENDING. 30분이 되는 시각은 1분 전
+		Orders triedBefore = pendingOrder();
+		Orders triedAfter = pendingOrder();
+		markUpdatedAt(triedBefore, LocalDateTime.now().minusMinutes(31));
+		markUpdatedAt(triedAfter, LocalDateTime.now().minusMinutes(31));
+		markLastRecoveryAt(triedBefore, LocalDateTime.now().minusMinutes(5)); // 30분이 되기 전에 시도
+		markLastRecoveryAt(triedAfter, LocalDateTime.now().minusSeconds(30)); // 30분을 넘긴 뒤 이미 시도(그때 알림)
+		stubConfirmProcessing();
+
+		// when
+		paymentRecoveryScheduler.recoverPendingPayments();
+
+		// then
+		assertThat(logLines(output, "30분 넘게", triedBefore)).isEqualTo(1);
+		assertThat(logLines(output, "30분 넘게", triedAfter)).isZero();
+	}
+
+	@Test
+	@DisplayName("결과를 반영하다 예외가 나도 30분 넘게 모르는 주문의 에러 로그는 남긴다")
+	void unknownOver30Minutes_exceptionDuringApproval_stillLogged(CapturedOutput output) {
+		// given - 승인 응답이 비어 있어 결과를 반영하다 예외가 난다
+		Orders order = pendingOrder();
+		markUpdatedAt(order, LocalDateTime.now().minusMinutes(31));
+		doReturn(null).when(tossPaymentClient).confirm(any());
+
+		// when
+		paymentRecoveryScheduler.recoverPendingPayments();
+		paymentRecoveryScheduler.recoverPendingPayments();
+
+		// then
+		assertThat(statusOf(order)).isEqualTo(OrderStatus.PAYMENT_PENDING);
+		assertThat(logLines(output, "결제 보정 실패", order)).isEqualTo(2);
+		assertThat(logLines(output, "30분 넘게", order)).isEqualTo(1);
 	}
 
 	@Test
@@ -298,13 +335,39 @@ class PaymentRecoverySchedulerTest extends PaymentIntegrationTestSupport {
 	// 토스가 처리 중(409)이라고 해서 PENDING으로 남은 주문
 	private Orders pendingOrder() {
 		Orders order = prepareOrder();
-		stubConfirm(409, """
-			{ "code": "IDEMPOTENT_REQUEST_PROCESSING", "message": "이전 멱등 요청이 처리중이에요." }
-			""");
+		stubConfirmProcessing();
 		OrderStatus result = payService.confirm(confirmRequestOf(order), userId);
 		assertThat(result).isEqualTo(OrderStatus.PAYMENT_PENDING);
 		resetAllRequests();
 		return orderRepository.findByOrderNumber(order.getOrderNumber()).orElseThrow();
+	}
+
+	// PENDING 주문 n건. 앞쪽일수록 오래됐다(10분 전, 9분 전, ...)
+	private List<Orders> pendingOrdersOldestFirst(int n) {
+		List<Orders> orders = new ArrayList<>();
+		for (int i = 0; i < n; i++) {
+			Orders order = pendingOrder();
+			markUpdatedAt(order, LocalDateTime.now().minusMinutes(10 - i));
+			orders.add(order);
+		}
+		return orders;
+	}
+
+	private void markLastRecoveryAt(Orders order, LocalDateTime lastRecoveryAt) {
+		jdbcTemplate.update("update orders set last_recovery_at = ? where order_number = ?",
+			lastRecoveryAt, order.getOrderNumber());
+	}
+
+	// 토스가 같은 멱등키의 요청을 아직 처리 중이라는 응답(결과를 모름)
+	private ResponseDefinitionBuilder processingResponse() {
+		return aResponse()
+			.withStatus(409)
+			.withHeader("Content-Type", "application/json")
+			.withBody("{ \"code\": \"IDEMPOTENT_REQUEST_PROCESSING\", \"message\": \"이전 멱등 요청이 처리중이에요.\" }");
+	}
+
+	private void stubConfirmProcessing() {
+		stubFor(post(urlEqualTo("/v1/payments/confirm")).willReturn(processingResponse()));
 	}
 
 	// 주문마다 paymentKey를 주문번호에서 만들어, 확정 요청과 스케줄러 재요청의 값을 비교할 수 있게 한다
