@@ -24,8 +24,6 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
-import com.commerce.common.code.ExternalResponseCode;
-import com.commerce.common.exception.ApiException;
 import org.wiremock.spring.EnableWireMock;
 
 import com.commerce.config.IntegrationTest;
@@ -321,7 +319,7 @@ class PayServiceTest {
 	}
 
 	@Test
-	@DisplayName("토스 confirm이 재요청까지 5xx면 재고 복원 및 주문 CANCELED")
+	@DisplayName("토스가 승인을 거절(4xx)하면 재고 복원 및 주문 CANCELED")
 	void stockRestoredWhenTossConfirmFails() {
 		// given
 		User user = User.builder()
@@ -355,27 +353,25 @@ class PayServiceTest {
 
 		Orders order = orderService.prepareOrderFromBuyNow(dto);
 
-		// 토스 confirm 500 에러 stub
+		// 토스 confirm 거절(4xx) stub
 		stubFor(post(urlEqualTo("/v1/payments/confirm"))
 			.willReturn(aResponse()
-				.withStatus(500)
+				.withStatus(400)
 				.withHeader("Content-Type", "application/json")
-				.withBody("{\"message\": \"Internal Server Error\"}")));
+				.withBody("{\"code\": \"REJECT_CARD_PAYMENT\", \"message\": \"한도초과 혹은 잔액부족으로 결제에 실패했습니다.\"}")));
 
 		// when
 		PayConfirmDTO req = new PayConfirmDTO(
 			UUID.randomUUID().toString(), order.getOrderNumber(), order.getFinalPrice());
 
-		assertThatThrownBy(() -> payService.confirm(req, userId))
-			.isInstanceOf(ApiException.class)
-			.extracting("responseCode").isEqualTo(ExternalResponseCode.PG_APPROVAL_ERROR);
+		OrderStatus result = payService.confirm(req, userId);
 
 		// then - 재고 복원, 주문 CANCELED
 		ProductOption afterOption = productOptionRepository.findById(option.getId()).orElseThrow();
 		Orders afterOrder = orderRepository.findByOrderNumber(order.getOrderNumber()).orElseThrow();
+		assertThat(result).isEqualTo(OrderStatus.CANCELED);
 		assertThat(afterOption.getStock()).isEqualTo(initialStock);
 		assertThat(afterOrder.getOrderStatus()).isEqualTo(OrderStatus.CANCELED);
-		verify(2, postRequestedFor(urlEqualTo("/v1/payments/confirm"))); // 첫 요청 + 재요청 1번
 	}
 
 	@Test

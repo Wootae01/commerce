@@ -16,6 +16,8 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseBody;
 
+import com.commerce.common.code.ApiResponseCode;
+import com.commerce.common.enums.OrderStatus;
 import com.commerce.common.enums.OrderType;
 import com.commerce.common.exception.ApiException;
 import com.commerce.common.util.SecurityUtil;
@@ -114,9 +116,13 @@ public class PayController {
 		log.info("confirm req: orderId={}, paymentKey={}, amount={}",
 			req.getOrderId(), req.getPaymentKey(), req.getAmount());
 		Long userId = securityUtil.getCurrentUser().getId();
-		payService.confirm(req, userId);
+		OrderStatus status = payService.confirm(req, userId);
 
-		return ResponseEntity.ok(Map.of("ok", true));
+		ApiResponseCode code = PayConfirmResponseCode.from(status);
+		if (code.getStatus().isError()) {
+			return ResponseEntity.status(code.getStatus()).body(Map.of("message", code.getMessage()));
+		}
+		return ResponseEntity.status(code.getStatus()).body(Map.of("ok", true, "message", code.getMessage()));
 	}
 
 	@PostMapping("/{orderNumber}/cancel")

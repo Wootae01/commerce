@@ -8,8 +8,11 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.commerce.common.code.ApiResponseCode;
 import com.commerce.common.code.GeneralResponseCode;
 import com.commerce.common.dto.GeneralResponse;
+import com.commerce.common.enums.OrderStatus;
+import com.commerce.common.exception.ApiException;
 import com.commerce.common.util.SecurityUtil;
 import com.commerce.order.domain.Orders;
 import com.commerce.order.service.OrderService;
@@ -36,10 +39,15 @@ public class PaymentApiController {
 		log.info("confirm req: orderId={}, paymentKey={}, amount={}",
 			request.getOrderId(), request.getPaymentKey(), request.getAmount());
 		Long userId = securityUtil.getCurrentUser().getId();
-		payService.confirm(request, userId);
+		OrderStatus status = payService.confirm(request, userId);
+
+		ApiResponseCode code = PayConfirmResponseCode.from(status);
+		if (code.getStatus().isError()) {
+			throw new ApiException(code);
+		}
 
 		Orders order = orderService.findMyOrder(request.getOrderId(), userId);
-		return GeneralResponse.toResponseEntity(GeneralResponseCode.OK, PaySuccessDTO.from(order));
+		return GeneralResponse.toResponseEntity(code, PaySuccessDTO.from(order));
 	}
 
 	// 결제 결과 조회
