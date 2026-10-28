@@ -107,7 +107,7 @@ class PaymentResultApplyTest {
 	void applySuccess_canceledOrder_ignored() throws Exception {
 		// given - 결제 진행 중 → 토스 실패로 취소(재고 복원)
 		Orders order = pendingOrder();
-		paymentTxService.restoreStockOnTossFailure(order.getOrderNumber());
+		paymentTxService.applyPaymentFailure(order.getOrderNumber());
 
 		// when
 		paymentTxService.applyPaymentSuccess(order.getOrderNumber(), tossDone(), "paymentKey");
@@ -127,7 +127,7 @@ class PaymentResultApplyTest {
 		paymentTxService.applyPaymentSuccess(order.getOrderNumber(), tossDone(), "paymentKey");
 
 		// when
-		paymentTxService.restoreStockOnTossFailure(order.getOrderNumber());
+		paymentTxService.applyPaymentFailure(order.getOrderNumber());
 
 		// then
 		Orders after = orderRepository.findByOrderNumber(order.getOrderNumber()).orElseThrow();
@@ -183,7 +183,7 @@ class PaymentResultApplyTest {
 			paymentTxService.applyPaymentSuccess(order.getOrderNumber(), tossResponse, "paymentKey"));
 		assertThat(successPaused.await(5, TimeUnit.SECONDS)).isTrue();
 
-		Future<?> failure = pool.submit(() -> paymentTxService.restoreStockOnTossFailure(order.getOrderNumber()));
+		Future<?> failure = pool.submit(() -> paymentTxService.applyPaymentFailure(order.getOrderNumber()));
 		// - 락이 없으면: 실패 반영이 결제 진행 중 상태를 보고 바로 재고 복원·취소까지 끝낸다
 		// - 락이 있으면: 성공 반영이 끝날 때까지 주문 행 락에서 기다린다
 		Thread.sleep(1000);

@@ -34,7 +34,7 @@ public class PaymentApprovalService {
 	private final TossPaymentClient tossPaymentClient;
 	private final PaymentTxService paymentTxService;
 
-	// PAYMENT_PENDING 주문의 승인을 요청하고 반영한 뒤 주문 상태를 돌려준다. 응답을 모르면(끊김·타임아웃·5xx) 최대 maxAttempts번까지 같은 키로 요청한다
+	// PAYMENT_PENDING 주문의 승인을 요청하고 반영한 뒤 주문 상태를 돌려준다(다른 요청이 먼저 반영했으면 그 상태). 응답을 모르면(끊김·타임아웃·5xx) 최대 maxAttempts번까지 같은 키로 요청한다
 	public OrderStatus approve(PayConfirmDTO req, int maxAttempts) {
 		long startTime = System.currentTimeMillis();
 		JsonNode tossResponse;
@@ -49,8 +49,7 @@ public class PaymentApprovalService {
 				return checkByPaymentQuery(req);
 			}
 			// 토스가 거절·만료 등을 명시적으로 알려 줌
-			paymentTxService.restoreStockOnTossFailure(req.getOrderId());
-			return OrderStatus.CANCELED;
+			return paymentTxService.applyPaymentFailure(req.getOrderId());
 		} catch (Exception e) {
 			// 네트워크 오류, 응답 해석 실패 등. 토스에서는 승인됐을 수 있으므로 취소하지 않는다
 			log.warn("승인 결과 모름: orderId={}", req.getOrderId(), e);
@@ -59,8 +58,7 @@ public class PaymentApprovalService {
 		log.info("request toss duration in confirm: {}", System.currentTimeMillis() - startTime);
 
 		// 장바구니 삭제, 결제 일시, 상태 변경
-		paymentTxService.applyPaymentSuccess(req.getOrderId(), tossResponse, req.getPaymentKey());
-		return OrderStatus.PAID;
+		return paymentTxService.applyPaymentSuccess(req.getOrderId(), tossResponse, req.getPaymentKey());
 	}
 
 	// 토스는 같은 멱등키의 승인을 한 번만 처리하고 같은 응답을 돌려주므로, 다시 요청해도 이중 승인이 생기지 않는다
@@ -99,13 +97,11 @@ public class PaymentApprovalService {
 		switch (status) {
 			case "DONE" -> {
 				log.info("Toss 결제 확인됨, 승인 처리: orderId={}", req.getOrderId());
-				paymentTxService.applyPaymentSuccess(req.getOrderId(), payment, req.getPaymentKey());
-				return OrderStatus.PAID;
+				return paymentTxService.applyPaymentSuccess(req.getOrderId(), payment, req.getPaymentKey());
 			}
 			case "ABORTED", "EXPIRED", "CANCELED" -> {
 				log.info("Toss 결제 실패 확인, 재고 복원: orderId={}, status={}", req.getOrderId(), status);
-				paymentTxService.restoreStockOnTossFailure(req.getOrderId());
-				return OrderStatus.CANCELED;
+				return paymentTxService.applyPaymentFailure(req.getOrderId());
 			}
 			case "READY", "IN_PROGRESS" -> {
 				log.info("Toss 결제 처리 중, PENDING 유지: orderId={}, status={}", req.getOrderId(), status);
