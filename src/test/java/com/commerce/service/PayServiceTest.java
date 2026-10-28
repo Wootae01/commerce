@@ -321,7 +321,7 @@ class PayServiceTest {
 	}
 
 	@Test
-	@DisplayName("토스 confirm 실패 시 재고 복원 및 주문 CANCELED")
+	@DisplayName("토스 confirm이 재요청까지 5xx면 재고 복원 및 주문 CANCELED")
 	void stockRestoredWhenTossConfirmFails() {
 		// given
 		User user = User.builder()
@@ -375,6 +375,7 @@ class PayServiceTest {
 		Orders afterOrder = orderRepository.findByOrderNumber(order.getOrderNumber()).orElseThrow();
 		assertThat(afterOption.getStock()).isEqualTo(initialStock);
 		assertThat(afterOrder.getOrderStatus()).isEqualTo(OrderStatus.CANCELED);
+		verify(2, postRequestedFor(urlEqualTo("/v1/payments/confirm"))); // 첫 요청 + 재요청 1번
 	}
 
 	@Test

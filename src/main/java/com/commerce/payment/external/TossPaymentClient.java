@@ -62,6 +62,8 @@ public class TossPaymentClient {
 		try{
 			tossResponse = tossWebClient.post()
 				.uri("/v1/payments/confirm")
+				// 같은 키로 다시 요청하면 토스가 한 번만 승인하고 같은 응답을 돌려준다
+				.header("Idempotency-Key", req.getOrderId())
 				.bodyValue(new PayConfirmDTO(req.getPaymentKey(), req.getOrderId(), req.getAmount()))
 				.retrieve()
 				.onStatus(HttpStatusCode::isError, res ->
@@ -69,7 +71,7 @@ public class TossPaymentClient {
 						.defaultIfEmpty("")
 						.map(body -> {
 							log.error("toss confirm error: status={}, body={}", res.statusCode(), body);
-							return new ApiException(ExternalResponseCode.PG_APPROVAL_ERROR);
+							return new TossApiException(ExternalResponseCode.PG_APPROVAL_ERROR, res.statusCode());
 						})
 				)
 				.bodyToMono(JsonNode.class)

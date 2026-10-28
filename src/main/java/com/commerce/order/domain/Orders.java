@@ -91,11 +91,12 @@ public class Orders extends BaseUpdatableEntity {
         this.orderType = orderType;
     }
 
-    // 결제 확정 시작: READY → PAYMENT_PENDING
-    public void startPayment() {
+    // 결제 확정 시작: READY → PAYMENT_PENDING. 응답을 모를 때 같은 값으로 승인을 다시 요청할 수 있게 paymentKey를 저장한다
+    public void startPayment(String paymentKey) {
         if (orderStatus != OrderStatus.READY) {
             throw new ApiException(GeneralResponseCode.PAYMENT_ALREADY_PROCESSED);
         }
+        this.paymentKey = paymentKey;
         this.orderStatus = OrderStatus.PAYMENT_PENDING;
     }
 

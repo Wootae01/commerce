@@ -51,7 +51,9 @@ import com.commerce.product.repository.ProductOptionRepository;
 import com.commerce.product.repository.ProductRepository;
 import com.commerce.user.domain.User;
 import com.commerce.user.repository.UserRepository;
+import com.github.tomakehurst.wiremock.client.ResponseDefinitionBuilder;
 import com.github.tomakehurst.wiremock.http.Fault;
+import com.github.tomakehurst.wiremock.stubbing.Scenario;
 
 import lombok.extern.slf4j.Slf4j;
 
@@ -199,7 +201,7 @@ class PayConsistencyTest {
 	}
 
 	@Test
-	@DisplayName("토스 승인 후 응답이 끊기면, 토스 결제 조회(DONE)로 주문을 PAID 처리한다")
+	@DisplayName("재요청까지 응답이 끊기면 토스 결제 조회(DONE)로 PAID 처리하고, 예외 없이 PAID를 돌려준다")
 	void responseLost_tossApproved_paid() {
 		// given
 		Orders order = prepareOrder();
@@ -211,19 +213,20 @@ class PayConsistencyTest {
 		PayConfirmDTO req = new PayConfirmDTO(UUID.randomUUID().toString(), order.getOrderNumber(), order.getFinalPrice());
 
 		// when
-		assertThatThrownBy(() -> payService.confirm(req, userId))
-			.isInstanceOf(WebClientRequestException.class);
+		OrderStatus result = payService.confirm(req, userId);
 
 		// then - 토스에서는 결제 완료 → 우리 주문도 PAID, 재고는 차감된 상태 유지
+		assertThat(result).isEqualTo(OrderStatus.PAID);
 		Orders after = orderRepository.findByOrderNumber(order.getOrderNumber()).orElseThrow();
 		assertThat(after.getOrderStatus()).isEqualTo(OrderStatus.PAID);
 		assertThat(after.getPaymentKey()).isEqualTo(req.getPaymentKey());
 		assertThat(stock()).isEqualTo(INITIAL_STOCK - 1);
+		verify(2, postRequestedFor(urlEqualTo("/v1/payments/confirm")));
 		verify(1, getRequestedFor(urlEqualTo("/v1/payments/orders/" + order.getOrderNumber())));
 	}
 
 	@Test
-	@DisplayName("응답이 끊겼고 토스도 미승인이면, 재고를 복원하고 주문을 CANCELED 처리한다")
+	@DisplayName("재요청까지 응답이 끊겼고 토스도 미승인이면, 재고를 복원하고 주문을 CANCELED 처리한다")
 	void responseLost_tossNotApproved_restored() {
 		// given
 		Orders order = prepareOrder();
@@ -242,6 +245,95 @@ class PayConsistencyTest {
 		Orders after = orderRepository.findByOrderNumber(order.getOrderNumber()).orElseThrow();
 		assertThat(after.getOrderStatus()).isEqualTo(OrderStatus.CANCELED);
 		assertThat(stock()).isEqualTo(INITIAL_STOCK);
+		verify(2, postRequestedFor(urlEqualTo("/v1/payments/confirm")));
+	}
+
+	@Test
+	@DisplayName("승인 요청에 주문번호를 멱등키(Idempotency-Key)로 붙인다")
+	void confirm_sendsOrderNumberAsIdempotencyKey() {
+		// given
+		Orders order = prepareOrder();
+		PayConfirmDTO req = new PayConfirmDTO(UUID.randomUUID().toString(), order.getOrderNumber(), order.getFinalPrice());
+
+		// when
+		payService.confirm(req, userId);
+
+		// then
+		verify(1, postRequestedFor(urlEqualTo("/v1/payments/confirm"))
+			.withHeader("Idempotency-Key", equalTo(order.getOrderNumber())));
+	}
+
+	@Test
+	@DisplayName("승인 응답이 끊기면 같은 멱등키로 1번 다시 요청하고, 200이면 예외 없이 PAID를 돌려준다")
+	void responseLost_retrySucceeds_paid() {
+		// given - 첫 승인 요청은 응답 도중 끊기고, 재요청은 200
+		Orders order = prepareOrder();
+		stubConfirmFirstThen(aResponse().withFault(Fault.CONNECTION_RESET_BY_PEER));
+		PayConfirmDTO req = new PayConfirmDTO(UUID.randomUUID().toString(), order.getOrderNumber(), order.getFinalPrice());
+
+		// when
+		OrderStatus result = payService.confirm(req, userId);
+
+		// then
+		assertThat(result).isEqualTo(OrderStatus.PAID);
+		Orders after = orderRepository.findByOrderNumber(order.getOrderNumber()).orElseThrow();
+		assertThat(after.getOrderStatus()).isEqualTo(OrderStatus.PAID);
+		assertThat(after.getPaymentKey()).isEqualTo(req.getPaymentKey());
+		assertThat(stock()).isEqualTo(INITIAL_STOCK - 1);
+		verify(2, postRequestedFor(urlEqualTo("/v1/payments/confirm"))
+			.withHeader("Idempotency-Key", equalTo(order.getOrderNumber())));
+		verify(0, getRequestedFor(urlEqualTo("/v1/payments/orders/" + order.getOrderNumber())));
+	}
+
+	@Test
+	@DisplayName("승인 요청이 5xx면 같은 멱등키로 1번 다시 요청하고, 200이면 PAID를 돌려준다")
+	void serverError_retrySucceeds_paid() {
+		// given - 첫 승인 요청은 500, 재요청은 200
+		Orders order = prepareOrder();
+		stubConfirmFirstThen(aResponse()
+			.withStatus(500)
+			.withHeader("Content-Type", "application/json")
+			.withBody("""
+				{ "code": "FAILED_INTERNAL_SYSTEM_PROCESSING", "message": "내부 시스템 처리 작업이 실패했습니다." }
+				"""));
+		PayConfirmDTO req = new PayConfirmDTO(UUID.randomUUID().toString(), order.getOrderNumber(), order.getFinalPrice());
+
+		// when
+		OrderStatus result = payService.confirm(req, userId);
+
+		// then
+		assertThat(result).isEqualTo(OrderStatus.PAID);
+		Orders after = orderRepository.findByOrderNumber(order.getOrderNumber()).orElseThrow();
+		assertThat(after.getOrderStatus()).isEqualTo(OrderStatus.PAID);
+		assertThat(stock()).isEqualTo(INITIAL_STOCK - 1);
+		verify(2, postRequestedFor(urlEqualTo("/v1/payments/confirm"))
+			.withHeader("Idempotency-Key", equalTo(order.getOrderNumber())));
+	}
+
+	@Test
+	@DisplayName("승인 요청이 4xx(거절)면 다시 요청하지 않고, 재고를 복원하고 주문을 CANCELED 처리한다")
+	void clientError_noRetry_canceled() {
+		// given
+		Orders order = prepareOrder();
+		stubFor(post(urlEqualTo("/v1/payments/confirm"))
+			.willReturn(aResponse()
+				.withStatus(400)
+				.withHeader("Content-Type", "application/json")
+				.withBody("""
+					{ "code": "REJECT_CARD_PAYMENT", "message": "한도초과 혹은 잔액부족으로 결제에 실패했습니다." }
+					""")));
+		PayConfirmDTO req = new PayConfirmDTO(UUID.randomUUID().toString(), order.getOrderNumber(), order.getFinalPrice());
+
+		// when
+		assertThatThrownBy(() -> payService.confirm(req, userId))
+			.isInstanceOf(ApiException.class)
+			.extracting("responseCode").isEqualTo(ExternalResponseCode.PG_APPROVAL_ERROR);
+
+		// then
+		Orders after = orderRepository.findByOrderNumber(order.getOrderNumber()).orElseThrow();
+		assertThat(after.getOrderStatus()).isEqualTo(OrderStatus.CANCELED);
+		assertThat(stock()).isEqualTo(INITIAL_STOCK);
+		verify(1, postRequestedFor(urlEqualTo("/v1/payments/confirm")));
 	}
 
 	@Disabled("토스 조회 실패 시 PAYMENT_PENDING 유지 — 대사 작업 미구현")
@@ -287,6 +379,24 @@ class PayConsistencyTest {
 	private void stubConfirmConnectionReset() {
 		stubFor(post(urlEqualTo("/v1/payments/confirm"))
 			.willReturn(aResponse().withFault(Fault.CONNECTION_RESET_BY_PEER)));
+	}
+
+	// 첫 승인 요청은 firstResponse, 그다음 요청(재요청)은 200 승인
+	private void stubConfirmFirstThen(ResponseDefinitionBuilder firstResponse) {
+		stubFor(post(urlEqualTo("/v1/payments/confirm"))
+			.inScenario("confirm-retry")
+			.whenScenarioStateIs(Scenario.STARTED)
+			.willReturn(firstResponse)
+			.willSetStateTo("retried"));
+		stubFor(post(urlEqualTo("/v1/payments/confirm"))
+			.inScenario("confirm-retry")
+			.whenScenarioStateIs("retried")
+			.willReturn(aResponse()
+				.withStatus(200)
+				.withHeader("Content-Type", "application/json")
+				.withBody("""
+					{ "method": "카드", "approvedAt": "2026-01-03T01:23:45+09:00" }
+					""")));
 	}
 
 	private void stubGetPayment(String orderNumber, String body) {
