@@ -6,8 +6,10 @@ Spring Boot 기반 이커머스 플랫폼을 직접 구현하며 주문, 결제,
 ## 시스템 아키텍처
 <img src="https://github.com/user-attachments/assets/6c8576f6-14a8-44cc-942f-126e9ed539d2" width="800" alt="architecture"/>
 
-## CI/CD 
-<img src="https://github.com/user-attachments/assets/fd6bacd5-da88-4670-8363-5ba4bc7909b9" width="800" alt="architecture"/>
+## 배포 (CD)
+<img src="https://github.com/user-attachments/assets/fd6bacd5-da88-4670-8363-5ba4bc7909b9" width="800" alt="deploy pipeline"/>
+
+- CI: dev로 PR을 올리면 GitHub Actions가 `./gradlew build`로 테스트를 실행 (Testcontainers로 MySQL·Redis 사용)
 
 ## 기술 스택
 
@@ -19,7 +21,9 @@ Spring Boot 기반 이커머스 플랫폼을 직접 구현하며 주문, 결제,
 - **Prometheus / Grafana**
 - **Terraform**
 - **AWS S3**
+- **GitHub Actions** (CI/CD)
 - **Docker Compose** (로컬 개발 환경)
+- **k6** (부하 테스트) / **WireMock** (Toss 승인 API 모킹)
 
 ## 외부 연동
 
@@ -30,7 +34,7 @@ Spring Boot 기반 이커머스 플랫폼을 직접 구현하며 주문, 결제,
 
 ### 사용자
 - OAuth2 소셜 로그인 (네이버)
-- 상품 검색 (가격순, 판매량순 정렬)
+- 상품 검색 (최신순, 가격순, 판매량순 정렬)
 - 장바구니 (추가, 수량 변경, 선택/해제, 삭제)
 - 주문 (장바구니 주문, 바로 구매)
 - 결제 (Toss Payments 연동)
@@ -63,95 +67,107 @@ Spring Boot 기반 이커머스 플랫폼을 직접 구현하며 주문, 결제,
 | ![상품 관리](https://github.com/user-attachments/assets/44501a1e-fe94-4981-98cf-8cb46a2ac8cf) | ![주문 관리](https://github.com/user-attachments/assets/50cc8f90-c8db-4cac-bdbf-7ee62f8ad642) |
 
 ## 트러블슈팅
- 
-### 1. N+1 쿼리 문제
 
-#### 장바구니 조회 (`GET /cart`)
-- **문제**: CartProduct마다 Product, Image 추가 쿼리 발생
-  - 300 VU 기준 cart_duration p95=1,191ms
-- **해결**: JPQL DTO 프로젝션으로 Product, mainImage 필요한 부분만 한 번에 조회해 N+1 제거
-- **결과**: p95 1,191ms → 19.9ms (약 98% 개선, 300 VU)
+### 1. 외부 결제 응답 유실 시 승인된 주문이 취소되는 문제 (`POST /pay/confirm`)
+- **문제**
+  - 결제 결과가 우리 DB와 Toss 두 곳에 따로 기록돼, Toss가 승인한 뒤 응답이 유실되면 우리는 결과를 알 수 없음
+  - 기존에는 Toss 호출이 실패하면 모두 결제 실패로 보고 재고를 복구하고 주문을 취소
+  - 결과적으로 Toss에서는 결제가 끝났는데 주문은 취소되는 불일치 발생
+- **해결**
+  - 대안 비교: Toss 결제 상태 조회 결과만으로 판단하는 방식은, 승인 요청이 도착하기 전에도 '처리 중'으로 보여 미도착과 처리 중을 구분할 수 없어 제외
+  - Toss 호출 전에 주문을 `PAYMENT_PENDING`으로 바꿔, 결과를 모르는 구간을 실패와 구분
+  - 연결 끊김, 타임아웃, 5xx면 주문번호를 멱등키(`Idempotency-Key`)로 승인을 다시 요청해, 이미 승인된 결제는 같은 결과를 받아 `PAID`로 확정
+  - 그래도 결과를 모르면 202로 "확인 중"을 응답하고(화면은 결과를 폴링), 스케줄러가 1분마다 같은 멱등키로 재요청해 Toss가 명확히 응답할 때만 `PAID` 또는 취소로 확정
+- **결과**
+  - 응답이 유실돼도 승인된 주문은 `PAID`로 유지되고, 승인 요청이 Toss에 도착하지 못한 경우도 재요청으로 결제 성공
+  - 검증: WireMock으로 승인 요청의 응답을 끊어 승인됨, 처리 중, 미도착, 거절 네 경우를 재현
 
-#### 주문 준비 쿼리 최적화 (`POST /pay/prepare`)
-- **문제**: 장바구니 아이템 N개에 대해 INSERT·SELECT가 N번씩 발생
-  - 50개 아이템 기준 INSERT max=101회, SELECT max=52회, prepare_duration p95=1,552ms
-- **해결**: JDBC Batch INSERT + `IN` 절로 SELECT 일괄 조회 → INSERT 1회, SELECT 1회
-- **결과**: p95 1,552ms → 96.6ms (약 94% 개선, 50개 아이템 / 300 VU)
-
-#### 쿼리 개수 모니터링
-- `StatementInspector`로 요청별 쿼리 수를 카운트하고 Prometheus 메트릭으로 기록
-- N+1 재발 시 런타임에 감지 가능
-
-### 2. 동시성 문제
-
-#### 재고 정합성 및 쿼리 최적화
-- **문제**: 재고 확인(SELECT) 후 차감(UPDATE)을 별도로 수행하는 구조에서 동시 요청 시 재고 정합성 문제 발생
-- **해결**: 재고 확인·차감을 단일 쿼리로 합쳐 원자적으로 처리
-  - `UPDATE ... WHERE stock >= qty` → 재고 부족 시 롤백
-  - 다건 상품 주문은 UNION ALL 서브쿼리로 묶어 다중 UPDATE를 1회 쿼리로 수행
-- **결과**: avg 4,345ms → 1,012ms (약 76.7% 개선, 동시 스레드 100 기준)
-
-#### 다건 주문 시 데드락
-- **문제**: 장바구니 다건 주문 부하 테스트 중 `SQL Error: 1213 (Deadlock found)`로 결제 실패 발생. `SHOW ENGINE INNODB STATUS`와 `innodb_print_all_deadlocks`로 두 가지 패턴 확인
-  - 패턴 1 — 동시 결제 확정: 트랜잭션 A·B가 각자 다른 순서로 `product` row에 X락을 획득하면서 순환 대기 발생
-  - 패턴 2 — 주문 생성 + 결제 확정 동시 실행: `order_product` INSERT 시 FK 무결성 검증으로 `product` row에 S락을 요청하는데, 동시에 다른 트랜잭션이 동일 row에 X락(재고 차감 UPDATE)을 보유 중이면 충돌
-
-  ```
-  -- 패턴 1
-  TRX 9461: update product ... where product_id=32   HOLDS X(6, 26)      WAITING X(32)
-  TRX 9460: update product ... where product_id=26   HOLDS X(1, 32, 84)  WAITING X(26)
-
-  -- 패턴 2
-  TRX 9092: insert into order_product ...            HOLDS S(..., 64)    WAITING S(26)
-  TRX 9090: update product ... where product_id=64   HOLDS X(..., 26)    WAITING X(64)
-  ```
-
-- **해결**: product_id 오름차순 정렬로 모든 트랜잭션의 락 획득 순서를 통일 → 순환 대기 제거
-  - 결제 확정: `SELECT ... FOR UPDATE ORDER BY product_id`로 상품 락을 먼저 순서대로 획득
-  - 주문 생성: `order_product` Batch INSERT 행도 product_id 순으로 정렬
+### 2. 다건 주문 동시 처리 시 데드락
+- **문제**: 주문 부하 테스트 중 `SQL Error: 1213 (Deadlock found)`가 발생해, 여러 상품을 담은 장바구니 주문일수록 실패 (장바구니 주문 성공률 41.7%)
+  - 패턴 1 — 결제 확정끼리: 재고 차감 UPDATE가 같은 옵션들의 X락을 트랜잭션마다 다른 순서로 잡아 순환 대기
+  - 패턴 2 — 주문 생성과 결제 확정 사이: 주문상품 INSERT가 FK 검증으로 옵션에 S락을 잡는 동안, 상대가 같은 행에 X락(재고 차감)을 요청해 충돌
+- **해결**
+  - `SHOW ENGINE INNODB STATUS`와 `innodb_print_all_deadlocks` 로그로 두 패턴의 락 종류와 획득 순서를 확인
+  - 재고 차감 UPDATE와 주문상품 Batch INSERT를 모두 상품 옵션 id 오름차순으로 정렬해, 모든 트랜잭션이 같은 순서로 락을 잡도록 통일
 - **결과**:
 
   | | 수정 전 | 수정 후 |
   |---|---|---|
   | 데드락 발생 | 431건 | 0건 |
-  | 전체 주문 성공률 | 52.1% (472/906) | 100% (941/941) |
-  | 장바구니 다건 주문 성공률 | 36.8% (249/676) | 100% (697/697) |
+  | 전체 주문 성공률 | 54.9% (524/955) | 100% (941/941) |
+  | 장바구니 주문 성공률 | 41.7% (306/733) | 100% (697/697) |
 
-  - 측정 조건: 앱·DB 각각 2 vCPU / 1GiB(EC2·RDS t3.micro 사양)로 제한, 상품 100개·유저 1,000명(장바구니당 약 15개 상품을 무작위 순서로 담음), 장바구니 주문 75%·바로구매 25% 비율로 초당 최대 20건의 주문을 70초간 발생(k6). 토스 승인 API는 실측 응답 시간(423~1,205ms) 기준 600ms 지연으로 모킹
+  - 측정 조건: 앱·MySQL 각각 2 vCPU / 1GiB로 제한, 상품 100개·유저 1,000명(장바구니당 약 15개 상품을 무작위 순서로 담음), 장바구니 주문 75%·바로구매 25% 비율로 주문을 2건/s에서 20건/s까지 70초간 늘려가며 요청(k6). Toss 승인 API는 실측 응답 시간(423~1,205ms) 기준 600ms 지연으로 모킹(WireMock)
   - 데드락 재현을 위해 상품 수 대비 주문 상품 수가 많은, 경합이 심한 조건으로 설계
-  - 한계: 데드락은 사라졌지만 같은 상품 락을 순서대로 기다리는 대기는 남음 (결제 확정 p95 3.63s, 락 획득 쿼리 평균 대기 421ms) → 락 보유 시간 단축이 다음 과제
+  - 한계: 데드락은 사라졌지만 같은 옵션의 락을 순서대로 기다리는 대기는 남음 (결제 확정 p95 3.63s) → 락 보유 시간 단축이 다음 과제
+
+### 3. 관리자 주문 목록 조회 성능 개선 (`idx_order_created`)
+- **문제**
+  - 관리자 주문 목록은 최신순으로 20건씩 보여주는데, 주문이 쌓인 만큼 조회가 느려짐
+  - EXPLAIN 결과 `type ALL` + `Using filesort`, 주문 10만 건 전체를 읽고 정렬 (예상 행 수 98,250)
+- **해결**
+  - 정렬 컬럼인 `created_at`에 인덱스를 추가해, 최신순 정렬을 인덱스 순서로 대체
+  - 인덱스를 끝에서부터 거꾸로 읽어 20건을 채우면 바로 멈추므로, 주문이 늘어도 읽는 행 수가 일정
+  - EXPLAIN으로 `type ALL → index`, `Using filesort → Backward index scan`으로 바뀐 것을 확인
+- **결과**: 주문 수가 늘어도 쿼리 실행 시간이 거의 일정
+
+  | 주문 수 | 인덱스 전 | 인덱스 후 |
+  |---|---|---|
+  | 2만 건 | 17.8ms | 0.053ms |
+  | 10만 건 | 90.9ms | 0.059ms |
+  | 50만 건 | 554ms | 0.052ms |
+
+  - 측정 조건: MySQL 8.0(2 vCPU, 1GB), 회원당 주문 평균 20건, EXPLAIN ANALYZE 21회 중 첫 회를 뺀 중앙값 (`bench/measure-orders.ps1`)
+  - 한계: 키워드 LIKE 검색은 `created_at` 인덱스를 타면서 오히려 2~4배 느려짐 → 키워드 검색 시에는 인덱스를 쓰지 않도록 분리 필요
+
+### 4. 그 밖의 개선
+
+#### 장바구니 조회 N+1 (`GET /cart`)
+- **문제**: CartProduct마다 Product, Image 추가 쿼리 발생
+  - 300 VU 기준 cart_duration p95=1,191ms
+- **해결**: JPQL DTO 프로젝션으로 Product, mainImage 필요한 부분만 한 번에 조회해 N+1 제거
+- **결과**: p95 1,191ms → 19.9ms (약 98% 개선, 300 VU)
+
+#### 장바구니 주문 준비 쿼리 (`POST /pay/prepare`)
+- **문제**: 장바구니 상품 N개를 주문하면 주문상품 INSERT와 SELECT가 상품 수만큼 발생
+- **해결**: 장바구니 상품을 `IN` 절로 한 번에 조회하고, 주문상품·주문-장바구니 연결 행은 JDBC Batch INSERT(`rewriteBatchedStatements`)로 저장
+- **결과**: 상품 수와 관계없이 요청당 INSERT 3회(주문 1 + 주문상품 1 + 연결 1), SELECT 2회로 일정
+
+  | 장바구니 상품 수 | INSERT (전 → 후) | p95 (전 → 후) |
+  |---|---|---|
+  | 1개 | 3 → 3 | 30.4ms → 27.7ms |
+  | 5개 | 11 → 3 | 30.4ms → 24.4ms |
+  | 10개 | 21 → 3 | 29.7ms → 22.4ms |
+  | 20개 | 41 → 3 | 34.2ms → 23.5ms |
+
+  - 측정 조건: 앱·MySQL 각각 2 vCPU / 1GiB, 초당 20건 고정으로 60초 요청(k6), 조건당 1회 실행이라 몇 ms 차이는 오차 범위일 수 있음
+
+#### 재고 차감 원자적 처리
+- **문제**: 재고 확인(SELECT) 후 차감(UPDATE)을 별도로 수행하는 구조에서 동시 요청 시 재고 정합성 문제 발생
+- **해결**: 재고 확인·차감을 단일 쿼리로 합쳐 원자적으로 처리
+  - `UPDATE ... WHERE stock >= qty` → 차감된 행 수가 주문 옵션 수보다 적으면 재고 부족으로 롤백
+  - 여러 옵션을 주문하면 옵션별 수량을 UNION ALL 서브쿼리로 묶어 `product_option`과 조인한 UPDATE 1회로 차감
+- **결과**: avg 4,345ms → 1,012ms (약 76.7% 개선, 동시 스레드 100 기준)
 
 #### 중복 결제 요청
 - **문제**: 결제 확정 요청이 중복으로 들어올 경우, 두 요청이 동시에 검증을 통과하면서 결제가 중복 처리되는 문제 발생
 - **해결**: `@Lock(PESSIMISTIC_WRITE)`로 주문 레코드에 X락 적용 → 선행 트랜잭션 커밋 후 후행 트랜잭션이 변경된 상태를 읽어 중복 처리 차단
 
-### 3. 주문 확정 쿼리 최적화 (`POST /pay/confirm`)
-- **문제**: 상품 N개 주문 확정 시 JPA cascade로 order_product INSERT N회 발행
-- **해결**: `jdbcTemplate.batchUpdate()`로 Batch INSERT 적용 → INSERT 1회
-- **결과**: p95 2,858ms → 1,959ms (약 31% 개선, 100 VU / 상품 30개 기준)
-
-### 4. DB 인덱스 최적화
-
-#### 주문 내역 페이징 (`idx_order_user_create`)
-- **문제**: 주문 내역 최신순 조회 시 user_id 인덱스로 해당 유저의 전체 주문을 읽은 뒤 filesort 발생
-- **해결**: `(user_id, created_at)` 복합 인덱스 추가 → 인덱스 자체가 정렬 순서를 보장하므로 별도 정렬 불필요
-- **결과**: 쿼리 실행 시간 50.7ms → 0.105ms (약 99% 개선, 50K rows 기준)
-
-#### 상품 가격 범위 검색 (`idx_product_price`)
-- **문제**: 가격 범위 조건으로 검색 시 table full scan 발생
-- **해결**: `price` 컬럼 인덱스 추가 → 조건에 맞는 row만 바로 탐색
-- **결과**: 쿼리 실행 시간 39.8ms → 12.1ms (70% 개선, 110K rows 기준)
-
-### 5. Redis 캐시 적용 (인기 상품)
+#### Redis 캐시 적용 (인기 상품)
 - **문제**: 인기 상품 조회 시 매 요청마다 DB 직접 조회
 - **해결**: Redis 캐시 적용 + 분산 락 + Double-Check 패턴으로 Cache Stampede 문제 방지
 - **결과**: p95 756ms → 386ms (약 49% 개선, 500 VU)
+
+#### 쿼리 개수 모니터링
+- `StatementInspector`로 요청별 쿼리 수를 카운트하고 Prometheus 메트릭으로 기록
+- N+1 재발 시 런타임에 감지 가능 (JdbcTemplate으로 실행한 쿼리는 집계되지 않음)
 
 
 ### 환경 변수
 
 | 변수 | 설명 |
 |------|------|
+| `SPRING_PROFILES_ACTIVE` | 실행 프로필 |
 | `SPRING_DATASOURCE_URL` | MySQL 접속 URL |
 | `SPRING_DATASOURCE_USERNAME` | DB 사용자명 |
 | `SPRING_DATASOURCE_PASSWORD` | DB 비밀번호 |
@@ -160,3 +176,4 @@ Spring Boot 기반 이커머스 플랫폼을 직접 구현하며 주문, 결제,
 | `NAVER_CLIENT_ID` | 네이버 OAuth 클라이언트 ID |
 | `NAVER_CLIENT_SECRET` | 네이버 OAuth 클라이언트 시크릿 |
 | `TOSS_SECRET_KEY` | Toss Payments 시크릿 키 |
+| `TOSS_CLIENT_KEY` | Toss Payments 클라이언트 키 (결제 위젯) |

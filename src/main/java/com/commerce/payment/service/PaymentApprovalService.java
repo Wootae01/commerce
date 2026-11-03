@@ -34,7 +34,8 @@ public class PaymentApprovalService {
 	private final TossPaymentClient tossPaymentClient;
 	private final PaymentTxService paymentTxService;
 
-	// PAYMENT_PENDING 주문의 승인을 요청하고 반영한 뒤 주문 상태를 돌려준다(다른 요청이 먼저 반영했으면 그 상태). 응답을 모르면(끊김·타임아웃·5xx) 같은 키로 최대 maxRetries번 다시 요청한다
+	// PAYMENT_PENDING 주문의 승인을 요청하고 반영한 뒤 주문 상태를 돌려준다(다른 요청이 먼저 반영했으면 그 상태)
+	// 응답을 모르면(끊김·타임아웃·5xx) 같은 키로 최대 maxRetries번 다시 요청한다
 	public ApprovalResult approve(PayConfirmDTO req, int maxRetries) {
 		long startTime = System.currentTimeMillis();
 		JsonNode tossResponse;
@@ -67,6 +68,8 @@ public class PaymentApprovalService {
 		for (int retry = 0; ; retry++) {
 			try {
 				return tossPaymentClient.confirm(req);
+
+				// 응답을 못받거나 5xx 에러를 받은 경우
 			} catch (WebClientRequestException | TossApiException e) {
 				if (!isTossUnreachable(e) || retry >= maxRetries) {
 					throw e;
