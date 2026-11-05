@@ -112,6 +112,26 @@ class PaymentInfoReadTest extends PaymentIntegrationTestSupport {
 	}
 
 	@Test
+	@DisplayName("관리자 검색 결과가 여러 페이지면 전체 건수는 검색 조건대로 센다(결제 전 주문도 센다)")
+	void adminSearch_multiplePages_totalCountFollowsCondition() {
+		// given - 카드 2건, 간편결제 1건, 결제 전 1건
+		paidOrder("카드");
+		paidOrder("카드");
+		paidOrder("간편결제");
+		prepareOrder();
+		AdminOrderSearchCond card = new AdminOrderSearchCond();
+		card.setPaymentType(PaymentType.CARD);
+
+		// when - 한 페이지에 1건씩이라 전체 건수를 따로 센다
+		Page<AdminOrderListResponseDTO> all = orderService.getOrderList(new AdminOrderSearchCond(), PageRequest.of(0, 1));
+		Page<AdminOrderListResponseDTO> cardOnly = orderService.getOrderList(card, PageRequest.of(0, 1));
+
+		// then
+		assertThat(all.getTotalElements()).as("전체").isEqualTo(4);
+		assertThat(cardOnly.getTotalElements()).as("카드").isEqualTo(2);
+	}
+
+	@Test
 	@DisplayName("관리자 주문 목록의 쿼리 수는 주문 수와 상관없이 같다(결제 수단을 주문마다 따로 읽지 않는다)")
 	void adminSearch_queryCountIndependentOfOrderCount() {
 		// given

@@ -96,20 +96,6 @@ public interface OrderRepository extends JpaRepository<Orders, Long> {
 		and (:startDateTime is null or o.createdAt >= :startDateTime)
 		and (:endDateTime is null or o.createdAt <= :endDateTime)
 		order by o.createdAt desc
-	""", countQuery = """
-		select count(o)
-		from Orders o
-		join o.user u
-		left join Payment p on p.order = o
-		where (:orderStatus is null or o.orderStatus = :orderStatus)
-		and (:paymentType is null or p.paymentType = :paymentType)
-		and (:keyword is null
-			or o.orderNumber like concat('%', :keyword, '%')
-			or u.name like concat('%', :keyword, '%')
-			or o.receiverPhone like concat('%', :keyword, '%')
-			)
-		and (:startDateTime is null or o.createdAt >= :startDateTime)
-		and (:endDateTime is null or o.createdAt <= :endDateTime)
 	""")
 	Page<AdminOrderRow> searchAdminOrders(@Param("keyword") String keyword,
 		@Param("startDateTime") LocalDateTime startDateTime,
