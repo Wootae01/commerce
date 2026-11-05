@@ -111,9 +111,8 @@ public class OrderApiController {
 	@GetMapping("/{orderNumber}")
 	public ResponseEntity<GeneralResponse<OrderDetailResponseDTO>> getOrder(@PathVariable String orderNumber) {
 		User user = securityUtil.getCurrentUser();
-		Orders order = orderService.findMyOrder(orderNumber, user.getId());
 		return GeneralResponse.toResponseEntity(GeneralResponseCode.OK,
-			orderMapper.toOrderDetailResponseDTO(order, user));
+			orderService.getMyOrderDetail(orderNumber, user));
 	}
 
 	// 결제한 주문이면 토스 결제 취소까지 진행한다.

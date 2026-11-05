@@ -28,7 +28,6 @@ import com.commerce.order.dto.OrderPrepareResponseDTO;
 import com.commerce.order.service.OrderService;
 import com.commerce.payment.dto.CancelResponseDTO;
 import com.commerce.payment.dto.PayConfirmDTO;
-import com.commerce.payment.dto.PaySuccessDTO;
 import com.commerce.payment.service.PayService;
 
 import jakarta.validation.Valid;
@@ -59,9 +58,7 @@ public class PayController {
 	@GetMapping("/success")
 	public String success(@RequestParam("orderId") String orderNumber, Model model) {
 		Long userId = securityUtil.getCurrentUser().getId();
-		Orders order = orderService.findMyOrder(orderNumber, userId);
-
-		model.addAttribute("success", PaySuccessDTO.from(order));
+		model.addAttribute("success", payService.getPaymentResult(orderNumber, userId));
 
 		return "pay-success";
 	}

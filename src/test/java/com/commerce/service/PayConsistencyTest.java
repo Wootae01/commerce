@@ -144,7 +144,7 @@ class PayConsistencyTest extends PaymentIntegrationTestSupport {
 		assertThat(result).isEqualTo(OrderStatus.PAID);
 		Orders after = orderRepository.findByOrderNumber(order.getOrderNumber()).orElseThrow();
 		assertThat(after.getOrderStatus()).isEqualTo(OrderStatus.PAID);
-		assertThat(after.getPaymentKey()).isEqualTo(req.getPaymentKey());
+		assertThat(paymentRepository.findByOrderId(after.getId()).orElseThrow().getPaymentKey()).isEqualTo(req.getPaymentKey());
 		assertThat(stock()).isEqualTo(INITIAL_STOCK - 1);
 		verify(2, postRequestedFor(urlEqualTo("/v1/payments/confirm")));
 		verify(1, getRequestedFor(urlEqualTo("/v1/payments/" + req.getPaymentKey())));
@@ -201,7 +201,7 @@ class PayConsistencyTest extends PaymentIntegrationTestSupport {
 		assertThat(result).isEqualTo(OrderStatus.PAID);
 		Orders after = orderRepository.findByOrderNumber(order.getOrderNumber()).orElseThrow();
 		assertThat(after.getOrderStatus()).isEqualTo(OrderStatus.PAID);
-		assertThat(after.getPaymentKey()).isEqualTo(req.getPaymentKey());
+		assertThat(paymentRepository.findByOrderId(after.getId()).orElseThrow().getPaymentKey()).isEqualTo(req.getPaymentKey());
 		assertThat(stock()).isEqualTo(INITIAL_STOCK - 1);
 		verify(2, postRequestedFor(urlEqualTo("/v1/payments/confirm"))
 			.withHeader("Idempotency-Key", equalTo(order.getOrderNumber())));

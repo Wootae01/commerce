@@ -59,7 +59,7 @@ public class PaymentApprovalService {
 		log.info("request toss duration in confirm: {}", System.currentTimeMillis() - startTime);
 
 		// 장바구니 삭제, 결제 일시, 상태 변경
-		return new ApprovalResult(paymentTxService.applyPaymentSuccess(req.getOrderId(), tossResponse, req.getPaymentKey()), false);
+		return new ApprovalResult(paymentTxService.applyPaymentSuccess(req.getOrderId(), tossResponse), false);
 	}
 
 	// 토스는 같은 멱등키의 승인을 한 번만 처리하고 같은 응답을 돌려주므로, 다시 요청해도 이중 승인이 생기지 않는다
@@ -101,7 +101,7 @@ public class PaymentApprovalService {
 		switch (status) {
 			case "DONE" -> {
 				log.info("Toss 결제 확인됨, 승인 처리: orderId={}", req.getOrderId());
-				return paymentTxService.applyPaymentSuccess(req.getOrderId(), payment, req.getPaymentKey());
+				return paymentTxService.applyPaymentSuccess(req.getOrderId(), payment);
 			}
 			case "ABORTED", "EXPIRED", "CANCELED" -> {
 				log.info("Toss 결제 실패 확인, 재고 복원: orderId={}, status={}", req.getOrderId(), status);

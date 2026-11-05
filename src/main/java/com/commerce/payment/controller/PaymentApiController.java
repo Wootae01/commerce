@@ -14,8 +14,6 @@ import com.commerce.common.dto.GeneralResponse;
 import com.commerce.common.enums.OrderStatus;
 import com.commerce.common.exception.ApiException;
 import com.commerce.common.util.SecurityUtil;
-import com.commerce.order.domain.Orders;
-import com.commerce.order.service.OrderService;
 import com.commerce.payment.dto.PayConfirmDTO;
 import com.commerce.payment.dto.PaySuccessDTO;
 import com.commerce.payment.service.PayService;
@@ -30,7 +28,6 @@ import lombok.extern.slf4j.Slf4j;
 public class PaymentApiController {
 
 	private final PayService payService;
-	private final OrderService orderService;
 	private final SecurityUtil securityUtil;
 
 	// 토스 결제창에서 돌아온 뒤 결제 승인
@@ -46,15 +43,13 @@ public class PaymentApiController {
 			throw new ApiException(code);
 		}
 
-		Orders order = orderService.findMyOrder(request.getOrderId(), userId);
-		return GeneralResponse.toResponseEntity(code, PaySuccessDTO.from(order));
+		return GeneralResponse.toResponseEntity(code, payService.getPaymentResult(request.getOrderId(), userId));
 	}
 
 	// 결제 결과 조회
 	@GetMapping("/{orderNumber}")
 	public ResponseEntity<GeneralResponse<PaySuccessDTO>> getPayment(@PathVariable String orderNumber) {
 		Long userId = securityUtil.getCurrentUser().getId();
-		Orders order = orderService.findMyOrder(orderNumber, userId);
-		return GeneralResponse.toResponseEntity(GeneralResponseCode.OK, PaySuccessDTO.from(order));
+		return GeneralResponse.toResponseEntity(GeneralResponseCode.OK, payService.getPaymentResult(orderNumber, userId));
 	}
 }

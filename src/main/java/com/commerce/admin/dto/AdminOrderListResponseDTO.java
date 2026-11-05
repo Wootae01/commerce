@@ -4,7 +4,7 @@ import java.time.LocalDateTime;
 
 import com.commerce.common.enums.OrderStatus;
 import com.commerce.common.enums.PaymentType;
-import com.commerce.order.domain.Orders;
+import com.commerce.order.dto.AdminOrderRow;
 
 import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
@@ -28,18 +28,16 @@ public class AdminOrderListResponseDTO {
 	private int totalPrice;
 	private OrderStatus orderStatus;
 
-	public static AdminOrderListResponseDTO from(Orders order) {
-		PaymentType paymentType = order.getPaymentType();
-
+	public static AdminOrderListResponseDTO from(AdminOrderRow row) {
 		return AdminOrderListResponseDTO.builder()
-			.id(order.getId())
-			.buyerName(order.getUser().getName())
-			.orderPhone(order.getReceiverPhone())
-			.paymentType(paymentType == null ? PaymentType.UNKNOWN.getText() : paymentType.getText())
-			.orderDate(order.getCreatedAt())
-			.orderNumber(order.getOrderNumber())
-			.orderStatus(order.getOrderStatus())
-			.totalPrice(order.getFinalPrice())
+			.id(row.orderId())
+			.buyerName(row.buyerName())
+			.orderPhone(row.receiverPhone())
+			.paymentType(PaymentType.textOf(row.paymentType()))
+			.orderDate(row.orderDate())
+			.orderNumber(row.orderNumber())
+			.orderStatus(row.orderStatus())
+			.totalPrice(row.finalPrice())
 			.build();
 	}
 }

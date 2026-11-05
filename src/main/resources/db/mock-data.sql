@@ -90,8 +90,8 @@
 
     -- order 50개 삽입
     INSERT INTO orders (
-        order_number, payment_key, user_id, final_price, order_name,
-        payment_type, order_status, approved_at, receiver_name,
+        order_number, user_id, final_price, order_name,
+        order_status, receiver_name,
         receiver_address, order_address_detail, receiver_phone, order_type, created_at, updated_at
     )
     WITH RECURSIVE seq(n) AS (
@@ -104,13 +104,10 @@
         )
     SELECT
         UUID()                                 AS order_number,
-        UUID()                                  AS payment_key,
         u.user_id                              AS user_id,
         30000                                  AS final_price,
         'N+1 TEST ORDER'                       AS order_name,
-        'EASY_PAY'                             AS payment_type,
         'PAID'                                 AS order_status,
-        NOW()                                  AS approved_at,
         '홍길동'                               AS receiver_name,
         '서울시 테스트구 테스트로 123'           AS receiver_address,
         '101동 101호'                          AS order_address_detail,
@@ -120,6 +117,12 @@
         NOW()                                   AS updated_at
     FROM u
     CROSS JOIN seq;
+
+    -- 결제완료 주문의 결제 정보 삽입
+    INSERT INTO payment (order_id, payment_key, amount, payment_type, approved_at, created_at, updated_at)
+    SELECT order_id, UUID(), final_price, 'EASY_PAY', NOW(), NOW(), NOW()
+    FROM orders
+    WHERE order_name = 'N+1 TEST ORDER';
 
     -- orderProduct 삽입
     INSERT INTO order_product (order_id, product_id, quantity, price, created_at, updated_at)

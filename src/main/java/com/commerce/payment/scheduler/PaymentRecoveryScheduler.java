@@ -3,7 +3,10 @@ package com.commerce.payment.scheduler;
 import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 import org.springframework.data.domain.Limit;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -12,7 +15,9 @@ import org.springframework.stereotype.Component;
 import com.commerce.common.enums.OrderStatus;
 import com.commerce.order.domain.Orders;
 import com.commerce.order.repository.OrderRepository;
+import com.commerce.payment.domain.Payment;
 import com.commerce.payment.dto.PayConfirmDTO;
+import com.commerce.payment.repository.PaymentRepository;
 import com.commerce.payment.service.ApprovalResult;
 import com.commerce.payment.service.PaymentApprovalService;
 
@@ -51,6 +56,7 @@ public class PaymentRecoveryScheduler {
 
 	private final OrderRepository orderRepository;
 	private final PaymentApprovalService paymentApprovalService;
+	private final PaymentRepository paymentRepository;
 
 	@Scheduled(fixedDelay = 1, timeUnit = TimeUnit.MINUTES)
 	public void recoverPendingPayments() {
@@ -64,9 +70,13 @@ public class PaymentRecoveryScheduler {
 		}
 
 		log.info("결제 보정 시작: 대상 {}건", orders.size());
+		Map<Long, Payment> paymentByOrderId = paymentRepository.findByOrderIdIn(
+				orders.stream().map(Orders::getId).toList()).stream()
+			.collect(Collectors.toMap(payment -> payment.getOrder().getId(), Function.identity()));
 		int consecutiveUnreachable = 0;
 		for (int i = 0; i < orders.size(); i++) {
-			boolean unreachable = recover(orders.get(i), now);
+			Orders order = orders.get(i);
+			boolean unreachable = recover(order, paymentByOrderId.get(order.getId()), now);
 			consecutiveUnreachable = unreachable ? consecutiveUnreachable + 1 : 0;
 			if (consecutiveUnreachable >= MAX_CONSECUTIVE_UNREACHABLE) {
 				// 처리하지 못한 주문은 last_recovery_at이 그대로라 다음 실행에서 먼저 처리된다
@@ -78,11 +88,16 @@ public class PaymentRecoveryScheduler {
 	}
 
 	// 토스와 통신하지 못했으면 true
-	private boolean recover(Orders order, LocalDateTime now) {
+	private boolean recover(Orders order, Payment payment, LocalDateTime now) {
 		LocalDateTime previousRecoveryAt = order.getLastRecoveryAt();
-		PayConfirmDTO req = new PayConfirmDTO(order.getPaymentKey(), order.getOrderNumber(), order.getFinalPrice());
 		try {
+			// 차례를 먼저 넘긴다. 아래에서 실패해도 같은 주문이 앞자리를 계속 차지하지 않는다
 			orderRepository.markRecoveryAttempted(order.getId(), now);
+			// PAYMENT_PENDING이 될 때 결제가 함께 만들어지므로 없으면 데이터가 어긋난 것이다
+			if (payment == null) {
+				throw new IllegalStateException("결제 진행 중인 주문에 결제 정보가 없습니다.");
+			}
+			PayConfirmDTO req = new PayConfirmDTO(payment.getPaymentKey(), order.getOrderNumber(), payment.getAmount());
 			ApprovalResult result = paymentApprovalService.approve(req, RECOVERY_MAX_RETRIES);
 			log.info("결제 보정 결과: orderNumber={}, status={}", order.getOrderNumber(), result.status());
 			if (result.status() == OrderStatus.PAYMENT_PENDING) {

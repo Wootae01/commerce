@@ -16,7 +16,6 @@ import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 import org.springframework.web.util.UriUtils;
 
 import com.commerce.common.exception.ApiException;
-import com.commerce.order.domain.Orders;
 import com.commerce.common.enums.OrderStatus;
 import com.commerce.admin.dto.AdminOrderListResponseDTO;
 import com.commerce.admin.dto.AdminOrderSearchCond;
@@ -40,13 +39,9 @@ public class AdminOrderController {
 			cond.getKeyword(), cond.getOrderStatus(), cond.getPaymentType(),
 			cond.getStartDate(), cond.getEndDate());
 
-		// 1. 모든 주문 찾아서 dto로 변환
 		int size = 20; // page size
-		Page<Orders> pageOrder = orderService.getOrderList(cond, PageRequest.of(page, size));
-		List<AdminOrderListResponseDTO> dtos = pageOrder.getContent().stream()
-			.map(AdminOrderListResponseDTO::from)
-			.toList();
-		model.addAttribute("orders", dtos);
+		Page<AdminOrderListResponseDTO> pageOrder = orderService.getOrderList(cond, PageRequest.of(page, size));
+		model.addAttribute("orders", pageOrder.getContent());
 		model.addAttribute("page", pageOrder);
 
 		String qs = buildQs(cond);

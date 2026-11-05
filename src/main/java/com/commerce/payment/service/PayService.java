@@ -5,8 +5,11 @@ import com.commerce.common.code.GeneralResponseCode;
 import com.commerce.common.exception.ApiException;
 import com.commerce.order.domain.Orders;
 import com.commerce.order.service.OrderService;
+import com.commerce.payment.domain.Payment;
 import com.commerce.payment.dto.CancelResponseDTO;
+import com.commerce.payment.repository.PaymentRepository;
 import com.commerce.payment.dto.PayConfirmDTO;
+import com.commerce.payment.dto.PaySuccessDTO;
 import com.commerce.payment.external.TossPaymentClient;
 import com.fasterxml.jackson.databind.JsonNode;
 import lombok.RequiredArgsConstructor;
@@ -30,6 +33,7 @@ public class PayService {
 	private final PaymentTxService paymentTxService;
 	private final TossPaymentClient tossPaymentClient;
 	private final PaymentApprovalService paymentApprovalService;
+	private final PaymentRepository paymentRepository;
 
 	public CancelResponseDTO cancel(String orderNumber, String cancelReason, Long userId) {
 		Orders order = orderService.findMyOrder(orderNumber, userId);
@@ -89,10 +93,21 @@ public class PayService {
 		return paymentApprovalService.approve(req, CONFIRM_MAX_RETRIES).status();
 	}
 
+	// 결제 결과(결제 완료 화면, 확정 응답, 결제 대기 화면 폴링)
+	public PaySuccessDTO getPaymentResult(String orderNumber, Long userId) {
+		Orders order = orderService.findMyOrder(orderNumber, userId);
+		Payment payment = paymentRepository.findByOrderId(order.getId()).orElse(null);
+		return PaySuccessDTO.from(order, payment);
+	}
+
 	private boolean isAlreadyRequested(Orders order, PayConfirmDTO req) {
 		OrderStatus status = order.getOrderStatus();
-		return (status == OrderStatus.PAID || status == OrderStatus.PAYMENT_PENDING)
-			&& Objects.equals(order.getPaymentKey(), req.getPaymentKey());
+		if (status != OrderStatus.PAID && status != OrderStatus.PAYMENT_PENDING) {
+			return false;
+		}
+		return paymentRepository.findByOrderId(order.getId())
+			.map(payment -> Objects.equals(payment.getPaymentKey(), req.getPaymentKey()))
+			.orElse(false);
 	}
 
 	private void validatePayment(Orders order, PayConfirmDTO req) {

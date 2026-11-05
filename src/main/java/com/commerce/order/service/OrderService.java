@@ -29,9 +29,15 @@ import com.commerce.product.domain.ProductOption;
 import com.commerce.user.domain.User;
 import com.commerce.common.enums.OrderStatus;
 import com.commerce.common.enums.OrderType;
+import com.commerce.common.enums.PaymentType;
+import com.commerce.payment.domain.Payment;
+import com.commerce.payment.repository.PaymentRepository;
+import com.commerce.admin.dto.AdminOrderListResponseDTO;
 import com.commerce.admin.dto.AdminOrderSearchCond;
 import com.commerce.order.dto.OrderCartProductRow;
 import com.commerce.order.dto.OrderCreateRequestDTO;
+import com.commerce.order.dto.OrderDetailResponseDTO;
+import com.commerce.order.dto.OrderMapper;
 import com.commerce.order.dto.OrderHeaderRow;
 import com.commerce.order.dto.OrderItemRow;
 import com.commerce.order.dto.OrderProductResponseDTO;
@@ -65,7 +71,8 @@ public class OrderService {
 	private final OrderProductJdbcRepository orderProductJdbcRepository;
 	private final OrderCartProductJdbcRepository orderCartProductJdbcRepository;
 	private final ProductImageUtil productImageUtil;
-
+	private final OrderMapper orderMapper;
+	private final PaymentRepository paymentRepository;
 
 	@Value("${app.image.default-path}")
 	private String imageDefaultPath;
@@ -151,7 +158,8 @@ public class OrderService {
 		}
 	}
 
-	public Page<Orders> getOrderList(AdminOrderSearchCond cond, Pageable pageable) {
+	// 관리자 주문 검색
+	public Page<AdminOrderListResponseDTO> getOrderList(AdminOrderSearchCond cond, Pageable pageable) {
 		LocalDateTime start = null;
 		LocalDateTime end = null;
 		if (cond.getStartDate() != null) {
@@ -161,7 +169,8 @@ public class OrderService {
 			end = cond.getEndDate().atTime(LocalTime.MAX);
 		}
 		return orderRepository.searchAdminOrders(cond.getKeyword(), start, end,
-			cond.getOrderStatus(), cond.getPaymentType(), pageable);
+			cond.getOrderStatus(), cond.getPaymentType(), pageable)
+			.map(AdminOrderListResponseDTO::from);
 	}
 
 	public Orders findByOrderNumber(String orderNumber) {
@@ -179,6 +188,15 @@ public class OrderService {
 			throw new ApiException(GeneralResponseCode.ORDER_NOT_FOUND);
 		}
 		return order;
+	}
+
+	// 구매자 주문 상세(화면·API)
+	public OrderDetailResponseDTO getMyOrderDetail(String orderNumber, User user) {
+		Orders order = findMyOrder(orderNumber, user.getId());
+		PaymentType paymentType = paymentRepository.findByOrderId(order.getId())
+			.map(Payment::getPaymentType)
+			.orElse(null);
+		return orderMapper.toOrderDetailResponseDTO(order, paymentType, user);
 	}
 
 	/**
@@ -305,7 +323,6 @@ public class OrderService {
 			.receiverName(dto.getName())
 			.receiverPhone(dto.getPhone())
 			.requestNote(dto.getRequestNote())
-			.paymentType(null)
 			.orderType(orderType)
 			.orderStatus(orderStatus)
 			.user(securityUtil.getCurrentUser())
