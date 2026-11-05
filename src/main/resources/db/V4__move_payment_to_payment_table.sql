@@ -14,9 +14,15 @@ WHERE o.payment_key IS NOT NULL
 );
 
 -- Step 2: 확인. 두 숫자가 같아야 한다. 다르면 Step 3을 실행하지 않는다.
+--         payment 전체 행 수와 비교하지 않는다. 배포 후 이 스크립트 전에 시작된 결제는 payment에만 있고
+--         orders.payment_key는 비어 있어서, 전체와 비교하면 정상인데도 숫자가 어긋난다.
+--         그래서 orders의 payment_key와 같은 키로 옮겨진 행만 센다.
 SELECT
     (SELECT COUNT(*) FROM orders WHERE payment_key IS NOT NULL) AS orders_with_payment,
-    (SELECT COUNT(*) FROM payment) AS payments;
+    (SELECT COUNT(*)
+     FROM orders o
+     JOIN payment p ON p.order_id = o.order_id AND p.payment_key = o.payment_key
+     WHERE o.payment_key IS NOT NULL) AS copied_payments;
 
 -- Step 3: orders의 결제 컬럼 삭제. (ddl-auto=update는 컬럼을 지우지 않는다)
 --         payment_key의 unique 제약(인덱스)은 컬럼과 함께 지워진다.
