@@ -28,9 +28,11 @@ public class TossApiException extends ApiException {
 	}
 
 	// 승인 여부를 알 수 없는 응답. 401은 멱등키에 저장되지 않고(#10), 429·5xx는 토스 쪽 상황이라 결제 조회로 확인한다
+	// ALREADY_PROCESSED_PAYMENT는 거절이 아니라 이미 처리됐다는 뜻이라, 취소하지 않고 조회로 실제 상태를 확인한다(#34)
 	public boolean isResultUnknown() {
 		int status = tossStatus.value();
-		return status == 401 || status == 429 || tossStatus.is5xxServerError();
+		return status == 401 || status == 429 || tossStatus.is5xxServerError()
+			|| "ALREADY_PROCESSED_PAYMENT".equals(tossCode);
 	}
 
 	// 같은 멱등키의 이전 요청을 토스가 아직 처리 중

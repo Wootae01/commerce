@@ -74,6 +74,34 @@ class PaymentRecoverySchedulerTest extends PaymentIntegrationTestSupport {
 	}
 
 	@Test
+	@DisplayName("다시 요청한 승인이 400 ALREADY_PROCESSED_PAYMENT면 취소하지 않고 결제를 조회해, 승인(DONE)돼 있으면 PAID로 확정한다")
+	void pendingOverOneMinute_alreadyProcessed_queryDone_paid() {
+		// given
+		Orders order = pendingOrder();
+		PayConfirmDTO req = confirmRequestOf(order);
+		markUpdatedAt(order, LocalDateTime.now().minusMinutes(2));
+		stubConfirm(400, """
+			{ "code": "ALREADY_PROCESSED_PAYMENT", "message": "이미 처리된 결제 입니다." }
+			""");
+		stubFor(get(urlEqualTo("/v1/payments/" + req.getPaymentKey()))
+			.willReturn(aResponse()
+				.withStatus(200)
+				.withHeader("Content-Type", "application/json")
+				.withBody("""
+					{ "status": "DONE", "method": "카드", "approvedAt": "2026-01-03T01:23:45+09:00" }
+					""")));
+
+		// when
+		paymentRecoveryScheduler.recoverPendingPayments();
+
+		// then
+		Orders after = orderRepository.findByOrderNumber(order.getOrderNumber()).orElseThrow();
+		assertThat(after.getOrderStatus()).isEqualTo(OrderStatus.PAID);
+		assertThat(stock()).isEqualTo(INITIAL_STOCK - 1);
+		verify(1, getRequestedFor(urlEqualTo("/v1/payments/" + req.getPaymentKey())));
+	}
+
+	@Test
 	@DisplayName("다시 요청한 승인이 5xx면 그 실행에서는 바로 재요청하지 않고 결제 조회로 확인한다")
 	void pendingOverOneMinute_serverError_noImmediateRetry() {
 		// given

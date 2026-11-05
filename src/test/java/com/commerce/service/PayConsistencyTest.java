@@ -261,6 +261,35 @@ class PayConsistencyTest extends PaymentIntegrationTestSupport {
 		verify(0, getRequestedFor(urlEqualTo("/v1/payments/" + req.getPaymentKey())));
 	}
 
+	@Test
+	@DisplayName("승인 요청이 400 ALREADY_PROCESSED_PAYMENT(이미 처리된 결제)면 취소하지 않고 결제를 조회해, 승인(DONE)돼 있으면 PAID를 돌려준다")
+	void alreadyProcessed_queryDone_paid() {
+		// given - 멱등키로 다시 요청하면 오지 않는 응답이지만, 멱등키 저장이 어긋나는 예외 상황 대비
+		Orders order = prepareOrder();
+		PayConfirmDTO req = new PayConfirmDTO(UUID.randomUUID().toString(), order.getOrderNumber(), order.getFinalPrice());
+		stubFor(post(urlEqualTo("/v1/payments/confirm"))
+			.willReturn(aResponse()
+				.withStatus(400)
+				.withHeader("Content-Type", "application/json")
+				.withBody("""
+					{ "code": "ALREADY_PROCESSED_PAYMENT", "message": "이미 처리된 결제 입니다." }
+					""")));
+		stubGetPayment(req.getPaymentKey(), """
+			{ "status": "DONE", "method": "카드", "approvedAt": "2026-01-03T01:23:45+09:00" }
+			""");
+
+		// when
+		OrderStatus result = payService.confirm(req, userId);
+
+		// then - 토스에서는 결제 완료 → 재고를 복원하지 않고 PAID
+		assertThat(result).isEqualTo(OrderStatus.PAID);
+		Orders after = orderRepository.findByOrderNumber(order.getOrderNumber()).orElseThrow();
+		assertThat(after.getOrderStatus()).isEqualTo(OrderStatus.PAID);
+		assertThat(stock()).isEqualTo(INITIAL_STOCK - 1);
+		verify(1, postRequestedFor(urlEqualTo("/v1/payments/confirm"))); // 4xx라 바로 재요청하지 않는다
+		verify(1, getRequestedFor(urlEqualTo("/v1/payments/" + req.getPaymentKey())));
+	}
+
 	@ParameterizedTest(name = "조회 {0} → {1}, 재고 {2}")
 	@CsvSource({
 		"DONE, PAID, 9",
