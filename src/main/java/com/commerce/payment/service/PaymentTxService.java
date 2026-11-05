@@ -20,6 +20,8 @@ import com.commerce.common.enums.PaymentType;
 import com.commerce.cart.repository.CartProductRepository;
 import com.commerce.order.repository.OrderProductRepository;
 import com.commerce.order.repository.OrderRepository;
+import com.commerce.payment.domain.Payment;
+import com.commerce.payment.repository.PaymentRepository;
 import com.commerce.product.repository.ProductJdbcRepository;
 import com.fasterxml.jackson.databind.JsonNode;
 
@@ -36,6 +38,7 @@ public class PaymentTxService {
 	private final CartProductRepository cartProductRepository;
 	private final OrderProductRepository orderProductRepository;
 	private final ProductJdbcRepository productJdbcRepository;
+	private final PaymentRepository paymentRepository;
 
 	// 재고 수정. 재고는 옵션에 있다.
 	@Transactional
@@ -59,7 +62,10 @@ public class PaymentTxService {
 			.orElseThrow(() -> new ApiException(GeneralResponseCode.ORDER_NOT_FOUND));
 
 		order.requestCancel();
-		return order.getPaymentKey();
+		// 결제를 시도하지 않은 주문(READY)에는 결제가 없다
+		return paymentRepository.findByOrderId(orderId)
+			.map(Payment::getPaymentKey)
+			.orElse(null);
 	}
 
 	// 취소 완료: 상태 변경 + 선택적 재고 복원
@@ -85,7 +91,7 @@ public class PaymentTxService {
 
 	// 결제 성공 시 장바구니 삭제, 결제 일시, 상태 변경. 반영 후 주문 상태를 돌려준다
 	@Transactional
-	public OrderStatus applyPaymentSuccess(String orderNumber, JsonNode tossResponse, String paymentKey) {
+	public OrderStatus applyPaymentSuccess(String orderNumber, JsonNode tossResponse) {
 		Orders order = orderRepository.findByOrderNumberWithLock(orderNumber)
 			.orElseThrow(() -> new ApiException(GeneralResponseCode.ORDER_NOT_FOUND));
 
@@ -107,10 +113,13 @@ public class PaymentTxService {
 		}
 
 		// 이미 처리된 주문(즉시 확정·보정 스케줄러 중 먼저 반영된 쪽이 있음)이면 아무것도 하지 않는다
-		if (!order.markPaid(paymentKey, paymentType, approvedAt)) {
+		if (!order.markPaid()) {
 			log.warn("이미 처리된 주문입니다. orderNumber={}, status={}", orderNumber, order.getOrderStatus());
 			return order.getOrderStatus();
 		}
+		Payment payment = paymentRepository.findByOrderId(order.getId())
+			.orElseThrow(() -> new IllegalStateException("결제 진행 중인 주문에 결제 정보가 없습니다. orderNumber=" + orderNumber));
+		payment.approve(paymentType, approvedAt);
 
 		// 장바구니 삭제 - 보정 스케줄러에는 로그인 정보가 없으므로 주문자 기준으로 지운다
 		if (order.getOrderType() == OrderType.CART) {
@@ -128,7 +137,8 @@ public class PaymentTxService {
 		Orders order = orderRepository.findByOrderNumberWithLock(orderNumber)
 			.orElseThrow(() -> new ApiException(GeneralResponseCode.ORDER_NOT_FOUND));
 
-		order.startPayment(paymentKey);
+		order.startPayment();
+		paymentRepository.save(Payment.start(order, paymentKey));
 		updateStock(order.getId(), false);
 	}
 

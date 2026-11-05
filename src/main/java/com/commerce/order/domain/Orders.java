@@ -4,7 +4,6 @@ import com.commerce.common.code.GeneralResponseCode;
 import com.commerce.common.domain.BaseUpdatableEntity;
 import com.commerce.common.enums.OrderStatus;
 import com.commerce.common.enums.OrderType;
-import com.commerce.common.enums.PaymentType;
 import com.commerce.common.exception.ApiException;
 import com.commerce.user.domain.User;
 import jakarta.persistence.*;
@@ -31,9 +30,6 @@ public class Orders extends BaseUpdatableEntity {
     @Column(unique = true, nullable = false)
     private String orderNumber;
 
-    @Column(unique = true)
-    private String paymentKey;
-
     @JoinColumn(name = "user_id")
     @ManyToOne(fetch = FetchType.LAZY)
     private User user;
@@ -49,9 +45,6 @@ public class Orders extends BaseUpdatableEntity {
     private String orderAddressDetail;
     private String receiverPhone;
     private String requestNote;
-
-    @Enumerated(EnumType.STRING)
-    private PaymentType paymentType;
 
     @Enumerated(EnumType.STRING)
     private OrderStatus orderStatus;
@@ -72,8 +65,6 @@ public class Orders extends BaseUpdatableEntity {
     @Column(name = "cart_product_id")
     private List<Long> cartProductIds = new ArrayList<>();
 
-    private LocalDateTime approvedAt; // Toss Payments 결제 승인 시각
-
     /**
      * 보정 스케줄러가 이 주문을 마지막으로 처리한 시각. 다음 차례를 정하는 데 쓴다.
      * updated_at(PENDING이 된 시각)이 바뀌지 않도록 엔티티가 아니라 벌크 update로만 바꾼다
@@ -83,7 +74,7 @@ public class Orders extends BaseUpdatableEntity {
 
     @Builder
     private Orders(User user, String orderName, int finalPrice, String receiverName, String receiverAddress, String orderNumber,
-        String receiverPhone, String orderAddressDetail, String requestNote, PaymentType paymentType, OrderStatus orderStatus, OrderType orderType) {
+        String receiverPhone, String orderAddressDetail, String requestNote, OrderStatus orderStatus, OrderType orderType) {
         this.orderNumber = orderNumber;
         this.user = user;
         this.orderName = orderName;
@@ -91,30 +82,25 @@ public class Orders extends BaseUpdatableEntity {
         this.receiverName = receiverName;
         this.receiverAddress = receiverAddress;
         this.receiverPhone = receiverPhone;
-        this.paymentType = paymentType;
         this.orderStatus = orderStatus;
         this.orderAddressDetail = orderAddressDetail;
         this.requestNote = requestNote;
         this.orderType = orderType;
     }
 
-    // 결제 확정 시작: READY → PAYMENT_PENDING. 응답을 모를 때 같은 값으로 승인을 다시 요청할 수 있게 paymentKey를 저장한다
-    public void startPayment(String paymentKey) {
+    // 결제 확정 시작: READY → PAYMENT_PENDING. 결제 정보(Payment)는 호출한 쪽이 같은 트랜잭션에서 만든다
+    public void startPayment() {
         if (orderStatus != OrderStatus.READY) {
             throw new ApiException(GeneralResponseCode.PAYMENT_ALREADY_PROCESSED);
         }
-        this.paymentKey = paymentKey;
         this.orderStatus = OrderStatus.PAYMENT_PENDING;
     }
 
     // 결제 성공 반영: PAYMENT_PENDING → PAID
-    public boolean markPaid(String paymentKey, PaymentType paymentType, LocalDateTime approvedAt) {
+    public boolean markPaid() {
         if (orderStatus != OrderStatus.PAYMENT_PENDING) {
             return false;
         }
-        this.paymentKey = paymentKey;
-        this.paymentType = paymentType;
-        this.approvedAt = approvedAt;
         this.orderStatus = OrderStatus.PAID;
         return true;
     }

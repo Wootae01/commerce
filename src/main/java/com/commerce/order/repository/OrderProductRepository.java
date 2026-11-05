@@ -39,8 +39,9 @@ public interface OrderProductRepository extends JpaRepository<OrderProduct, Long
 	  select new com.commerce.product.dto.ProductSoldRow(op.product.id, sum(op.quantity))
 	  from OrderProduct op
 	  join op.order o
+	  join Payment pay on pay.order = o
 	  where o.orderStatus in :statuses
-		and o.approvedAt >= :since
+		and pay.approvedAt >= :since
 	  group by op.product.id
 	  order by sum(op.quantity) desc
 	""")

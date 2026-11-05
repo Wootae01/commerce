@@ -24,6 +24,11 @@ public enum PaymentType {
         return this.text;
     }
 
+    // 화면 표시용. 아직 승인되지 않아 결제 수단이 없으면(null) '기타'
+    public static String textOf(PaymentType paymentType) {
+        return paymentType == null ? UNKNOWN.getText() : paymentType.getText();
+    }
+
     public static PaymentType fromTossMethod(String method) {
 
         if (method == null) return UNKNOWN;

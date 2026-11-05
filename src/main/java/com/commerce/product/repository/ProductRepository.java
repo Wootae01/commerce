@@ -110,7 +110,8 @@ public interface ProductRepository extends JpaRepository<Product, Long> {
 	from Product p
 	left join p.mainImage mi
 	left join OrderProduct op on op.product = p
-	left join op.order o on o.orderStatus in :statuses and o.approvedAt >= :since
+	left join op.order o on o.orderStatus in :statuses
+	left join Payment pay on pay.order = o and pay.approvedAt >= :since
 	where (:keyword is null or p.name like %:keyword%)
 		and (:minPrice is null or p.price >= :minPrice)
 		and (:maxPrice is null or p.price <= :maxPrice)

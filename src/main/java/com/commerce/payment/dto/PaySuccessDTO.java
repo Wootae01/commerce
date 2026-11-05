@@ -6,6 +6,7 @@ import java.time.format.DateTimeFormatter;
 import com.commerce.common.enums.OrderStatus;
 import com.commerce.common.enums.PaymentType;
 import com.commerce.order.domain.Orders;
+import com.commerce.payment.domain.Payment;
 
 import lombok.AllArgsConstructor;
 import lombok.Getter;
@@ -19,15 +20,15 @@ public class PaySuccessDTO {
 	private String approvedAt; // 화면 표시용 문자열( 2025-12-20 15:20:42)
 	private OrderStatus orderStatus; // 결제 대기 화면이 확정 결과를 폴링할 때 본다
 
-	public static PaySuccessDTO from(Orders order) {
-		LocalDateTime time = order.getApprovedAt();
+	// payment는 결제를 시도하지 않은 주문이면 null
+	public static PaySuccessDTO from(Orders order, Payment payment) {
+		LocalDateTime time = payment == null ? null : payment.getApprovedAt();
 		String approvedAtText = time != null
 			? time.format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"))
 			: "-";
-		PaymentType paymentType = order.getPaymentType();
 
 		return new PaySuccessDTO(order.getOrderNumber(), order.getFinalPrice(),
-			paymentType == null ? PaymentType.UNKNOWN.getText() : paymentType.getText(), approvedAtText,
+			PaymentType.textOf(payment == null ? null : payment.getPaymentType()), approvedAtText,
 			order.getOrderStatus());
 	}
 }

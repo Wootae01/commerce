@@ -15,7 +15,6 @@ import org.springframework.web.bind.annotation.RequestParam;
 import com.commerce.cart.domain.CartProduct;
 import com.commerce.product.domain.DeliveryPolicy;
 import com.commerce.product.domain.ProductOption;
-import com.commerce.order.domain.Orders;
 import com.commerce.product.domain.Product;
 import com.commerce.user.domain.User;
 import com.commerce.common.enums.OrderType;
@@ -117,9 +116,7 @@ public class OrderController {
     @GetMapping("/detail/{orderNumber}")
     public String orderDetail(@PathVariable String orderNumber, Model model) {
         User currentUser = securityUtil.getCurrentUser();
-        Orders order = orderService.findMyOrder(orderNumber, currentUser.getId());
-
-        OrderDetailResponseDTO dto = orderMapper.toOrderDetailResponseDTO(order, currentUser);
+        OrderDetailResponseDTO dto = orderService.getMyOrderDetail(orderNumber, currentUser);
         model.addAttribute("order", dto);
         return "order-list-detail";
     }

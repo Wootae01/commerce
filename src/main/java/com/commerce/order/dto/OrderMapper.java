@@ -106,7 +106,8 @@ public class OrderMapper {
 		return list;
 	}
 
-	public OrderDetailResponseDTO toOrderDetailResponseDTO(Orders order, User user) {
+	// paymentType은 아직 승인되지 않았거나 결제를 시도하지 않은 주문이면 null
+	public OrderDetailResponseDTO toOrderDetailResponseDTO(Orders order, PaymentType paymentType, User user) {
 		return OrderDetailResponseDTO.builder()
 			.orderNumber(order.getOrderNumber())
 			.orderDate(order.getCreatedAt())
@@ -127,8 +128,7 @@ public class OrderMapper {
 			.orderItems(toOrderItemDTOFromOrder(order.getOrderProducts()))
 			.orderPrice(new OrderPriceDTO(order.getFinalPrice(), DeliveryPolicy.DELIVERY_FEE, order.getFinalPrice() + DeliveryPolicy.DELIVERY_FEE))
 			.paymentInfo(OrderDetailResponseDTO.PaymentInfo.builder()
-				.paymentMethod(order.getPaymentType() == null
-					? PaymentType.UNKNOWN.getText() : order.getPaymentType().getText())
+				.paymentMethod(PaymentType.textOf(paymentType))
 				.orderStatus(order.getOrderStatus().getText())
 				.build())
 			.build();

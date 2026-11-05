@@ -2,7 +2,6 @@ package com.commerce.order.domain;
 
 import static org.assertj.core.api.Assertions.*;
 
-import java.time.LocalDateTime;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -13,7 +12,6 @@ import org.junit.jupiter.params.provider.EnumSource;
 
 import com.commerce.common.code.GeneralResponseCode;
 import com.commerce.common.enums.OrderStatus;
-import com.commerce.common.enums.PaymentType;
 import com.commerce.common.exception.ApiException;
 
 class OrdersTest {
@@ -23,27 +21,25 @@ class OrdersTest {
 	class StartPayment {
 
 		@Test
-		@DisplayName("결제 준비 주문은 결제 진행 중이 되고, 재요청에 쓸 paymentKey가 저장된다")
+		@DisplayName("결제 준비 주문은 결제 진행 중이 된다")
 		void readyToPaymentPending() {
 			Orders order = orderWithStatus(OrderStatus.READY);
 
-			order.startPayment("pay-key-1");
+			order.startPayment();
 
 			assertThat(order.getOrderStatus()).isEqualTo(OrderStatus.PAYMENT_PENDING);
-			assertThat(order.getPaymentKey()).isEqualTo("pay-key-1");
 		}
 
 		@ParameterizedTest
 		@EnumSource(value = OrderStatus.class, mode = EnumSource.Mode.EXCLUDE, names = "READY")
-		@DisplayName("결제 준비가 아닌 주문은 PAYMENT_ALREADY_PROCESSED 예외가 발생하고 상태·paymentKey가 그대로다")
+		@DisplayName("결제 준비가 아닌 주문은 PAYMENT_ALREADY_PROCESSED 예외가 발생하고 상태가 그대로다")
 		void notReadyRejected(OrderStatus status) {
 			Orders order = orderWithStatus(status);
 
-			assertThatThrownBy(() -> order.startPayment("pay-key-1"))
+			assertThatThrownBy(order::startPayment)
 				.isInstanceOf(ApiException.class)
 				.extracting("responseCode").isEqualTo(GeneralResponseCode.PAYMENT_ALREADY_PROCESSED);
 			assertThat(order.getOrderStatus()).isEqualTo(status);
-			assertThat(order.getPaymentKey()).isNull();
 		}
 	}
 
@@ -51,20 +47,15 @@ class OrdersTest {
 	@DisplayName("markPaid - 결제 성공 반영")
 	class MarkPaid {
 
-		private final LocalDateTime approvedAt = LocalDateTime.of(2026, 10, 28, 12, 0);
-
 		@Test
-		@DisplayName("결제 진행 중 주문은 결제완료가 되고 결제 정보가 기록된다")
+		@DisplayName("결제 진행 중 주문은 결제완료가 된다")
 		void paymentPendingToPaid() {
 			Orders order = orderWithStatus(OrderStatus.PAYMENT_PENDING);
 
-			boolean applied = order.markPaid("pay-key-1", PaymentType.CARD, approvedAt);
+			boolean applied = order.markPaid();
 
 			assertThat(applied).isTrue();
 			assertThat(order.getOrderStatus()).isEqualTo(OrderStatus.PAID);
-			assertThat(order.getPaymentKey()).isEqualTo("pay-key-1");
-			assertThat(order.getPaymentType()).isEqualTo(PaymentType.CARD);
-			assertThat(order.getApprovedAt()).isEqualTo(approvedAt);
 		}
 
 		@ParameterizedTest
@@ -73,13 +64,10 @@ class OrdersTest {
 		void notPendingIgnored(OrderStatus status) {
 			Orders order = orderWithStatus(status);
 
-			boolean applied = order.markPaid("pay-key-1", PaymentType.CARD, approvedAt);
+			boolean applied = order.markPaid();
 
 			assertThat(applied).isFalse();
 			assertThat(order.getOrderStatus()).isEqualTo(status);
-			assertThat(order.getPaymentKey()).isNull();
-			assertThat(order.getPaymentType()).isNull();
-			assertThat(order.getApprovedAt()).isNull();
 		}
 	}
 

@@ -26,6 +26,7 @@ import com.commerce.cart.service.CartService;
 import com.commerce.common.enums.OrderStatus;
 import com.commerce.common.enums.OrderType;
 import com.commerce.common.enums.RoleType;
+import com.commerce.common.exception.ApiException;
 import com.commerce.common.util.SecurityUtil;
 import com.commerce.config.IntegrationTest;
 import com.commerce.order.domain.Orders;
@@ -34,6 +35,7 @@ import com.commerce.order.repository.OrderProductRepository;
 import com.commerce.order.repository.OrderRepository;
 import com.commerce.order.service.OrderService;
 import com.commerce.payment.service.PaymentTxService;
+import com.commerce.payment.repository.PaymentRepository;
 import com.commerce.product.domain.Product;
 import com.commerce.product.domain.ProductOption;
 import com.commerce.product.repository.ProductOptionRepository;
@@ -64,6 +66,7 @@ class PaymentResultApplyTest {
 	@Autowired CartService cartService;
 	@Autowired ObjectMapper objectMapper;
 	@Autowired JdbcTemplate jdbcTemplate;
+	@Autowired PaymentRepository paymentRepository;
 
 	@MockitoBean SecurityUtil securityUtil;
 
@@ -94,6 +97,7 @@ class PaymentResultApplyTest {
 	void cleanUp() {
 		jdbcTemplate.update("delete from order_cart_product");
 		orderProductRepository.deleteAllInBatch();
+		paymentRepository.deleteAllInBatch();
 		orderRepository.deleteAllInBatch();
 		cartProductRepository.deleteAllInBatch();
 		cartRepository.deleteAllInBatch();
@@ -110,12 +114,13 @@ class PaymentResultApplyTest {
 		paymentTxService.applyPaymentFailure(order.getOrderNumber());
 
 		// when
-		paymentTxService.applyPaymentSuccess(order.getOrderNumber(), tossDone(), "paymentKey");
+		paymentTxService.applyPaymentSuccess(order.getOrderNumber(), tossDone());
 
 		// then
 		Orders after = orderRepository.findByOrderNumber(order.getOrderNumber()).orElseThrow();
 		assertThat(after.getOrderStatus()).isEqualTo(OrderStatus.CANCELED);
-		assertThat(after.getApprovedAt()).as("결제 성공 정보가 기록되지 않음").isNull();
+		assertThat(paymentRepository.findByOrderId(after.getId()).orElseThrow().getApprovedAt())
+			.as("결제 성공 정보가 기록되지 않음").isNull();
 		assertThat(stock()).isEqualTo(INITIAL_STOCK);
 	}
 
@@ -124,7 +129,7 @@ class PaymentResultApplyTest {
 	void restoreStock_paidOrder_ignored() throws Exception {
 		// given - 결제 진행 중 → 결제 성공(재고 차감 유지)
 		Orders order = pendingOrder();
-		paymentTxService.applyPaymentSuccess(order.getOrderNumber(), tossDone(), "paymentKey");
+		paymentTxService.applyPaymentSuccess(order.getOrderNumber(), tossDone());
 
 		// when
 		paymentTxService.applyPaymentFailure(order.getOrderNumber());
@@ -133,6 +138,21 @@ class PaymentResultApplyTest {
 		Orders after = orderRepository.findByOrderNumber(order.getOrderNumber()).orElseThrow();
 		assertThat(after.getOrderStatus()).isEqualTo(OrderStatus.PAID);
 		assertThat(stock()).isEqualTo(INITIAL_STOCK - 1);
+	}
+
+	@Test
+	@DisplayName("결제를 시작할 수 없는 주문(이미 취소됨)이면 결제 시작이 거절되고, 결제 정보가 생기지 않으며 재고도 그대로다")
+	void startPayment_rejected_noPaymentCreated() {
+		// given - 결제를 시도하지 않고 취소된 주문
+		Orders order = orderService.prepareOrderFromBuyNow(orderForm(OrderType.BUY_NOW));
+		jdbcTemplate.update("update orders set order_status = 'CANCELED' where order_id = ?", order.getId());
+
+		// when & then
+		assertThatThrownBy(() -> paymentTxService.lockAndDeductStock(order.getOrderNumber(), "paymentKey"))
+			.isInstanceOf(ApiException.class);
+
+		assertThat(paymentRepository.findByOrderId(order.getId())).as("결제 정보").isEmpty();
+		assertThat(stock()).as("재고").isEqualTo(INITIAL_STOCK);
 	}
 
 	@Test
@@ -150,7 +170,7 @@ class PaymentResultApplyTest {
 		SecurityContextHolder.clearContext();
 
 		// when
-		paymentTxService.applyPaymentSuccess(order.getOrderNumber(), tossDone(), "paymentKey");
+		paymentTxService.applyPaymentSuccess(order.getOrderNumber(), tossDone());
 
 		// then
 		Orders after = orderRepository.findByOrderNumber(order.getOrderNumber()).orElseThrow();
@@ -180,7 +200,7 @@ class PaymentResultApplyTest {
 		// when
 		ExecutorService pool = Executors.newFixedThreadPool(2);
 		Future<?> success = pool.submit(() ->
-			paymentTxService.applyPaymentSuccess(order.getOrderNumber(), tossResponse, "paymentKey"));
+			paymentTxService.applyPaymentSuccess(order.getOrderNumber(), tossResponse));
 		assertThat(successPaused.await(5, TimeUnit.SECONDS)).isTrue();
 
 		Future<?> failure = pool.submit(() -> paymentTxService.applyPaymentFailure(order.getOrderNumber()));

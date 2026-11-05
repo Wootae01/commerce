@@ -257,8 +257,14 @@ class PaymentRecoverySchedulerTest extends PaymentIntegrationTestSupport {
 		for (int i = 0; i < 100; i++) {
 			stuck.add(prepareOrder());
 		}
+		// 100건을 확정 요청으로 만들면 느려서 결제 시작 상태(PENDING + 결제 정보)를 직접 만든다
 		jdbcTemplate.update("""
-			update orders set order_status = 'PAYMENT_PENDING', payment_key = concat('pk-', order_number), updated_at = ?
+			insert into payment (order_id, payment_key, amount, created_at, updated_at)
+			select order_id, concat('pk-', order_number), final_price, now(), now()
+			from orders where order_status = 'READY'
+			""");
+		jdbcTemplate.update("""
+			update orders set order_status = 'PAYMENT_PENDING', updated_at = ?
 			where order_status = 'READY'
 			""", LocalDateTime.now().minusMinutes(10));
 		Orders newOrder = pendingOrder();

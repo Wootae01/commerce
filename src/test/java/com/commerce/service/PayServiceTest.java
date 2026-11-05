@@ -28,6 +28,7 @@ import org.wiremock.spring.EnableWireMock;
 
 import com.commerce.config.IntegrationTest;
 import com.commerce.order.domain.Orders;
+import com.commerce.payment.repository.PaymentRepository;
 import com.commerce.product.domain.Product;
 import com.commerce.product.domain.ProductOption;
 import com.commerce.user.domain.User;
@@ -73,6 +74,7 @@ class PayServiceTest {
 
 	@Autowired ProductRepository productRepository;
 	@Autowired ProductOptionRepository productOptionRepository;
+	@Autowired PaymentRepository paymentRepository;
 
 	@MockitoBean SecurityUtil securityUtil;
 	@Autowired
@@ -102,6 +104,7 @@ class PayServiceTest {
 	@AfterEach
 	void cleanUp() {
 		orderProductRepository.deleteAllInBatch(); // orders, product를 물고 있음(자식)
+		paymentRepository.deleteAllInBatch();      // orders를 물고 있음(자식)
 		orderRepository.deleteAllInBatch();        // user를 물고 있음(자식)
 		cartProductRepository.deleteAllInBatch();
 		cartRepository.deleteAllInBatch();
@@ -170,7 +173,8 @@ class PayServiceTest {
 
 		assertThat(afterOption.getStock()).isEqualTo(stock - quantity);
 		assertThat(afterOrder.getOrderStatus()).isEqualTo(OrderStatus.PAID);
-		assertThat(afterOrder.getApprovedAt()).isEqualTo(LocalDateTime.of(2026, 1, 3, 1, 23, 45));
+		assertThat(paymentRepository.findByOrderId(afterOrder.getId()).orElseThrow().getApprovedAt())
+			.isEqualTo(LocalDateTime.of(2026, 1, 3, 1, 23, 45));
 	}
 
 
@@ -261,7 +265,8 @@ class PayServiceTest {
 
 		for (Orders orders : all) {
 			assertThat(orders.getOrderStatus()).isEqualTo(OrderStatus.PAID);
-			assertThat(orders.getApprovedAt()).isEqualTo(LocalDateTime.of(2026, 1, 3, 1, 23, 45));
+			assertThat(paymentRepository.findByOrderId(orders.getId()).orElseThrow().getApprovedAt())
+				.isEqualTo(LocalDateTime.of(2026, 1, 3, 1, 23, 45));
 		}
 
 	}

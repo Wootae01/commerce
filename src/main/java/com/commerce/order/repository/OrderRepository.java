@@ -3,6 +3,7 @@ package com.commerce.order.repository;
 import com.commerce.common.enums.OrderStatus;
 import com.commerce.common.enums.PaymentType;
 import com.commerce.order.domain.Orders;
+import com.commerce.order.dto.AdminOrderRow;
 import com.commerce.order.dto.OrderHeaderRow;
 import com.commerce.user.domain.User;
 import jakarta.persistence.LockModeType;
@@ -77,11 +78,16 @@ public interface OrderRepository extends JpaRepository<Orders, Long> {
 	""")
 	Optional<Orders> findByOrderNumberWithProduct(@Param("orderNumber") String orderNumber);
 
-	@Query("""
-		select o from Orders o
-		 join fetch o.user u
+	// 결제 수단은 Payment에 있어 함께 조인한다(결제 전 주문은 Payment가 없으므로 left join)
+	@Query(value = """
+		select new com.commerce.order.dto.AdminOrderRow(
+			o.id, o.orderNumber, o.createdAt, u.name, p.paymentType, o.receiverPhone, o.finalPrice, o.orderStatus
+		)
+		from Orders o
+		join o.user u
+		left join Payment p on p.order = o
 		where (:orderStatus is null or o.orderStatus = :orderStatus)
-		and (:paymentType is null or o.paymentType =:paymentType)
+		and (:paymentType is null or p.paymentType = :paymentType)
 		and (:keyword is null
 			or o.orderNumber like concat('%', :keyword, '%')
 			or u.name like concat('%', :keyword, '%')
@@ -91,7 +97,7 @@ public interface OrderRepository extends JpaRepository<Orders, Long> {
 		and (:endDateTime is null or o.createdAt <= :endDateTime)
 		order by o.createdAt desc
 	""")
-	Page<Orders> searchAdminOrders(@Param("keyword") String keyword,
+	Page<AdminOrderRow> searchAdminOrders(@Param("keyword") String keyword,
 		@Param("startDateTime") LocalDateTime startDateTime,
 		@Param("endDateTime") LocalDateTime endDateTime,
 		@Param("orderStatus") OrderStatus orderStatus,

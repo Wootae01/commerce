@@ -28,6 +28,7 @@ import com.commerce.order.service.OrderService;
 import com.commerce.payment.external.TossPaymentClient;
 import com.commerce.payment.scheduler.PaymentRecoveryScheduler;
 import com.commerce.payment.service.PayService;
+import com.commerce.payment.repository.PaymentRepository;
 import com.commerce.product.domain.Product;
 import com.commerce.product.domain.ProductOption;
 import com.commerce.product.repository.ProductJdbcRepository;
@@ -61,6 +62,7 @@ abstract class PaymentIntegrationTestSupport {
 	@Autowired CartRepository cartRepository;
 	@Autowired CartProductRepository cartProductRepository;
 	@Autowired JdbcTemplate jdbcTemplate;
+	@Autowired PaymentRepository paymentRepository;
 
 	@MockitoBean SecurityUtil securityUtil;
 	@MockitoSpyBean ProductJdbcRepository productJdbcRepository;
@@ -94,6 +96,7 @@ abstract class PaymentIntegrationTestSupport {
 	@AfterEach
 	void cleanUp() {
 		orderProductRepository.deleteAllInBatch();
+		paymentRepository.deleteAllInBatch();
 		orderRepository.deleteAllInBatch();
 		cartProductRepository.deleteAllInBatch();
 		cartRepository.deleteAllInBatch();
