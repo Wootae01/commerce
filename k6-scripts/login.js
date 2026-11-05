@@ -1,6 +1,7 @@
 import http from "k6/http";
 import { check, sleep } from "k6";
 import exec from "k6/execution";
+import { fetchCsrfToken } from "./lib/csrf.js";
 
 export const options = {
     scenarios: {
@@ -18,7 +19,8 @@ export const options = {
     },
     thresholds: {
         http_req_failed: ["rate<0.01"],
-        http_req_duration: ["p(95)<1000"],
+        // 토큰을 받는 GET /login(csrf_token)은 빼고 로그인 POST만 본다
+        "http_req_duration{name:login}": ["p(95)<1000"],
     },
 };
 
@@ -32,10 +34,11 @@ export default function () {
     const id = exec.vu.idInTest;
     const username = `user${((id - 1) % USER_POOL) + 1}`;
 
-    // formLogin 기본 파라미터: username/password
-    const payload = { username, password: PASSWORD };
+    // formLogin 기본 파라미터: username/password + CSRF 토큰(_csrf)
+    // 반복마다 쿠키가 초기화되므로 매번 로그인 화면에서 토큰을 새로 받는다
+    const payload = { username, password: PASSWORD, _csrf: fetchCsrfToken("/login", BASE_URL) };
 
-    const loginRes = http.post(`${BASE_URL}/login`, payload, { redirects: 0 });
+    const loginRes = http.post(`${BASE_URL}/login`, payload, { redirects: 0, tags: { name: "login" } });
 
     check(loginRes, {
         "login status is 302/200": (r) => r.status === 302 || r.status === 200,
