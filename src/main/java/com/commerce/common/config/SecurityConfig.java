@@ -12,6 +12,9 @@ import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.access.AccessDeniedHandler;
+import org.springframework.security.web.access.AccessDeniedHandlerImpl;
+import org.springframework.security.web.csrf.CsrfException;
 
 import com.commerce.auth.CustomClientRegistrationRepo;
 import com.commerce.auth.service.CustomOauth2UserService;
@@ -40,7 +43,6 @@ public class SecurityConfig {
 	public SecurityFilterChain adminSecurity(HttpSecurity http) throws Exception {
 		http
 			.securityMatcher("/admin/**") // admin 경로만 적용
-			.csrf(csrf -> csrf.disable())
 			.httpBasic(basic -> basic.disable())
 			.formLogin(form -> form
 				.loginPage("/admin/login")
@@ -52,9 +54,22 @@ public class SecurityConfig {
 				.requestMatchers("/admin/login", "/admin/login/**").permitAll()
 				.anyRequest().hasRole("ADMIN"))
 			.exceptionHandling(exception -> exception
-				.accessDeniedHandler((req, res, ex) -> res.sendRedirect("/admin/login")));
+				.accessDeniedHandler(adminAccessDeniedHandler()));
 
 		return http.build();
+	}
+
+	// 권한이 없으면 로그인 화면으로 보낸다.
+	// CSRF 토큰이 틀린 요청은 로그인과 상관없으므로 403으로 거절한다.
+	private AccessDeniedHandler adminAccessDeniedHandler() {
+		AccessDeniedHandler forbidden = new AccessDeniedHandlerImpl();
+		return (req, res, ex) -> {
+			if (ex instanceof CsrfException) {
+				forbidden.handle(req, res, ex);
+				return;
+			}
+			res.sendRedirect("/admin/login");
+		};
 	}
 
 	// (2) REST API용 보안 설정
@@ -65,7 +80,6 @@ public class SecurityConfig {
 	public SecurityFilterChain apiSecurity(HttpSecurity http) throws Exception {
 		http
 			.securityMatcher("/api/**")
-			.csrf(csrf -> csrf.disable())
 			.httpBasic(basic -> basic.disable())
 			.formLogin(form -> form.disable())
 			.authorizeHttpRequests(auth -> auth
@@ -82,7 +96,6 @@ public class SecurityConfig {
 	@Profile({"prod", "dev", "test"})
 	public SecurityFilterChain userSecurity(HttpSecurity http) throws Exception {
 		http
-			.csrf(csrf -> csrf.disable())
 			.httpBasic(basic -> basic.disable())
 
 			.oauth2Login(oauth2 -> oauth2
@@ -110,7 +123,6 @@ public class SecurityConfig {
 	public SecurityFilterChain userSecurityDev(HttpSecurity http, @Qualifier("devUserDetailService")
 		UserDetailsService devUserDetailService) throws Exception {
 		http
-			.csrf(csrf -> csrf.disable())
 			.httpBasic(basic -> basic.disable())
 
 			// local에서는 로컬 폼 로그인 추가

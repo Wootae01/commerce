@@ -1,6 +1,7 @@
 import http from "k6/http";
 import { check, sleep } from "k6";
 import { Trend, Rate } from "k6/metrics";
+import { CSRF_HEADER, fetchCsrfToken } from "./lib/csrf.js";
 
 const loginDuration = new Trend("login_duration", true);
 const loginFail = new Rate("login_fail");
@@ -27,6 +28,7 @@ const BASE_URL = (__ENV.BASE_URL || "http://localhost:8080").replace(/\/+$/, "")
 const USER_COUNT = Number(__ENV.USER_COUNT || 400);
 
 let loggedIn = false;
+let csrfToken = null; // 로그인 후 받은 토큰. 세션이 유지되는 동안 그대로 쓴다
 
 function ensureLoggedIn() {
     if (loggedIn) return;
@@ -37,7 +39,7 @@ function ensureLoggedIn() {
     // cookieJar는 VU별로 자동 유지됨 (여기서 Set-Cookie 받은 JSESSIONID를 k6가 저장)
     const res = http.post(
         `${BASE_URL}/login`,
-        { username, password: "password!" },
+        { username, password: "password!", _csrf: fetchCsrfToken("/login", BASE_URL) },
         {
             redirects: 0,
             tags: { name: "login" },
@@ -59,6 +61,8 @@ function ensureLoggedIn() {
     const jar = http.cookieJar();
     console.log(`VU=${__VU} logged in. jar cookies=`, JSON.stringify(jar.cookiesForURL(BASE_URL)));
 
+    // 로그인하면 토큰이 바뀐다. 이후 POST에 쓸 토큰을 다시 받아 둔다
+    csrfToken = fetchCsrfToken("/pay/loading", BASE_URL);
     loggedIn = true;
 }
 
@@ -82,7 +86,7 @@ export default function () {
         {
             redirects: 0,
             tags: { name: "pay_prepare" },
-            //headers: apiHeaders,
+            headers: { [CSRF_HEADER]: csrfToken },
         }
     );
 
@@ -116,7 +120,7 @@ export default function () {
         {
             redirects: 0,
             tags: { name: "pay_confirm" },
-            headers: { /*...apiHeaders,*/ "Content-Type": "application/json" },
+            headers: { [CSRF_HEADER]: csrfToken, "Content-Type": "application/json" },
         }
     );
 

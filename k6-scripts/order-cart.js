@@ -1,6 +1,6 @@
 import http from "k6/http";
 import {check, sleep} from "k6";
-import {ensureLoggedIn} from "./lib/auth.js";
+import {ensureLoggedIn, csrfHeaders} from "./lib/auth.js";
 import {BASE_URL} from "./lib/config.js";
 import { Trend, Rate } from "k6/metrics";
 
@@ -56,6 +56,7 @@ export default function () {
         {
             redirects: 0,
             tags: { name: "pay_prepare" },
+            headers: csrfHeaders(state),
         }
     );
 
@@ -78,7 +79,7 @@ export default function () {
         {
             redirects: 0,
             tags: { name: "pay_confirm" },
-            headers: { /*...apiHeaders,*/ "Content-Type": "application/json" },
+            headers: { ...csrfHeaders(state), "Content-Type": "application/json" },
         }
     );
 
