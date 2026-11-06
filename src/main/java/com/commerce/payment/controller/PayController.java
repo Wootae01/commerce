@@ -117,7 +117,8 @@ public class PayController {
 
 		ApiResponseCode code = PayConfirmResponseCode.from(status);
 		if (code.getStatus().isError()) {
-			return ResponseEntity.status(code.getStatus()).body(Map.of("message", code.getMessage()));
+			// 실패 이유는 DB에서 읽는다. 보정 스케줄러가 먼저 반영했어도 폴링·주문 상세와 같은 문장이 보인다
+			return PayConfirmResponseCode.rejected(code, payService.getPaymentResult(req.getOrderId(), userId));
 		}
 		return ResponseEntity.status(code.getStatus()).body(Map.of("ok", true, "message", code.getMessage()));
 	}

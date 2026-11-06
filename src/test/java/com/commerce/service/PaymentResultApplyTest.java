@@ -34,6 +34,8 @@ import com.commerce.order.dto.OrderCreateRequestDTO;
 import com.commerce.order.repository.OrderProductRepository;
 import com.commerce.order.repository.OrderRepository;
 import com.commerce.order.service.OrderService;
+import com.commerce.payment.domain.Payment;
+import com.commerce.payment.service.FailureReason;
 import com.commerce.payment.service.PaymentTxService;
 import com.commerce.payment.repository.PaymentRepository;
 import com.commerce.product.domain.Product;
@@ -53,6 +55,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 class PaymentResultApplyTest {
 
 	private static final int INITIAL_STOCK = 10;
+	private static final FailureReason REJECTED = new FailureReason("REJECT_CARD_COMPANY", "카드사에서 승인을 거절했습니다.");
 
 	@Autowired PaymentTxService paymentTxService;
 	@Autowired OrderService orderService;
@@ -111,7 +114,7 @@ class PaymentResultApplyTest {
 	void applySuccess_canceledOrder_ignored() throws Exception {
 		// given - 결제 진행 중 → 토스 실패로 취소(재고 복원)
 		Orders order = pendingOrder();
-		paymentTxService.applyPaymentFailure(order.getOrderNumber());
+		paymentTxService.applyPaymentFailure(order.getOrderNumber(), REJECTED);
 
 		// when
 		paymentTxService.applyPaymentSuccess(order.getOrderNumber(), tossDone());
@@ -132,12 +135,47 @@ class PaymentResultApplyTest {
 		paymentTxService.applyPaymentSuccess(order.getOrderNumber(), tossDone());
 
 		// when
-		paymentTxService.applyPaymentFailure(order.getOrderNumber());
+		paymentTxService.applyPaymentFailure(order.getOrderNumber(), REJECTED);
 
 		// then
 		Orders after = orderRepository.findByOrderNumber(order.getOrderNumber()).orElseThrow();
 		assertThat(after.getOrderStatus()).isEqualTo(OrderStatus.PAID);
 		assertThat(stock()).isEqualTo(INITIAL_STOCK - 1);
+	}
+
+	@Test
+	@DisplayName("이미 결제 실패로 취소된 주문에 다른 실패가 또 반영되면, 먼저 남긴 실패 이유를 그대로 둔다")
+	void applyFailure_canceledOrder_firstReasonKept() throws Exception {
+		// given - 결제 진행 중 → 토스 거절로 취소
+		Orders order = pendingOrder();
+		paymentTxService.applyPaymentFailure(order.getOrderNumber(), REJECTED);
+
+		// when - 다른 쪽(보정 스케줄러 등)이 결제 조회로 확정한 실패를 늦게 반영
+		paymentTxService.applyPaymentFailure(order.getOrderNumber(),
+			new FailureReason("EXPIRED", "결제 시간이 만료되었습니다."));
+
+		// then
+		Payment payment = paymentRepository.findByOrderId(order.getId()).orElseThrow();
+		assertThat(payment.getFailureCode()).isEqualTo("REJECT_CARD_COMPANY");
+		assertThat(payment.getFailureMessage()).isEqualTo("카드사에서 승인을 거절했습니다.");
+		assertThat(stock()).as("재고는 한 번만 복원").isEqualTo(INITIAL_STOCK);
+	}
+
+	@Test
+	@DisplayName("실패 이유 문장이 255자보다 길면 255자까지만 남기고 취소는 그대로 반영한다")
+	void applyFailure_longMessage_truncatedTo255() throws Exception {
+		// given
+		Orders order = pendingOrder();
+		String longMessage = "가".repeat(300);
+
+		// when
+		paymentTxService.applyPaymentFailure(order.getOrderNumber(), new FailureReason("SOME_CODE", longMessage));
+
+		// then
+		Payment payment = paymentRepository.findByOrderId(order.getId()).orElseThrow();
+		assertThat(payment.getFailureMessage()).isEqualTo("가".repeat(255));
+		Orders after = orderRepository.findByOrderNumber(order.getOrderNumber()).orElseThrow();
+		assertThat(after.getOrderStatus()).isEqualTo(OrderStatus.CANCELED);
 	}
 
 	@Test
@@ -203,7 +241,7 @@ class PaymentResultApplyTest {
 			paymentTxService.applyPaymentSuccess(order.getOrderNumber(), tossResponse));
 		assertThat(successPaused.await(5, TimeUnit.SECONDS)).isTrue();
 
-		Future<?> failure = pool.submit(() -> paymentTxService.applyPaymentFailure(order.getOrderNumber()));
+		Future<?> failure = pool.submit(() -> paymentTxService.applyPaymentFailure(order.getOrderNumber(), REJECTED));
 		// - 락이 없으면: 실패 반영이 결제 진행 중 상태를 보고 바로 재고 복원·취소까지 끝낸다
 		// - 락이 있으면: 성공 반영이 끝날 때까지 주문 행 락에서 기다린다
 		Thread.sleep(1000);

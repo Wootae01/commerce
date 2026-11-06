@@ -12,7 +12,6 @@ import com.commerce.common.code.ApiResponseCode;
 import com.commerce.common.code.GeneralResponseCode;
 import com.commerce.common.dto.GeneralResponse;
 import com.commerce.common.enums.OrderStatus;
-import com.commerce.common.exception.ApiException;
 import com.commerce.common.util.SecurityUtil;
 import com.commerce.payment.dto.PayConfirmDTO;
 import com.commerce.payment.dto.PaySuccessDTO;
@@ -32,18 +31,20 @@ public class PaymentApiController {
 
 	// 토스 결제창에서 돌아온 뒤 결제 승인
 	@PostMapping("/confirm")
-	public ResponseEntity<GeneralResponse<PaySuccessDTO>> confirm(@RequestBody PayConfirmDTO request) {
+	// 성공·확인 중이면 GeneralResponse<PaySuccessDTO>, 결제 실패면 ErrorResponse
+	public ResponseEntity<?> confirm(@RequestBody PayConfirmDTO request) {
 		log.info("confirm req: orderId={}, paymentKey={}, amount={}",
 			request.getOrderId(), request.getPaymentKey(), request.getAmount());
 		Long userId = securityUtil.getCurrentUser().getId();
 		OrderStatus status = payService.confirm(request, userId);
 
 		ApiResponseCode code = PayConfirmResponseCode.from(status);
+		PaySuccessDTO result = payService.getPaymentResult(request.getOrderId(), userId);
 		if (code.getStatus().isError()) {
-			throw new ApiException(code);
+			return PayConfirmResponseCode.rejected(code, result);
 		}
 
-		return GeneralResponse.toResponseEntity(code, payService.getPaymentResult(request.getOrderId(), userId));
+		return GeneralResponse.toResponseEntity(code, result);
 	}
 
 	// 결제 결과 조회

@@ -19,6 +19,7 @@ public class PaySuccessDTO {
 	private String method;     // 결제수단
 	private String approvedAt; // 화면 표시용 문자열( 2025-12-20 15:20:42)
 	private OrderStatus orderStatus; // 결제 대기 화면이 확정 결과를 폴링할 때 본다
+	private String failureMessage; // 결제 실패 이유. 결제 실패로 취소된 주문이 아니면 null
 
 	// payment는 결제를 시도하지 않은 주문이면 null
 	public static PaySuccessDTO from(Orders order, Payment payment) {
@@ -29,6 +30,6 @@ public class PaySuccessDTO {
 
 		return new PaySuccessDTO(order.getOrderNumber(), order.getFinalPrice(),
 			PaymentType.textOf(payment == null ? null : payment.getPaymentType()), approvedAtText,
-			order.getOrderStatus());
+			order.getOrderStatus(), payment == null ? null : payment.getFailureMessage());
 	}
 }

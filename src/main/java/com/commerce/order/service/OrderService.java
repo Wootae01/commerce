@@ -193,10 +193,8 @@ public class OrderService {
 	// 구매자 주문 상세(화면·API)
 	public OrderDetailResponseDTO getMyOrderDetail(String orderNumber, User user) {
 		Orders order = findMyOrder(orderNumber, user.getId());
-		PaymentType paymentType = paymentRepository.findByOrderId(order.getId())
-			.map(Payment::getPaymentType)
-			.orElse(null);
-		return orderMapper.toOrderDetailResponseDTO(order, paymentType, user);
+		Payment payment = paymentRepository.findByOrderId(order.getId()).orElse(null);
+		return orderMapper.toOrderDetailResponseDTO(order, payment, user);
 	}
 
 	/**

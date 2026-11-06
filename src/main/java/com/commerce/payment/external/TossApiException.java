@@ -16,11 +16,14 @@ public class TossApiException extends ApiException {
 
 	private final HttpStatusCode tossStatus;
 	private final String tossCode; // 응답 본문의 code. 본문이 없거나 JSON이 아니면 빈 문자열
+	private final String tossMessage; // 응답 본문의 message(사용자용 문장). 본문이 없거나 JSON이 아니면 빈 문자열
 
-	public TossApiException(ApiResponseCode responseCode, HttpStatusCode tossStatus, String tossCode) {
+	public TossApiException(ApiResponseCode responseCode, HttpStatusCode tossStatus, String tossCode,
+		String tossMessage) {
 		super(responseCode);
 		this.tossStatus = tossStatus;
 		this.tossCode = tossCode;
+		this.tossMessage = tossMessage;
 	}
 
 	public boolean isServerError() {

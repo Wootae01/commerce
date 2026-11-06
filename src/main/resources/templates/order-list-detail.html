@@ -65,6 +65,7 @@
                 <p class="section-title">결제 정보</p>
                 <div class="d-flex mb-2"><div class="info-label">결제 수단</div><div th:text="${order.paymentInfo.paymentMethod}"></div></div>
                 <div class="d-flex mb-2"><div class="info-label">주문 상태</div><div th:text="${order.paymentInfo.orderStatus}"></div></div>
+                <div class="d-flex mb-2" th:if="${order.paymentInfo.failureMessage != null}"><div class="info-label">실패 이유</div><div class="text-danger" th:text="${order.paymentInfo.failureMessage}"></div></div>
                 <div class="d-flex mb-2"><div class="info-label">상품 합계</div><div th:text="${#numbers.formatInteger(order.orderPrice.totalPrice, 3, 'COMMA')} + ' 원'"></div></div>
                 <div class="d-flex mb-3"><div class="info-label">배송비</div><div th:text="${#numbers.formatInteger(order.orderPrice.deliveryFee, 3, 'COMMA')} + ' 원'"></div></div>
                 <hr class="my-2">

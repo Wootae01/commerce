@@ -42,13 +42,13 @@
                         <span class="fw-semibold text-end"
                               th:text="${param.message != null ? param.message[0] : '결제 승인에 실패했습니다.'}"></span>
                     </div>
-                    <hr class="my-3">
                 </div>
-                <div class="col-12">
+                <!-- 코드는 토스 결제창에서 실패해 failUrl로 왔을 때만 있다. 우리 서버의 결제 실패는 문장만 보여준다 -->
+                <div class="col-12" th:if="${param.code != null && param.code[0] != ''}">
+                    <hr class="my-3">
                     <div class="d-flex justify-content-between align-items-center gap-3">
                         <span class="text-muted flex-shrink-0">코드</span>
-                        <span class="fw-semibold"
-                              th:text="${param.code != null && param.code[0] != '' ? param.code[0] : '-'}"></span>
+                        <span class="fw-semibold" th:text="${param.code[0]}"></span>
                     </div>
                 </div>
             </div>
