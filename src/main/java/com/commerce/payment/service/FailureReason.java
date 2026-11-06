@@ -16,13 +16,12 @@ public record FailureReason(String code, String message) {
 			isBlank(message) ? GeneralResponseCode.PAYMENT_REJECTED.getMessage() : message);
 	}
 
-	// 결제 조회로 실패를 확정한 경우(ABORTED·EXPIRED·CANCELED). 결제 객체의 failure가 있으면 그 code·message,
-	// 없으면 조회 상태를 코드로, 우리 문장을 메시지로 남긴다
+	// 결제 조회로 실패를 확정한 경우(ABORTED·EXPIRED·CANCELED). 결제 객체의 failure code·message를 따로 본다.
+	// code가 비면 조회 상태를, message가 비면 우리 문장을 남긴다. 한쪽이 비어도 다른 쪽의 토스 값은 버리지 않는다
 	public static FailureReason ofQueriedPayment(String status, String failureCode, String failureMessage) {
-		if (!isBlank(failureMessage)) {
-			return new FailureReason(isBlank(failureCode) ? null : failureCode, failureMessage);
-		}
-		return new FailureReason(status, messageOfStatus(status));
+		return new FailureReason(
+			isBlank(failureCode) ? status : failureCode,
+			isBlank(failureMessage) ? messageOfStatus(status) : failureMessage);
 	}
 
 	private static String messageOfStatus(String status) {

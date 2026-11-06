@@ -104,6 +104,30 @@ class PaymentFailureReasonTest extends PaymentIntegrationTestSupport {
 		assertThat(paymentOf(order).getFailureCode()).isEqualTo("REJECT_CARD_PAYMENT");
 	}
 
+	@Test
+	@DisplayName("조회한 실패 정보에 code만 있고 message가 비어 있으면, 토스 code는 남기고 결제 결과에는 우리 문장이 보인다")
+	void queryAborted_failureWithoutMessage_tossCodeKept() {
+		// given
+		Orders order = prepareOrder();
+		PayConfirmDTO req = confirmRequestOf(order);
+		stubConfirm(500, """
+			{ "code": "FAILED_INTERNAL_SYSTEM_PROCESSING", "message": "내부 시스템 처리 작업이 실패했습니다." }
+			""");
+		stubQuery(req, """
+			{ "status": "ABORTED",
+			  "failure": { "code": "REJECT_CARD_PAYMENT", "message": "" } }
+			""");
+
+		// when
+		OrderStatus status = payService.confirm(req, userId);
+
+		// then
+		assertThat(status).isEqualTo(OrderStatus.CANCELED);
+		PaySuccessDTO result = payService.getPaymentResult(order.getOrderNumber(), userId);
+		assertThat(result.getFailureMessage()).isEqualTo("결제가 승인되지 않았습니다.");
+		assertThat(paymentOf(order).getFailureCode()).isEqualTo("REJECT_CARD_PAYMENT");
+	}
+
 	@ParameterizedTest(name = "{0} → {1}")
 	@CsvSource({
 		"ABORTED, 결제가 승인되지 않았습니다.",
