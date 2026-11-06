@@ -20,12 +20,12 @@ final class PayConfirmResponseCode {
 		return switch (status) {
 			case PAID -> GeneralResponseCode.OK;
 			case PAYMENT_PENDING -> GeneralResponseCode.PAYMENT_CONFIRMING;
-			default -> GeneralResponseCode.PAYMENT_REJECTED;
+			default -> GeneralResponseCode.PAYMENT_FAILED;
 		};
 	}
 
 	// 결제 실패 응답 본문 { status, message }. message는 저장된 실패 이유, 없으면 응답 코드의 기본 문장
-	static ResponseEntity<ErrorResponse> rejected(ApiResponseCode code, PaySuccessDTO result) {
+	static ResponseEntity<ErrorResponse> failed(ApiResponseCode code, PaySuccessDTO result) {
 		String message = result.getFailureMessage() != null ? result.getFailureMessage() : code.getMessage();
 		return ErrorResponse.toResponseEntity(code, message, null);
 	}

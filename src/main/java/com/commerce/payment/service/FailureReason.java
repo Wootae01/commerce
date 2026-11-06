@@ -13,7 +13,7 @@ public record FailureReason(String code, String message) {
 	public static FailureReason ofTossError(String code, String message) {
 		return new FailureReason(
 			isBlank(code) ? null : code,
-			isBlank(message) ? GeneralResponseCode.PAYMENT_REJECTED.getMessage() : message);
+			isBlank(message) ? GeneralResponseCode.PAYMENT_FAILED.getMessage() : message);
 	}
 
 	// 결제 조회로 실패를 확정한 경우(ABORTED·EXPIRED·CANCELED). 결제 객체의 failure code·message를 따로 본다.

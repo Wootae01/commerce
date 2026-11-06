@@ -41,7 +41,7 @@ public class PaymentApiController {
 		ApiResponseCode code = PayConfirmResponseCode.from(status);
 		PaySuccessDTO result = payService.getPaymentResult(request.getOrderId(), userId);
 		if (code.getStatus().isError()) {
-			return PayConfirmResponseCode.rejected(code, result);
+			return PayConfirmResponseCode.failed(code, result);
 		}
 
 		return GeneralResponse.toResponseEntity(code, result);
