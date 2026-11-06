@@ -104,9 +104,8 @@
                 });
                 const json = await res.json().catch(() => ({}));
                 if (!res.ok) {
-                    const msg = json?.message ?? "결제 승인에 실패했습니다.";
-                    const code = json?.code ? `(${json.code})` : "";
-                    goFail(msg, code);
+                    // 결제 실패면 message가 실패 이유다. 실패 코드는 사용자에게 보여주지 않는다
+                    goFail(json?.message ?? "결제 승인에 실패했습니다.", "");
                     return;
                 }
                 if (res.status === 202) {
@@ -131,13 +130,14 @@
                 await sleep(delay);
                 delay = POLL_INTERVAL_MS;
 
-                const status = await fetchOrderStatus();
-                if (status === "PAID") {
+                const result = await fetchPaymentResult();
+                if (result?.orderStatus === "PAID") {
                     goSuccess();
                     return;
                 }
-                if (status === "CANCELED") {
-                    goFail("결제가 승인되지 않았습니다.", "");
+                if (result?.orderStatus === "CANCELED") {
+                    // 실패 이유가 없으면(실패 이유를 남기기 전의 주문) 기본 문장
+                    goFail(result.failureMessage ?? "결제가 승인되지 않았습니다.", "");
                     return;
                 }
                 if (Date.now() + POLL_INTERVAL_MS > deadline) {
@@ -147,8 +147,8 @@
             }
         }
 
-        // 조회 실패(네트워크 오류 등)는 null. 다음 조회에서 다시 확인한다
-        async function fetchOrderStatus() {
+        // 결제 결과(주문 상태·실패 이유). 조회 실패(네트워크 오류 등)는 null. 다음 조회에서 다시 확인한다
+        async function fetchPaymentResult() {
             try {
                 const res = await fetch(`/api/payments/${encodeURIComponent(orderId)}`, {
                     headers: { "Accept": "application/json" }
@@ -157,7 +157,7 @@
                     return null;
                 }
                 const json = await res.json();
-                return json?.data?.orderStatus ?? null;
+                return json?.data ?? null;
             } catch (e) {
                 return null;
             }

@@ -66,5 +66,6 @@ public class OrderDetailResponseDTO {
 	public static class PaymentInfo {
 		private String paymentMethod;    // 결제 수단 (카드 결제 등)
 		private String orderStatus;    // 주문 상태 (결제 완료 등)
+		private String failureMessage; // 결제 실패 이유. 결제 실패로 취소된 주문이 아니면 null
 	}
 }

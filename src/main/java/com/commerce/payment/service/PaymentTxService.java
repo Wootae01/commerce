@@ -142,9 +142,10 @@ public class PaymentTxService {
 		updateStock(order.getId(), false);
 	}
 
-	// 토스가 실패를 알려 주면 재고 복원 + 취소. 반영 후 주문 상태를 돌려준다
+	// 토스가 실패를 알려 주면 재고 복원 + 취소 + 실패 이유 기록. 반영 후 주문 상태를 돌려준다
+	// 이미 처리된 주문이면 먼저 반영한 쪽의 실패 이유를 그대로 둔다
 	@Transactional
-	public OrderStatus applyPaymentFailure(String orderNumber) {
+	public OrderStatus applyPaymentFailure(String orderNumber, FailureReason reason) {
 		Orders order = orderRepository.findByOrderNumberWithLock(orderNumber)
 			.orElseThrow(() -> new ApiException(GeneralResponseCode.ORDER_NOT_FOUND));
 
@@ -153,6 +154,9 @@ public class PaymentTxService {
 			return order.getOrderStatus();
 		}
 
+		Payment payment = paymentRepository.findByOrderId(order.getId())
+			.orElseThrow(() -> new IllegalStateException("결제 진행 중인 주문에 결제 정보가 없습니다. orderNumber=" + orderNumber));
+		payment.fail(reason.code(), reason.message());
 		updateStock(order.getId(), true);
 		return order.getOrderStatus();
 	}

@@ -74,7 +74,8 @@ public class TossPaymentClient {
 						.defaultIfEmpty("")
 						.map(body -> {
 							log.error("toss confirm error: status={}, body={}", res.statusCode(), body);
-							return new TossApiException(ExternalResponseCode.PG_APPROVAL_ERROR, res.statusCode(), errorCode(body));
+							return new TossApiException(ExternalResponseCode.PG_APPROVAL_ERROR, res.statusCode(),
+								errorField(body, "code"), errorField(body, "message"));
 						})
 				)
 				.bodyToMono(JsonNode.class)
@@ -92,10 +93,10 @@ public class TossPaymentClient {
 		return tossResponse;
 	}
 
-	// 토스 에러 응답 본문 { "code": ..., "message": ... }에서 code를 꺼낸다
-	private String errorCode(String body) {
+	// 토스 에러 응답 본문 { "code": ..., "message": ... }에서 한 항목을 꺼낸다
+	private String errorField(String body, String field) {
 		try {
-			return objectMapper.readTree(body).path("code").asText();
+			return objectMapper.readTree(body).path(field).asText();
 		} catch (Exception e) {
 			return "";
 		}

@@ -11,6 +11,7 @@ import com.commerce.product.domain.DeliveryPolicy;
 import com.commerce.product.domain.ProductOption;
 import com.commerce.order.domain.OrderProduct;
 import com.commerce.order.domain.Orders;
+import com.commerce.payment.domain.Payment;
 import com.commerce.product.domain.Product;
 import com.commerce.user.domain.User;
 import com.commerce.common.enums.PaymentType;
@@ -106,8 +107,8 @@ public class OrderMapper {
 		return list;
 	}
 
-	// paymentType은 아직 승인되지 않았거나 결제를 시도하지 않은 주문이면 null
-	public OrderDetailResponseDTO toOrderDetailResponseDTO(Orders order, PaymentType paymentType, User user) {
+	// payment는 결제를 시도하지 않은 주문이면 null. 결제 수단은 승인돼야, 실패 이유는 결제 실패로 취소돼야 채워진다
+	public OrderDetailResponseDTO toOrderDetailResponseDTO(Orders order, Payment payment, User user) {
 		return OrderDetailResponseDTO.builder()
 			.orderNumber(order.getOrderNumber())
 			.orderDate(order.getCreatedAt())
@@ -128,8 +129,9 @@ public class OrderMapper {
 			.orderItems(toOrderItemDTOFromOrder(order.getOrderProducts()))
 			.orderPrice(new OrderPriceDTO(order.getFinalPrice(), DeliveryPolicy.DELIVERY_FEE, order.getFinalPrice() + DeliveryPolicy.DELIVERY_FEE))
 			.paymentInfo(OrderDetailResponseDTO.PaymentInfo.builder()
-				.paymentMethod(PaymentType.textOf(paymentType))
+				.paymentMethod(PaymentType.textOf(payment == null ? null : payment.getPaymentType()))
 				.orderStatus(order.getOrderStatus().getText())
+				.failureMessage(payment == null ? null : payment.getFailureMessage())
 				.build())
 			.build();
 	}
