@@ -45,7 +45,7 @@ class OrderDetailAmountTest extends PaymentIntegrationTestSupport {
 		OrderPriceDTO price = detailOf(order).getOrderPrice();
 
 		// then
-		assertThat(price.getTotalPrice()).as("상품 합계").isEqualTo(24_000);
+		assertThat(price.getProductsTotal()).as("상품 합계").isEqualTo(24_000);
 		assertThat(price.getDeliveryFee()).as("배송비").isEqualTo(3_000);
 		assertThat(price.getFinalPrice()).as("최종 결제금액").isEqualTo(27_000);
 		assertThat(order.getFinalPrice()).as("토스에 승인 요청할 결제 금액").isEqualTo(27_000);
@@ -65,9 +65,9 @@ class OrderDetailAmountTest extends PaymentIntegrationTestSupport {
 
 		// then
 		assertThat(detail.getOrderItems())
-			.extracting(OrderItemDTO::getQuantity, OrderItemDTO::getUnitPrice, OrderItemDTO::getTotalPrice)
+			.extracting(OrderItemDTO::getQuantity, OrderItemDTO::getUnitPrice, OrderItemDTO::getLineTotal)
 			.containsExactly(tuple(2, 12_000, 24_000));
-		assertThat(detail.getOrderPrice().getTotalPrice()).as("상품 합계").isEqualTo(24_000);
+		assertThat(detail.getOrderPrice().getProductsTotal()).as("상품 합계").isEqualTo(24_000);
 	}
 
 	@Test
@@ -82,7 +82,7 @@ class OrderDetailAmountTest extends PaymentIntegrationTestSupport {
 		OrderPriceDTO price = detailOf(order).getOrderPrice();
 
 		// then
-		assertThat(price.getTotalPrice()).as("상품 합계").isEqualTo(24_000);
+		assertThat(price.getProductsTotal()).as("상품 합계").isEqualTo(24_000);
 		assertThat(price.getDeliveryFee()).as("배송비").isEqualTo(2_500);
 		assertThat(price.getFinalPrice()).as("최종 결제금액").isEqualTo(26_500);
 	}

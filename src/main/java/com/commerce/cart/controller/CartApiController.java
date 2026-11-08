@@ -62,6 +62,6 @@ public class CartApiController {
 	// 변경 후 화면을 다시 그릴 수 있도록 장바구니 전체를 돌려준다.
 	private CartResponse buildCartResponse() {
 		Cart cart = cartService.getCart();
-		return new CartResponse(cartService.getCartProductDTOS(cart.getId()), cartService.getTotalPrice(cart.getId()));
+		return new CartResponse(cartService.getCartProductDTOS(cart.getId()), cartService.getProductsTotal(cart.getId()));
 	}
 }

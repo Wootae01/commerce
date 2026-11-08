@@ -8,12 +8,12 @@ import lombok.Setter;
 @Getter
 @Setter
 public class OrderPriceDTO {
-	private int totalPrice;
+	private int productsTotal;
 	private int deliveryFee;
 	private int finalPrice;
 
-	public OrderPriceDTO(int totalPrice, int deliveryFee, int finalPrice) {
-		this.totalPrice = totalPrice;
+	public OrderPriceDTO(int productsTotal, int deliveryFee, int finalPrice) {
+		this.productsTotal = productsTotal;
 		this.deliveryFee = deliveryFee;
 		this.finalPrice = finalPrice;
 	}

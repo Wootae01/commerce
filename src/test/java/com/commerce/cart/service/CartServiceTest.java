@@ -196,8 +196,8 @@ class CartServiceTest {
 	}
 
 	@Nested
-	@DisplayName("getTotalPrice - 선택한 상품 합계")
-	class GetTotalPrice {
+	@DisplayName("getProductsTotal - 선택한 상품 합계")
+	class GetProductsTotal {
 
 		@Test
 		@DisplayName("선택한 항목만 (상품 가격 + 옵션 추가 금액) x 수량으로 더한다")
@@ -209,7 +209,7 @@ class CartServiceTest {
 			CartProduct unchecked = new CartProduct(cart, product, option, 5, false);
 
 			// when
-			int total = cartService.getTotalPrice(List.of(checked1, checked2, unchecked));
+			int total = cartService.getProductsTotal(List.of(checked1, checked2, unchecked));
 
 			// then
 			assertThat(total).isEqualTo(22000 + 12000);

@@ -87,7 +87,7 @@
                 <div class="d-flex justify-content-between align-items-center mb-3">
                     <span class="text-muted">선택 상품 합계</span>
                     <span class="fw-bold fs-5" style="color: #4d9fff;"
-                          th:text="${#numbers.formatInteger(totalPrice, 3, 'COMMA')} + '원'"></span>
+                          th:text="${#numbers.formatInteger(productsTotal, 3, 'COMMA')} + '원'"></span>
                 </div>
                 <form method="get" th:action="@{/orders/cart}">
                     <button class="btn btn-primary btn-lg w-100" type="submit">선택 상품 주문하기</button>

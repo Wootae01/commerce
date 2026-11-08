@@ -217,13 +217,13 @@ public class OrderService {
 
 		// 2. 가격 계산
 		int unitPrice = product.getPrice() + option.getAdditionalPrice();
-		int totalPrice = unitPrice * dto.getQuantity();
+		int productsTotal = unitPrice * dto.getQuantity();
 
 		// 3. 주문 이름 생성
 		String orderName = product.getName();
 
 		// 3. order 객체 생성
-		Orders orders = createOrderEntity(dto, OrderStatus.READY, OrderType.BUY_NOW, orderName, totalPrice);
+		Orders orders = createOrderEntity(dto, OrderStatus.READY, OrderType.BUY_NOW, orderName, productsTotal);
 
 		// 4. orderProduct 생성
 		OrderProduct orderProduct = OrderProduct.builder()
@@ -257,13 +257,13 @@ public class OrderService {
 		validateStock(cartProducts);
 
 		// 2. 가격 계산
-		int totalPrice = getTotalPrice(cartProducts);
+		int productsTotal = getProductsTotal(cartProducts);
 
 		// 주문 이름 생성
 		String orderName = buildOrderName(cartProducts);
 
 		// 3. order 객체 생성
-		Orders orders = createOrderEntity(dto, OrderStatus.READY, OrderType.CART, orderName, totalPrice);
+		Orders orders = createOrderEntity(dto, OrderStatus.READY, OrderType.CART, orderName, productsTotal);
 		orders = orderRepository.saveAndFlush(orders);
 
 		// 4. orderProduct 생성
@@ -310,7 +310,7 @@ public class OrderService {
 		return prefix + suffix;
 	}
 
-	private Orders createOrderEntity(OrderCreateRequestDTO dto, OrderStatus orderStatus, OrderType orderType, String orderName, int totalPrice) {
+	private Orders createOrderEntity(OrderCreateRequestDTO dto, OrderStatus orderStatus, OrderType orderType, String orderName, int productsTotal) {
 
 		Orders orders = Orders
 			.builder()
@@ -324,13 +324,13 @@ public class OrderService {
 			.orderType(orderType)
 			.orderStatus(orderStatus)
 			.user(securityUtil.getCurrentUser())
-			.amount(OrderAmount.of(totalPrice))
+			.amount(OrderAmount.of(productsTotal))
 			.build();
 
 		return orders;
 	}
 
-	private static int getTotalPrice(List<CartProduct> cartProducts) {
+	private static int getProductsTotal(List<CartProduct> cartProducts) {
 		int sum = 0;
 		for (CartProduct cartProduct : cartProducts) {
 			sum += cartProduct.getUnitPrice() * cartProduct.getQuantity();
