@@ -90,7 +90,7 @@
 
     -- order 50개 삽입
     INSERT INTO orders (
-        order_number, user_id, final_price, order_name,
+        order_number, user_id, final_price, delivery_fee, order_name,
         order_status, receiver_name,
         receiver_address, order_address_detail, receiver_phone, order_type, created_at, updated_at
     )
@@ -106,6 +106,7 @@
         UUID()                                 AS order_number,
         u.user_id                              AS user_id,
         30000                                  AS final_price,
+        3000                                   AS delivery_fee,
         'N+1 TEST ORDER'                       AS order_name,
         'PAID'                                 AS order_status,
         '홍길동'                               AS receiver_name,

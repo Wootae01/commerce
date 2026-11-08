@@ -21,7 +21,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.commerce.cart.domain.CartProduct;
-import com.commerce.product.domain.DeliveryPolicy;
+import com.commerce.order.domain.OrderAmount;
 import com.commerce.order.domain.OrderProduct;
 import com.commerce.order.domain.Orders;
 import com.commerce.product.domain.Product;
@@ -324,7 +324,7 @@ public class OrderService {
 			.orderType(orderType)
 			.orderStatus(orderStatus)
 			.user(securityUtil.getCurrentUser())
-			.finalPrice(totalPrice + DeliveryPolicy.DELIVERY_FEE)
+			.amount(OrderAmount.of(totalPrice))
 			.build();
 
 		return orders;

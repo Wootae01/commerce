@@ -1,5 +1,7 @@
 package com.commerce.order.dto;
 
+import com.commerce.order.domain.OrderAmount;
+
 import lombok.Getter;
 import lombok.Setter;
 
@@ -14,5 +16,9 @@ public class OrderPriceDTO {
 		this.totalPrice = totalPrice;
 		this.deliveryFee = deliveryFee;
 		this.finalPrice = finalPrice;
+	}
+
+	public static OrderPriceDTO of(int productsTotal, OrderAmount amount) {
+		return new OrderPriceDTO(productsTotal, amount.deliveryFee(), amount.finalPrice());
 	}
 }

@@ -226,6 +226,7 @@ class OrdersTest {
 	private static Orders orderWithStatus(OrderStatus status) {
 		return Orders.builder()
 			.orderNumber("ORDER-1")
+			.amount(OrderAmount.of(1000))
 			.orderStatus(status)
 			.build();
 	}

@@ -15,6 +15,7 @@ import com.commerce.common.enums.OrderStatus;
 import com.commerce.common.enums.RoleType;
 import com.commerce.common.exception.ApiException;
 import com.commerce.config.IntegrationTest;
+import com.commerce.order.domain.OrderAmount;
 import com.commerce.order.domain.Orders;
 import com.commerce.order.repository.OrderRepository;
 import com.commerce.order.service.OrderService;
@@ -85,7 +86,7 @@ class AdminOrderStatusChangeTest {
 			.user(user)
 			.orderNumber("ORDER-" + (++orderSeq))
 			.orderName("상품1")
-			.finalPrice(1000)
+			.amount(OrderAmount.of(1000))
 			.orderStatus(status)
 			.build());
 	}
