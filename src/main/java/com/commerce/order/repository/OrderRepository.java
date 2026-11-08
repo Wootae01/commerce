@@ -81,7 +81,7 @@ public interface OrderRepository extends JpaRepository<Orders, Long> {
 	// 결제 수단은 Payment에 있어 함께 조인한다(결제 전 주문은 Payment가 없으므로 left join)
 	@Query(value = """
 		select new com.commerce.order.dto.AdminOrderRow(
-			o.id, o.orderNumber, o.createdAt, u.name, p.paymentType, o.receiverPhone, o.finalPrice, o.orderStatus
+			o.id, o.orderNumber, o.createdAt, u.name, p.paymentType, o.receiverPhone, o.amount.finalPrice, o.orderStatus
 		)
 		from Orders o
 		join o.user u
@@ -107,7 +107,7 @@ public interface OrderRepository extends JpaRepository<Orders, Long> {
 
 	@Query(value = """
     select new com.commerce.order.dto.OrderHeaderRow(
-        o.id, o.orderNumber, o.createdAt, o.orderStatus, o.finalPrice
+        o.id, o.orderNumber, o.createdAt, o.orderStatus, o.amount.finalPrice
     )
     from Orders o
     where o.user = :user

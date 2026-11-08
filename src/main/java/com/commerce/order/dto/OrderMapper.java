@@ -7,7 +7,6 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 import com.commerce.cart.domain.CartProduct;
-import com.commerce.product.domain.DeliveryPolicy;
 import com.commerce.product.domain.ProductOption;
 import com.commerce.order.domain.OrderProduct;
 import com.commerce.order.domain.Orders;
@@ -48,7 +47,7 @@ public class OrderMapper {
 			.id(product.getId())
 			.quantity(quantity)
 			.unitPrice(unitPrice)
-			.totalPrice(quantity * unitPrice)
+			.lineTotal(quantity * unitPrice)
 			.mainImageUrl(productImageUtil.getMainImageUrl(product))
 			.name(product.getName())
 			.optionName(option.getName())
@@ -75,7 +74,7 @@ public class OrderMapper {
 			.id(cartProduct.getId())
 			.quantity(cartProduct.getQuantity())
 			.unitPrice(unitPrice)
-			.totalPrice(unitPrice * cartProduct.getQuantity())
+			.lineTotal(unitPrice * cartProduct.getQuantity())
 			.mainImageUrl(mainImageUrl)
 			.name(product.getName())
 			.optionName(option.getName())
@@ -90,8 +89,8 @@ public class OrderMapper {
 		return OrderItemDTO.builder()
 			.id(product.getId())
 			.quantity(orderProduct.getQuantity())
-			.unitPrice(product.getPrice())
-			.totalPrice(product.getPrice() * orderProduct.getQuantity())
+			.unitPrice(orderProduct.getPrice())
+			.lineTotal(orderProduct.getLineTotal())
 			.mainImageUrl(mainImageUrl)
 			.name(product.getName())
 			.build();
@@ -127,7 +126,7 @@ public class OrderMapper {
 				.build()
 			)
 			.orderItems(toOrderItemDTOFromOrder(order.getOrderProducts()))
-			.orderPrice(new OrderPriceDTO(order.getFinalPrice(), DeliveryPolicy.DELIVERY_FEE, order.getFinalPrice() + DeliveryPolicy.DELIVERY_FEE))
+			.orderPrice(OrderPriceDTO.of(order.getProductsTotal(), order.getAmount()))
 			.paymentInfo(OrderDetailResponseDTO.PaymentInfo.builder()
 				.paymentMethod(PaymentType.textOf(payment == null ? null : payment.getPaymentType()))
 				.orderStatus(order.getOrderStatus().getText())

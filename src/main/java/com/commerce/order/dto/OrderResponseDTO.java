@@ -15,14 +15,14 @@ public class OrderResponseDTO {
 	private LocalDateTime orderDate;
 	private OrderStatus orderStatus;
 	List<OrderProductResponseDTO> productDTOS;
-	private int totalPrice;
+	private int finalPrice;
 
 	public OrderResponseDTO(String orderNumber, LocalDateTime orderDate, OrderStatus orderStatus,
-		List<OrderProductResponseDTO> productDTOS, int totalPrice) {
+		List<OrderProductResponseDTO> productDTOS, int finalPrice) {
 		this.orderNumber = orderNumber;
 		this.orderDate = orderDate;
 		this.orderStatus = orderStatus;
 		this.productDTOS = productDTOS;
-		this.totalPrice = totalPrice;
+		this.finalPrice = finalPrice;
 	}
 }

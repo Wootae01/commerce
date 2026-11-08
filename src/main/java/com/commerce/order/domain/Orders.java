@@ -37,7 +37,9 @@ public class Orders extends BaseUpdatableEntity {
     @OneToMany(mappedBy = "order", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<OrderProduct> orderProducts = new ArrayList<>();
 
-    private int finalPrice;
+    // 주문할 때 정한 배송비·결제 금액
+    @Embedded
+    private OrderAmount amount;
 
     private String orderName;
     private String receiverName;
@@ -73,12 +75,12 @@ public class Orders extends BaseUpdatableEntity {
     private LocalDateTime lastRecoveryAt;
 
     @Builder
-    private Orders(User user, String orderName, int finalPrice, String receiverName, String receiverAddress, String orderNumber,
+    private Orders(User user, String orderName, OrderAmount amount, String receiverName, String receiverAddress, String orderNumber,
         String receiverPhone, String orderAddressDetail, String requestNote, OrderStatus orderStatus, OrderType orderType) {
         this.orderNumber = orderNumber;
         this.user = user;
         this.orderName = orderName;
-        this.finalPrice = finalPrice;
+        this.amount = amount;
         this.receiverName = receiverName;
         this.receiverAddress = receiverAddress;
         this.receiverPhone = receiverPhone;
@@ -86,6 +88,18 @@ public class Orders extends BaseUpdatableEntity {
         this.orderAddressDetail = orderAddressDetail;
         this.requestNote = requestNote;
         this.orderType = orderType;
+    }
+
+    // 결제 금액(상품 합계 + 배송비). 토스에 승인 요청하는 금액이다
+    public int getFinalPrice() {
+        return amount.finalPrice();
+    }
+
+    // 상품 합계: 주문 상품의 상품별 합계를 더한 값. 주문 상품에 이미 있는 값이라 따로 저장하지 않는다
+    public int getProductsTotal() {
+        return orderProducts.stream()
+            .mapToInt(OrderProduct::getLineTotal)
+            .sum();
     }
 
     // 결제 확정 시작: READY → PAYMENT_PENDING. 결제 정보(Payment)는 호출한 쪽이 같은 트랜잭션에서 만든다

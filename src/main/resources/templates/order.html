@@ -65,13 +65,13 @@
                         </td>
                         <td class="text-center" th:text="${orderItem.quantity} + '개'"></td>
                         <td class="text-end" th:text="${#numbers.formatInteger(orderItem.unitPrice, 3, 'COMMA')} + '원'"></td>
-                        <td class="text-end fw-semibold" th:text="${#numbers.formatInteger(orderItem.totalPrice, 3, 'COMMA')} + '원'"></td>
+                        <td class="text-end fw-semibold" th:text="${#numbers.formatInteger(orderItem.lineTotal, 3, 'COMMA')} + '원'"></td>
                     </tr>
                     </tbody>
                 </table>
             </div>
             <div class="text-end fw-bold mt-3">
-                총 상품 금액 <span class="text-danger ms-1" th:text="${#numbers.formatInteger(orderPrice.totalPrice, 3, 'COMMA')} + '원'"></span>
+                총 상품 금액 <span class="text-danger ms-1" th:text="${#numbers.formatInteger(orderPrice.productsTotal, 3, 'COMMA')} + '원'"></span>
             </div>
             <input type="hidden" th:if="${orderForm.orderType == T(com.commerce.common.enums.OrderType).BUY_NOW}" th:field="*{productId}"/>
             <input type="hidden" th:if="${orderForm.orderType == T(com.commerce.common.enums.OrderType).BUY_NOW}" th:field="*{quantity}"/>
@@ -115,7 +115,7 @@
             <p class="section-title">결제 금액</p>
             <div class="d-flex justify-content-between mb-2">
                 <span class="text-muted">상품 금액</span>
-                <span class="fw-semibold" th:text="${#numbers.formatInteger(orderPrice.totalPrice, 3, 'COMMA')} + '원'"></span>
+                <span class="fw-semibold" th:text="${#numbers.formatInteger(orderPrice.productsTotal, 3, 'COMMA')} + '원'"></span>
             </div>
             <div class="d-flex justify-content-between mb-3">
                 <span class="text-muted">배송비</span>

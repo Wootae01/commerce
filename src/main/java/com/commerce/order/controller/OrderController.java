@@ -60,9 +60,9 @@ public class OrderController {
         model.addAttribute("orderForm", orderDTO);
 
         // 3. 주문 가격
-        int totalPrice = cartService.getTotalPrice(cartProducts);
+        int productsTotal = cartService.getProductsTotal(cartProducts);
         int deliveryFee = DeliveryPolicy.DELIVERY_FEE;
-        OrderPriceDTO orderPriceDTO = new OrderPriceDTO(totalPrice, deliveryFee, totalPrice + deliveryFee);
+        OrderPriceDTO orderPriceDTO = new OrderPriceDTO(productsTotal, deliveryFee, productsTotal + deliveryFee);
         model.addAttribute("orderPrice", orderPriceDTO);
 
         // 토스 클라이언트 키
@@ -91,9 +91,9 @@ public class OrderController {
 
         // 3. 주문 가격
         int additionalPrice = option.getAdditionalPrice();
-        int totalPrice = (product.getPrice() + additionalPrice) * quantity;
+        int productsTotal = (product.getPrice() + additionalPrice) * quantity;
         int deliveryFee = DeliveryPolicy.DELIVERY_FEE;
-        OrderPriceDTO orderPriceDTO = new OrderPriceDTO(totalPrice, deliveryFee, totalPrice + deliveryFee);
+        OrderPriceDTO orderPriceDTO = new OrderPriceDTO(productsTotal, deliveryFee, productsTotal + deliveryFee);
         model.addAttribute("orderPrice", orderPriceDTO);
 
         // 토스 클라이언트 키

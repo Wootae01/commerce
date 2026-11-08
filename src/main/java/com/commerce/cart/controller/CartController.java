@@ -23,10 +23,10 @@ public class CartController {
 		Cart cart = cartService.getCart();
 		List<CartProductDTO> cartProductDTOS = cartService.getCartProductDTOS(cart.getId());
 
-		int totalPrice = cartService.getTotalPrice(cart.getId());
+		int productsTotal = cartService.getProductsTotal(cart.getId());
 
 		model.addAttribute("cartProducts", cartProductDTOS);
-		model.addAttribute("totalPrice", totalPrice);
+		model.addAttribute("productsTotal", productsTotal);
 		return "cart";
 	}
 

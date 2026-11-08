@@ -25,7 +25,7 @@ public class AdminOrderListResponseDTO {
 	private String buyerName;
 	private String paymentType;
 	private String orderPhone;
-	private int totalPrice;
+	private int finalPrice;
 	private OrderStatus orderStatus;
 
 	public static AdminOrderListResponseDTO from(AdminOrderRow row) {
@@ -37,7 +37,7 @@ public class AdminOrderListResponseDTO {
 			.orderDate(row.orderDate())
 			.orderNumber(row.orderNumber())
 			.orderStatus(row.orderStatus())
-			.totalPrice(row.finalPrice())
+			.finalPrice(row.finalPrice())
 			.build();
 	}
 }

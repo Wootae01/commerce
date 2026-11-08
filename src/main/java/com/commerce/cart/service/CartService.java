@@ -128,12 +128,12 @@ public class CartService {
 			.orElseThrow(() -> new ApiException(GeneralResponseCode.CART_ITEM_NOT_FOUND));
 	}
 
-	public int getTotalPrice(Long cartId) {
+	public int getProductsTotal(Long cartId) {
 		List<CartProduct> cartProducts = cartProductRepository.findByCartIdWithProductAndOption(cartId);
-		return getTotalPrice(cartProducts);
+		return getProductsTotal(cartProducts);
 	}
 
-	public int getTotalPrice(List<CartProduct> cartProducts) {
+	public int getProductsTotal(List<CartProduct> cartProducts) {
 		return cartProducts.stream()
 				.filter(CartProduct::isChecked)
 				.mapToInt(cp -> cp.getQuantity() * cp.getUnitPrice())

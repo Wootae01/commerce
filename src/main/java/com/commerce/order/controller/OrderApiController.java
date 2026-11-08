@@ -66,10 +66,10 @@ public class OrderApiController {
 	public ResponseEntity<GeneralResponse<OrderCheckoutResponse>> checkoutFromCart() {
 		List<CartProduct> cartProducts = cartService.getSelectedProduct();
 		List<OrderItemDTO> items = orderMapper.toOrderItemDTOFromCart(cartProducts);
-		int totalPrice = cartService.getTotalPrice(cartProducts);
+		int productsTotal = cartService.getProductsTotal(cartProducts);
 
 		return GeneralResponse.toResponseEntity(GeneralResponseCode.OK,
-			buildCheckout(OrderType.CART, items, totalPrice));
+			buildCheckout(OrderType.CART, items, productsTotal));
 	}
 
 	// 바로구매 주문서 조회
@@ -82,7 +82,7 @@ public class OrderApiController {
 
 		OrderItemDTO item = orderMapper.toOrderItemDTOFromCart(product, quantity, option);
 		return GeneralResponse.toResponseEntity(GeneralResponseCode.OK,
-			buildCheckout(OrderType.BUY_NOW, List.of(item), item.getTotalPrice()));
+			buildCheckout(OrderType.BUY_NOW, List.of(item), item.getLineTotal()));
 	}
 
 	// 결제 전 주문 생성. 응답 값으로 토스 결제창을 띄운다.
@@ -123,9 +123,9 @@ public class OrderApiController {
 		return GeneralResponse.toResponseEntity(GeneralResponseCode.OK, result);
 	}
 
-	private OrderCheckoutResponse buildCheckout(OrderType orderType, List<OrderItemDTO> items, int totalPrice) {
+	private OrderCheckoutResponse buildCheckout(OrderType orderType, List<OrderItemDTO> items, int productsTotal) {
 		int deliveryFee = DeliveryPolicy.DELIVERY_FEE;
-		OrderPriceDTO orderPrice = new OrderPriceDTO(totalPrice, deliveryFee, totalPrice + deliveryFee);
+		OrderPriceDTO orderPrice = new OrderPriceDTO(productsTotal, deliveryFee, productsTotal + deliveryFee);
 		User user = securityUtil.getCurrentUser();
 
 		return new OrderCheckoutResponse(orderType, items, OrderCheckoutResponse.Orderer.from(user), orderPrice,

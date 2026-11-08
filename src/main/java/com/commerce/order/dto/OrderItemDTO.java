@@ -16,7 +16,7 @@ public class OrderItemDTO {
 	private Long id;
 	private int quantity;
 	private int unitPrice;
-	private int totalPrice;
+	private int lineTotal;
 	private String mainImageUrl;
 	private String name;
 	private String optionName;
