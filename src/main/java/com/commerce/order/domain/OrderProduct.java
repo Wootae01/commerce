@@ -45,4 +45,9 @@ public class OrderProduct extends BaseUpdatableEntity {
         this.quantity = quantity;
         this.price = price;
     }
+
+    // 상품별 합계: 주문할 때의 단가 × 수량
+    public int getLineTotal() {
+        return price * quantity;
+    }
 }

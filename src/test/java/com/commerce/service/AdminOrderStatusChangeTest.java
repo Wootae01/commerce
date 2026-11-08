@@ -86,7 +86,7 @@ class AdminOrderStatusChangeTest {
 			.user(user)
 			.orderNumber("ORDER-" + (++orderSeq))
 			.orderName("상품1")
-			.amount(OrderAmount.of(1000))
+			.amount(OrderAmount.forNewOrder(1000))
 			.orderStatus(status)
 			.build());
 	}

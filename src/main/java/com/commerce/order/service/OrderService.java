@@ -29,7 +29,6 @@ import com.commerce.product.domain.ProductOption;
 import com.commerce.user.domain.User;
 import com.commerce.common.enums.OrderStatus;
 import com.commerce.common.enums.OrderType;
-import com.commerce.common.enums.PaymentType;
 import com.commerce.payment.domain.Payment;
 import com.commerce.payment.repository.PaymentRepository;
 import com.commerce.admin.dto.AdminOrderListResponseDTO;
@@ -324,7 +323,7 @@ public class OrderService {
 			.orderType(orderType)
 			.orderStatus(orderStatus)
 			.user(securityUtil.getCurrentUser())
-			.amount(OrderAmount.of(productsTotal))
+			.amount(OrderAmount.forNewOrder(productsTotal))
 			.build();
 
 		return orders;

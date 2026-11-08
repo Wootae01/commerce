@@ -95,10 +95,10 @@ public class Orders extends BaseUpdatableEntity {
         return amount.finalPrice();
     }
 
-    // 상품 합계: 주문 상품의 단가 × 수량을 더한 값. 주문 상품에 이미 있는 값이라 따로 저장하지 않는다
+    // 상품 합계: 주문 상품의 상품별 합계를 더한 값. 주문 상품에 이미 있는 값이라 따로 저장하지 않는다
     public int getProductsTotal() {
         return orderProducts.stream()
-            .mapToInt(orderProduct -> orderProduct.getPrice() * orderProduct.getQuantity())
+            .mapToInt(OrderProduct::getLineTotal)
             .sum();
     }
 

@@ -90,7 +90,7 @@ public class OrderMapper {
 			.id(product.getId())
 			.quantity(orderProduct.getQuantity())
 			.unitPrice(orderProduct.getPrice())
-			.lineTotal(orderProduct.getPrice() * orderProduct.getQuantity())
+			.lineTotal(orderProduct.getLineTotal())
 			.mainImageUrl(mainImageUrl)
 			.name(product.getName())
 			.build();
