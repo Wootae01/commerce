@@ -33,7 +33,6 @@ import com.commerce.order.dto.OrderResponseDTO;
 import com.commerce.order.service.OrderService;
 import com.commerce.payment.dto.CancelResponseDTO;
 import com.commerce.payment.service.PayService;
-import com.commerce.product.domain.DeliveryPolicy;
 import com.commerce.product.domain.Product;
 import com.commerce.product.domain.ProductOption;
 import com.commerce.product.service.ProductService;
@@ -121,11 +120,9 @@ public class OrderApiController {
 	}
 
 	private OrderCheckoutResponse buildCheckout(OrderType orderType, List<OrderItemDTO> items, int productsTotal) {
-		int deliveryFee = DeliveryPolicy.DELIVERY_FEE;
-		OrderPriceDTO orderPrice = new OrderPriceDTO(productsTotal, deliveryFee, productsTotal + deliveryFee);
 		User user = securityUtil.getCurrentUser();
 
-		return new OrderCheckoutResponse(orderType, items, OrderCheckoutResponse.Orderer.from(user), orderPrice,
-			tossClientKey);
+		return new OrderCheckoutResponse(orderType, items, OrderCheckoutResponse.Orderer.from(user),
+			OrderPriceDTO.forCheckout(productsTotal), tossClientKey);
 	}
 }
