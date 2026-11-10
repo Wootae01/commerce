@@ -3,7 +3,6 @@ package com.commerce.order.service;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.ArrayList;
-import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -194,8 +193,6 @@ public class OrderService {
 	}
 
 	/**
-	 * 결제 전 주문을 만들어 저장한다(READY). 응답으로 토스 결제창을 띄운다.
-	 *
 	 * <p>바로구매와 장바구니 주문은 무엇을 몇 개 사는지 알아내는 입구만 다르고, 그 뒤(재고 확인·상품 합계·주문 이름·저장)는 같다.
 	 * 장바구니 주문은 결제 후 장바구니에서 뺄 상품을 알 수 있게 장바구니 연결도 저장한다.
 	 *
@@ -215,7 +212,7 @@ public class OrderService {
 	}
 
 	// 장바구니 주문 입구: 본인 장바구니 상품만 조회하고, 요청한 ID 중 하나라도 빠지면 거부한다.
-	// 장바구니에 담은 뒤 판매 중지된 상품·옵션은 주문할 수 없다.
+	// 담은 뒤 판매 중지된 상품·옵션은 조회되므로 공통 처리에서 거부한다.
 	private List<CartProduct> findOrderableCartProducts(List<Long> cartProductIds) {
 		if (cartProductIds == null || cartProductIds.isEmpty()) {
 			throw new ApiException(GeneralResponseCode.ORDER_EMPTY);
@@ -225,15 +222,6 @@ public class OrderService {
 		List<CartProduct> cartProducts = cartProductRepository.findAllByIdWithProductAndUserId(cartProductIds, userId);
 		if (cartProducts.size() != cartProductIds.stream().distinct().count()) {
 			throw new ApiException(GeneralResponseCode.CART_ITEM_NOT_FOUND);
-		}
-
-		for (CartProduct cartProduct : cartProducts) {
-			if (cartProduct.getProduct().isDeleted()) {
-				throw new ApiException(GeneralResponseCode.PRODUCT_NOT_FOUND);
-			}
-			if (cartProduct.getProductOption().isDeleted()) {
-				throw new ApiException(GeneralResponseCode.PRODUCT_OPTION_NOT_FOUND);
-			}
 		}
 		return cartProducts;
 	}
@@ -249,10 +237,10 @@ public class OrderService {
 		return new OrderProductDraft(product, option, dto.getQuantity());
 	}
 
-	// 공통: 재고 확인 → 상품 합계 → 주문 이름 → 주문 저장 → 주문 상품 저장
+	// 공통: 주문 가능 확인 → 상품 합계 → 주문 이름 → 주문 저장 → 주문 상품 저장
 	private Orders saveOrder(OrderCreateRequestDTO dto, List<OrderProductDraft> drafts) {
 		for (OrderProductDraft draft : drafts) {
-			validateStock(draft.option(), draft.quantity());
+			validateOrderable(draft);
 		}
 
 		int productsTotal = drafts.stream().mapToInt(OrderProductDraft::lineTotal).sum();
@@ -277,7 +265,6 @@ public class OrderService {
 	private void saveCartLinks(Orders order, List<CartProduct> cartProducts) {
 		List<OrderCartProductRow> rows = cartProducts.stream()
 			.map(cartProduct -> new OrderCartProductRow(order.getId(), cartProduct.getId()))
-			.sorted(Comparator.comparing(OrderCartProductRow::cartProductId))
 			.toList();
 		try {
 			orderCartProductJdbcRepository.batchInsert(rows);
@@ -308,6 +295,18 @@ public class OrderService {
 		int lineTotal() {
 			return unitPrice() * quantity;
 		}
+	}
+
+	// 주문 상품마다 판매 중지 → 재고 순서로 확인한다. 여러 개면 앞 상품의 거절 이유로 거절한다.
+	// 바로구매는 입구의 조회에서 판매 중지가 이미 걸러진다.
+	private static void validateOrderable(OrderProductDraft draft) {
+		if (draft.product().isDeleted()) {
+			throw new ApiException(GeneralResponseCode.PRODUCT_NOT_FOUND);
+		}
+		if (draft.option().isDeleted()) {
+			throw new ApiException(GeneralResponseCode.PRODUCT_OPTION_NOT_FOUND);
+		}
+		validateStock(draft.option(), draft.quantity());
 	}
 
 	private static void validateStock(ProductOption option, int quantity) {

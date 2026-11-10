@@ -394,6 +394,23 @@ class OrderPrepareTest extends PaymentIntegrationTestSupport {
 		}
 	}
 
+	@Test
+	@DisplayName("장바구니 주문은 담은 상품마다 판매 중지 → 재고 순서로 확인해, 앞 상품의 거절 이유로 거절한다")
+	void cartOrder_rejectedByFirstFailingCartProduct() {
+		// given - 티셔츠 L을 재고보다 많이 담고, 그 뒤에 담은 양말은 판매 중지된다
+		addToCart(shirtId, largeOptionId, INITIAL_STOCK + 1);
+		addToCart(socksId, socksOptionId, 1);
+		List<Long> cartProductIds = allCartProductIds();
+		transactionTemplate.executeWithoutResult(status ->
+			productRepository.findById(socksId).orElseThrow().softDelete("admin"));
+
+		// when & then - 앞에 담은 티셔츠의 재고 부족이 거절 이유다
+		assertThatThrownBy(() -> orderService.prepareOrder(cartOrderForm(cartProductIds)))
+			.isInstanceOf(ApiException.class)
+			.extracting("responseCode").isEqualTo(GeneralResponseCode.PRODUCT_OUT_OF_STOCK);
+		assertThat(orderRepository.count()).as("주문").isZero();
+	}
+
 	// 주문 방식별로 주문할 준비를 하고(장바구니 주문이면 지금 담는다), 실행하면 주문을 만드는 동작을 돌려준다
 	private Runnable orderPlacer(OrderType orderType, Long productId, Long optionId, int quantity) {
 		if (orderType == OrderType.BUY_NOW) {
