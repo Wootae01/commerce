@@ -2,6 +2,7 @@ package com.commerce.service;
 
 import static org.assertj.core.api.Assertions.*;
 
+import java.util.Comparator;
 import java.util.List;
 
 import org.junit.jupiter.api.BeforeEach;
@@ -18,6 +19,7 @@ import com.commerce.cart.service.CartService;
 import com.commerce.common.code.GeneralResponseCode;
 import com.commerce.common.enums.OrderType;
 import com.commerce.common.exception.ApiException;
+import com.commerce.order.domain.OrderProduct;
 import com.commerce.order.domain.Orders;
 import com.commerce.order.dto.OrderCreateRequestDTO;
 import com.commerce.order.dto.OrderDetailResponseDTO;
@@ -130,6 +132,31 @@ class OrderPrepareTest extends PaymentIntegrationTestSupport {
 		Long cartId = cartRepository.findByUser(user).orElseThrow().getId();
 		assertThat(cartService.getCartProductDTOS(cartId)).extracting(CartProductDTO::getName)
 			.containsExactly("상품1");
+	}
+
+	@Test
+	@DisplayName("주문 상품은 담은 순서와 상관없이 옵션 id 오름차순으로 들어간다(결제 재고 차감과 같은 락 순서)")
+	void orderProductsInsertedInOptionIdOrder() {
+		// given - 티셔츠에 나중에 추가한 M 옵션(가장 큰 옵션 id)을 먼저 담고, 양말을 나중에 담는다
+		// 장바구니 상품 id 순서로도, 상품 id 순서로도 M이 앞이라 옵션 id 순서와 어긋난다
+		Long mediumOptionId = transactionTemplate.execute(status -> {
+			ProductOption medium = new ProductOption("M", INITIAL_STOCK, 1_000);
+			productRepository.findById(shirtId).orElseThrow().addOption(medium);
+			productOptionRepository.flush();
+			return medium.getId();
+		});
+		assertThat(socksOptionId).isLessThan(mediumOptionId);
+		addToCart(shirtId, mediumOptionId, 1);
+		addToCart(socksId, socksOptionId, 1);
+
+		// when
+		Orders order = orderService.prepareOrderFromCart(cartOrderForm(allCartProductIds()));
+
+		// then - 주문 상품 행을 넣은 순서(id 순)의 옵션 = FK 확인으로 옵션 S락을 잡는 순서
+		assertThat(orderProductRepository.findOrderProductByOrderIdWithProduct(order.getId()).stream()
+			.sorted(Comparator.comparing(OrderProduct::getId))
+			.map(op -> op.getProductOption().getId()))
+			.containsExactly(socksOptionId, mediumOptionId);
 	}
 
 	@ParameterizedTest
