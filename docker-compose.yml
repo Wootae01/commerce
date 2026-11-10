@@ -25,7 +25,10 @@ services:
           cpus: "2"  # 최대 2개의 코어 할당
           memory: 2GB   # 최대 2GB 메모리 할당
 
+  # blue·nginx는 blue/green 전환을 테스트할 때만 띄운다: docker compose --profile bluegreen up -d
+  # 평소 docker compose up -d 는 green(8082) 하나만 띄운다 (nginx/conf.d/service-url.inc가 green을 가리킴)
   nginx:
+    profiles: ["bluegreen"]
     image: nginx:alpine
     container_name: nginx
     ports:
@@ -40,12 +43,14 @@ services:
       - monitoring
 
   blue:
+    profiles: ["bluegreen"]
     build: .
     container_name: spring-app-blue
     ports:
       - "8081:8080"
     environment:
       SPRING_DATASOURCE_URL: jdbc:mysql://db:3306/commerce?allowPublicKeyRetrieval=true&useSSL=false&rewriteBatchedStatements=true
+      SPRING_DATASOURCE_USERNAME: commerce_user
       SPRING_DATA_REDIS_HOST: redis
       JAVA_OPTS: "-Xms256m -Xmx512m"
     env_file:
@@ -73,6 +78,7 @@ services:
       - "8082:8080"
     environment:
       SPRING_DATASOURCE_URL: jdbc:mysql://db:3306/commerce?allowPublicKeyRetrieval=true&useSSL=false&rewriteBatchedStatements=true
+      SPRING_DATASOURCE_USERNAME: commerce_user
       SPRING_DATA_REDIS_HOST: redis
       JAVA_OPTS: "-Xms256m -Xmx512m"
     env_file:
