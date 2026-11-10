@@ -95,6 +95,7 @@ abstract class PaymentIntegrationTestSupport {
 
 	@AfterEach
 	void cleanUp() {
+		jdbcTemplate.update("delete from order_cart_product");
 		orderProductRepository.deleteAllInBatch();
 		paymentRepository.deleteAllInBatch();
 		orderRepository.deleteAllInBatch();
