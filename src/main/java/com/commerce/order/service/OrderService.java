@@ -9,7 +9,6 @@ import java.util.List;
 import java.util.Map;
 import com.commerce.common.code.GeneralResponseCode;
 import com.commerce.common.exception.ApiException;
-import java.util.UUID;
 import java.util.stream.Collectors;
 
 import com.commerce.common.util.ProductImageUtil;
@@ -22,7 +21,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.commerce.cart.domain.CartProduct;
-import com.commerce.order.domain.OrderAmount;
 import com.commerce.order.domain.Orders;
 import com.commerce.product.domain.Product;
 import com.commerce.product.domain.ProductOption;
@@ -258,7 +256,9 @@ public class OrderService {
 		}
 
 		int productsTotal = drafts.stream().mapToInt(OrderProductDraft::lineTotal).sum();
-		Orders order = orderRepository.saveAndFlush(createOrderEntity(dto, buildOrderName(drafts), productsTotal));
+		Orders order = orderRepository.saveAndFlush(Orders.createOrder(
+			securityUtil.getCurrentUser(), dto.getOrderType(), buildOrderName(drafts), productsTotal,
+			dto.getName(), dto.getPhone(), dto.getAddress(), dto.getAddressDetail(), dto.getRequestNote()));
 
 		List<OrderProductRow> rows = drafts.stream()
 			.map(draft -> new OrderProductRow(order.getId(), draft.product().getId(), draft.option().getId(),
@@ -308,26 +308,6 @@ public class OrderService {
 		int lineTotal() {
 			return unitPrice() * quantity;
 		}
-	}
-
-	private Orders createOrderEntity(OrderCreateRequestDTO dto, String orderName, int productsTotal) {
-
-		Orders orders = Orders
-			.builder()
-			.receiverAddress(dto.getAddress())
-			.orderNumber(UUID.randomUUID().toString().replace("-", ""))
-			.orderAddressDetail(dto.getAddressDetail())
-			.orderName(orderName)
-			.receiverName(dto.getName())
-			.receiverPhone(dto.getPhone())
-			.requestNote(dto.getRequestNote())
-			.orderType(dto.getOrderType())
-			.orderStatus(OrderStatus.READY)
-			.user(securityUtil.getCurrentUser())
-			.amount(OrderAmount.forNewOrder(productsTotal))
-			.build();
-
-		return orders;
 	}
 
 	private static void validateStock(ProductOption option, int quantity) {
