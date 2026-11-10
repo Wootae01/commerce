@@ -182,7 +182,7 @@ class PaymentResultApplyTest {
 	@DisplayName("결제를 시작할 수 없는 주문(이미 취소됨)이면 결제 시작이 거절되고, 결제 정보가 생기지 않으며 재고도 그대로다")
 	void startPayment_rejected_noPaymentCreated() {
 		// given - 결제를 시도하지 않고 취소된 주문
-		Orders order = orderService.prepareOrderFromBuyNow(orderForm(OrderType.BUY_NOW));
+		Orders order = orderService.prepareOrder(orderForm(OrderType.BUY_NOW));
 		jdbcTemplate.update("update orders set order_status = 'CANCELED' where order_id = ?", order.getId());
 
 		// when & then
@@ -202,7 +202,7 @@ class PaymentResultApplyTest {
 
 		OrderCreateRequestDTO dto = orderForm(OrderType.CART);
 		dto.setCartProductIds(List.of(cartProductId));
-		Orders order = orderService.prepareOrderFromCart(dto);
+		Orders order = orderService.prepareOrder(dto);
 		paymentTxService.lockAndDeductStock(order.getOrderNumber(), "paymentKey");
 
 		SecurityContextHolder.clearContext();
@@ -259,7 +259,7 @@ class PaymentResultApplyTest {
 
 	// 바로구매 주문 생성 → 결제 확정 시작(PAYMENT_PENDING, 재고 차감)
 	private Orders pendingOrder() {
-		Orders order = orderService.prepareOrderFromBuyNow(orderForm(OrderType.BUY_NOW));
+		Orders order = orderService.prepareOrder(orderForm(OrderType.BUY_NOW));
 		paymentTxService.lockAndDeductStock(order.getOrderNumber(), "paymentKey");
 		return order;
 	}

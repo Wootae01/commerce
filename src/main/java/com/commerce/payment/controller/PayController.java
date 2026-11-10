@@ -18,7 +18,6 @@ import org.springframework.web.bind.annotation.ResponseBody;
 
 import com.commerce.common.code.ApiResponseCode;
 import com.commerce.common.enums.OrderStatus;
-import com.commerce.common.enums.OrderType;
 import com.commerce.common.exception.ApiException;
 import com.commerce.common.util.SecurityUtil;
 import com.commerce.order.domain.Orders;
@@ -86,17 +85,10 @@ public class PayController {
 			return ResponseEntity.badRequest().body(Map.of("message", "입력값 오류"));
 		}
 
-		Orders order = null;
+		Orders order;
 
 		try {
-			if (dto.getOrderType() == OrderType.CART) {
-				order = orderService.prepareOrderFromCart(dto);
-			} else if (dto.getOrderType() == OrderType.BUY_NOW) {
-				order = orderService.prepareOrderFromBuyNow(dto);
-			} else {
-				return ResponseEntity.badRequest().body(Map.of("message", "잘못된 요청"));
-			}
-
+			order = orderService.prepareOrder(dto);
 		} catch (IllegalArgumentException | ApiException e) {
 			return ResponseEntity.badRequest().body(Map.of("message", e.getMessage()));
 		}

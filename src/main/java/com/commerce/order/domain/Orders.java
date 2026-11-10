@@ -15,6 +15,7 @@ import lombok.NoArgsConstructor;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.UUID;
 
 @Entity
 @Table(name = "orders")
@@ -88,6 +89,27 @@ public class Orders extends BaseUpdatableEntity {
         this.orderAddressDetail = orderAddressDetail;
         this.requestNote = requestNote;
         this.orderType = orderType;
+    }
+
+    /**
+     * 결제 전 새 주문. READY로 시작하고, 주문번호를 새로 만들며, 상품 합계로 배송비·결제 금액을 정한다.
+     * 주문 상품은 호출한 쪽이 따로 저장한다.
+     */
+    public static Orders createOrder(User user, OrderType orderType, String orderName, int productsTotal,
+        String receiverName, String receiverPhone, String receiverAddress, String addressDetail, String requestNote) {
+        return Orders.builder()
+            .orderNumber(UUID.randomUUID().toString().replace("-", ""))
+            .orderStatus(OrderStatus.READY)
+            .orderType(orderType)
+            .user(user)
+            .orderName(orderName)
+            .amount(OrderAmount.forNewOrder(productsTotal))
+            .receiverName(receiverName)
+            .receiverPhone(receiverPhone)
+            .receiverAddress(receiverAddress)
+            .orderAddressDetail(addressDetail)
+            .requestNote(requestNote)
+            .build();
     }
 
     // 결제 금액(상품 합계 + 배송비). 토스에 승인 요청하는 금액이다

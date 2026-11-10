@@ -149,12 +149,12 @@ class PayServiceTest {
 		dto.setPhone("01012345678");
 		dto.setAddress("서울");
 		dto.setAddressDetail("어딘가");
-		dto.setOrderType(OrderType.CART);
+		dto.setOrderType(OrderType.BUY_NOW);
 		dto.setProductId(product.getId());
 		dto.setOptionId(option.getId());
 		dto.setQuantity(quantity);
 
-		Orders orders = orderService.prepareOrderFromBuyNow(dto);
+		Orders orders = orderService.prepareOrder(dto);
 
 		String orderNumber = orders.getOrderNumber();
 		String paymentKey = UUID.randomUUID().toString();
@@ -220,7 +220,7 @@ class PayServiceTest {
 		// 서로 다른 주문 준비
 		List<PayConfirmDTO> reqs = new ArrayList<>();
 		for (int i = 0; i < n; i++) {
-			Orders orders = orderService.prepareOrderFromBuyNow(dto);
+			Orders orders = orderService.prepareOrder(dto);
 
 			String orderNumber = orders.getOrderNumber();
 			String paymentKey = "test_payment_key_concurrency" + i;
@@ -304,8 +304,8 @@ class PayServiceTest {
 		dto.setOptionId(option.getId());
 		dto.setQuantity(1);
 
-		Orders order1 = orderService.prepareOrderFromBuyNow(dto);
-		Orders order2 = orderService.prepareOrderFromBuyNow(dto);
+		Orders order1 = orderService.prepareOrder(dto);
+		Orders order2 = orderService.prepareOrder(dto);
 
 		// when - 첫 번째 주문 성공
 		PayConfirmDTO req1 = new PayConfirmDTO(
@@ -356,7 +356,7 @@ class PayServiceTest {
 		dto.setOptionId(option.getId());
 		dto.setQuantity(1);
 
-		Orders order = orderService.prepareOrderFromBuyNow(dto);
+		Orders order = orderService.prepareOrder(dto);
 
 		// 토스 confirm 거절(4xx) stub
 		stubFor(post(urlEqualTo("/v1/payments/confirm"))
@@ -413,7 +413,7 @@ class PayServiceTest {
 		dto.setOptionId(l.getId());
 		dto.setQuantity(2);
 
-		Orders order = orderService.prepareOrderFromBuyNow(dto);
+		Orders order = orderService.prepareOrder(dto);
 
 		// when
 		payService.confirm(new PayConfirmDTO(

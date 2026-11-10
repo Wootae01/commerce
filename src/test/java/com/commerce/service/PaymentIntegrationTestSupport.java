@@ -95,6 +95,7 @@ abstract class PaymentIntegrationTestSupport {
 
 	@AfterEach
 	void cleanUp() {
+		jdbcTemplate.update("delete from order_cart_product");
 		orderProductRepository.deleteAllInBatch();
 		paymentRepository.deleteAllInBatch();
 		orderRepository.deleteAllInBatch();
@@ -115,7 +116,7 @@ abstract class PaymentIntegrationTestSupport {
 		dto.setProductId(productId);
 		dto.setOptionId(optionId);
 		dto.setQuantity(1);
-		return orderService.prepareOrderFromBuyNow(dto);
+		return orderService.prepareOrder(dto);
 	}
 
 	int stock() {

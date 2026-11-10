@@ -13,7 +13,6 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 
 import com.commerce.cart.domain.CartProduct;
-import com.commerce.product.domain.DeliveryPolicy;
 import com.commerce.product.domain.ProductOption;
 import com.commerce.product.domain.Product;
 import com.commerce.user.domain.User;
@@ -60,10 +59,7 @@ public class OrderController {
         model.addAttribute("orderForm", orderDTO);
 
         // 3. 주문 가격
-        int productsTotal = cartService.getProductsTotal(cartProducts);
-        int deliveryFee = DeliveryPolicy.DELIVERY_FEE;
-        OrderPriceDTO orderPriceDTO = new OrderPriceDTO(productsTotal, deliveryFee, productsTotal + deliveryFee);
-        model.addAttribute("orderPrice", orderPriceDTO);
+        model.addAttribute("orderPrice", OrderPriceDTO.forCheckout(cartService.getProductsTotal(cartProducts)));
 
         // 토스 클라이언트 키
         model.addAttribute("tossClientKey", tossClientKey);
@@ -90,11 +86,7 @@ public class OrderController {
         model.addAttribute("orderForm", orderDTO);
 
         // 3. 주문 가격
-        int additionalPrice = option.getAdditionalPrice();
-        int productsTotal = (product.getPrice() + additionalPrice) * quantity;
-        int deliveryFee = DeliveryPolicy.DELIVERY_FEE;
-        OrderPriceDTO orderPriceDTO = new OrderPriceDTO(productsTotal, deliveryFee, productsTotal + deliveryFee);
-        model.addAttribute("orderPrice", orderPriceDTO);
+        model.addAttribute("orderPrice", OrderPriceDTO.forCheckout(dto.getLineTotal()));
 
         // 토스 클라이언트 키
         model.addAttribute("tossClientKey", tossClientKey);

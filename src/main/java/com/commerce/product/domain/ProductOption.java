@@ -35,6 +35,11 @@ public class ProductOption extends BaseSoftDeletableEntity {
         return new ProductOption(name, stock != null ? stock : 0, additionalPrice != null ? additionalPrice : 0);
     }
 
+    // 단가: 상품 1개 값 = 상품 가격 + 옵션 추가금
+    public int getUnitPrice() {
+        return product.getPrice() + additionalPrice;
+    }
+
     public void deductStock(int quantity) {
         this.stock -= quantity;
     }

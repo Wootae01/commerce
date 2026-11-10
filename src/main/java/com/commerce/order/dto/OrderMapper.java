@@ -40,8 +40,7 @@ public class OrderMapper {
 	}
 
 	public OrderItemDTO toOrderItemDTOFromCart(Product product, int quantity, ProductOption option) {
-		int additionalPrice = option.getAdditionalPrice();
-		int unitPrice = product.getPrice() + additionalPrice;
+		int unitPrice = option.getUnitPrice();
 
 		return OrderItemDTO.builder()
 			.id(product.getId())
@@ -66,8 +65,7 @@ public class OrderMapper {
 	public OrderItemDTO toOrderItemDTOFromCart(CartProduct cartProduct) {
 		Product product = cartProduct.getProduct();
 		ProductOption option = cartProduct.getProductOption();
-		int additionalPrice = option.getAdditionalPrice();
-		int unitPrice = product.getPrice() + additionalPrice;
+		int unitPrice = cartProduct.getUnitPrice();
 		String mainImageUrl = productImageUtil.getMainImageUrl(product);
 
 		return OrderItemDTO.builder()
