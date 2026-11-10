@@ -18,7 +18,7 @@ public class SocialClientRegistration {
 		return ClientRegistration.withRegistrationId("naver")
 			.clientId(NAVER_CLIENT_ID)
 			.clientSecret(NAVER_CLIENT_SECRET)
-			.redirectUri("http://localhost:8080/login/oauth2/code/naver")
+			.redirectUri("{baseUrl}/login/oauth2/code/{registrationId}") // 접속한 주소를 따른다 (nginx면 http://localhost, IDE면 http://localhost:8080)
 			.authorizationGrantType(AuthorizationGrantType.AUTHORIZATION_CODE)
 			.scope("name", "email", "phone")
 			.authorizationUri("https://nid.naver.com/oauth2.0/authorize")

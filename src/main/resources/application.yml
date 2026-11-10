@@ -62,7 +62,7 @@ aws:
     bucket: ${AWS_S3_BUCKET:dummy}  # terraform이 만든 실제 버킷명. commerce-image-bucket-xxx
 
 app:
-  base-url: "http://localhost:8080"
+  base-url: ${APP_BASE_URL:http://localhost:8080}   # 결제 후 돌아올 주소(토스 successUrl·failUrl). compose는 http://localhost, 배포 서버는 아직 안 넘김(#53)
   image:
     default-path: "/images/default.png"   # 상품 기본 이미지 경로
 

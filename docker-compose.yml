@@ -50,6 +50,7 @@ services:
     environment:
       SPRING_DATASOURCE_URL: jdbc:mysql://db:3306/commerce?allowPublicKeyRetrieval=true&useSSL=false&rewriteBatchedStatements=true
       SPRING_DATASOURCE_USERNAME: commerce_user
+      APP_BASE_URL: http://localhost
       SPRING_DATA_REDIS_HOST: redis
       JAVA_OPTS: "-Xms256m -Xmx512m"
     env_file:
@@ -78,6 +79,7 @@ services:
     environment:
       SPRING_DATASOURCE_URL: jdbc:mysql://db:3306/commerce?allowPublicKeyRetrieval=true&useSSL=false&rewriteBatchedStatements=true
       SPRING_DATASOURCE_USERNAME: commerce_user
+      APP_BASE_URL: http://localhost
       SPRING_DATA_REDIS_HOST: redis
       JAVA_OPTS: "-Xms256m -Xmx512m"
     env_file:
