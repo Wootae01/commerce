@@ -1,8 +1,5 @@
 package com.commerce.order.controller;
 
-import java.util.List;
-
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Controller;
@@ -12,20 +9,13 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 
-import com.commerce.cart.domain.CartProduct;
-import com.commerce.product.domain.ProductOption;
-import com.commerce.product.domain.Product;
 import com.commerce.user.domain.User;
-import com.commerce.common.enums.OrderType;
+import com.commerce.order.dto.OrderCheckoutResponse;
 import com.commerce.order.dto.OrderCreateRequestDTO;
 import com.commerce.order.dto.OrderDetailResponseDTO;
-import com.commerce.order.dto.OrderItemDTO;
-import com.commerce.order.dto.OrderPriceDTO;
 import com.commerce.order.dto.OrderResponseDTO;
-import com.commerce.order.dto.OrderMapper;
-import com.commerce.cart.service.CartService;
+import com.commerce.order.service.OrderCheckoutService;
 import com.commerce.order.service.OrderService;
-import com.commerce.product.service.ProductService;
 import com.commerce.common.util.SecurityUtil;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -36,61 +26,32 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 public class OrderController {
 
-    private final CartService cartService;
     private final SecurityUtil securityUtil;
     private final OrderService orderService;
-    private final OrderMapper orderMapper;
-    private final ProductService productService;
-
-    @Value("${toss.payments.client-key}")
-    private String tossClientKey;
+    private final OrderCheckoutService orderCheckoutService;
 
     @GetMapping("/cart")
     public String cartOrder(Model model) {
-        // 1. cartProduct에서 선택한 상품 찾고 모델에 담기
-        List<CartProduct> cartProducts = cartService.getSelectedProduct();
-        List<OrderItemDTO> dto = orderMapper.toOrderItemDTOFromCart(cartProducts);
-        model.addAttribute("orderItems", dto);
-
-        // 2. 사용자 기본 정보 모델에 담기
         User user = securityUtil.getCurrentUser();
-        OrderCreateRequestDTO orderDTO = setBasicUserInfo(user);
-        orderDTO.setOrderType(OrderType.CART);
-        model.addAttribute("orderForm", orderDTO);
+        OrderCheckoutResponse checkout = orderCheckoutService.getCartCheckout(user);
 
-        // 3. 주문 가격
-        model.addAttribute("orderPrice", OrderPriceDTO.forCheckout(cartService.getProductsTotal(cartProducts)));
-
-        // 토스 클라이언트 키
-        model.addAttribute("tossClientKey", tossClientKey);
-
+        addCheckout(model, checkout, orderForm(checkout));
         return "order";
     }
 
 
     @GetMapping("/buy-now")
     public String buyNow(Long productId, @RequestParam(required = false) Long optionId, int quantity, Model model) {
-        // 1. 상품 정보 담기
-        Product product = productService.findById(productId);
-        ProductOption option = productService.resolveOption(productId, optionId);
-        OrderItemDTO dto = orderMapper.toOrderItemDTOFromCart(product, quantity, option);
-        model.addAttribute("orderItems", List.of(dto));
-
-        // 2. 사용자 기본 정보 모델에 담기
         User user = securityUtil.getCurrentUser();
-        OrderCreateRequestDTO orderDTO = setBasicUserInfo(user);
-        orderDTO.setOrderType(OrderType.BUY_NOW);
-        orderDTO.setProductId(productId);
-        orderDTO.setQuantity(quantity);
-        orderDTO.setOptionId(optionId);
-        model.addAttribute("orderForm", orderDTO);
+        OrderCheckoutResponse checkout = orderCheckoutService.getBuyNowCheckout(user, productId, optionId, quantity);
 
-        // 3. 주문 가격
-        model.addAttribute("orderPrice", OrderPriceDTO.forCheckout(dto.getLineTotal()));
+        // 바로구매는 무엇을 살지가 요청 파라미터에 있어서 결제하기 폼에 다시 실어 보낸다
+        OrderCreateRequestDTO orderForm = orderForm(checkout);
+        orderForm.setProductId(productId);
+        orderForm.setQuantity(quantity);
+        orderForm.setOptionId(optionId);
 
-        // 토스 클라이언트 키
-        model.addAttribute("tossClientKey", tossClientKey);
-
+        addCheckout(model, checkout, orderForm);
         return "order";
     }
 
@@ -114,13 +75,23 @@ public class OrderController {
     }
 
 
-    private OrderCreateRequestDTO setBasicUserInfo(User user) {
-        OrderCreateRequestDTO orderDTO = new OrderCreateRequestDTO();
-        orderDTO.setAddress(user.getAddress());
-        orderDTO.setPhone(user.getPhone());
-        orderDTO.setName(user.getName());
-        orderDTO.setCustomerKey(user.getCustomerPaymentKey());
-        return orderDTO;
+    private void addCheckout(Model model, OrderCheckoutResponse checkout, OrderCreateRequestDTO orderForm) {
+        model.addAttribute("orderItems", checkout.items());
+        model.addAttribute("orderForm", orderForm);
+        model.addAttribute("orderPrice", checkout.orderPrice());
+        model.addAttribute("tossClientKey", checkout.tossClientKey());
+    }
+
+    // 결제하기 폼의 초기값. 배송지 입력란은 주문자 기본 정보로 채운다
+    private OrderCreateRequestDTO orderForm(OrderCheckoutResponse checkout) {
+        OrderCheckoutResponse.Orderer orderer = checkout.orderer();
+        OrderCreateRequestDTO orderForm = new OrderCreateRequestDTO();
+        orderForm.setOrderType(checkout.orderType());
+        orderForm.setAddress(orderer.address());
+        orderForm.setPhone(orderer.phone());
+        orderForm.setName(orderer.name());
+        orderForm.setCustomerKey(orderer.customerKey());
+        return orderForm;
     }
 
 }

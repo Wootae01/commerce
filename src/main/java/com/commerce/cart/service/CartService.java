@@ -68,8 +68,7 @@ public class CartService {
 		}
 	}
 
-	public List<CartProduct> getSelectedProduct() {
-		User user = securityUtil.getCurrentUser();
+	public List<CartProduct> getSelectedProduct(User user) {
 		return cartProductRepository.findCheckedByUser(user);
 	}
 
