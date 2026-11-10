@@ -1,6 +1,9 @@
 package com.commerce.service;
 
 import static org.assertj.core.api.Assertions.*;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.*;
+import static org.springframework.security.test.web.servlet.setup.SecurityMockMvcConfigurers.*;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 import java.util.Comparator;
 import java.util.List;
@@ -9,9 +12,16 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.EnumSource;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.MediaType;
+import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
+import org.springframework.test.web.servlet.request.MockMvcRequestBuilders;
+import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import org.springframework.transaction.support.TransactionTemplate;
+import org.springframework.web.context.WebApplicationContext;
 
 import com.commerce.cart.domain.CartProduct;
 import com.commerce.cart.dto.CartProductDTO;
@@ -41,6 +51,7 @@ class OrderPrepareTest extends PaymentIntegrationTestSupport {
 	@Autowired TransactionTemplate transactionTemplate;
 	@Autowired PaymentTxService paymentTxService;
 	@Autowired ObjectMapper objectMapper;
+	@Autowired WebApplicationContext context;
 
 	private Long shirtId;
 	private Long largeOptionId;
@@ -72,7 +83,7 @@ class OrderPrepareTest extends PaymentIntegrationTestSupport {
 		addToCart(socksId, socksOptionId, 3);
 
 		// when
-		Orders order = orderService.prepareOrderFromCart(cartOrderForm(allCartProductIds()));
+		Orders order = orderService.prepareOrder(cartOrderForm(allCartProductIds()));
 
 		// then
 		OrderDetailResponseDTO detail = detailOf(order);
@@ -97,7 +108,7 @@ class OrderPrepareTest extends PaymentIntegrationTestSupport {
 		addToCart(socksId, socksOptionId, 1);
 
 		// when - 티셔츠 L 2개 바로구매
-		Orders order = orderService.prepareOrderFromBuyNow(buyNowForm(shirtId, largeOptionId, 2));
+		Orders order = orderService.prepareOrder(buyNowForm(shirtId, largeOptionId, 2));
 
 		// then
 		OrderDetailResponseDTO detail = detailOf(order);
@@ -119,7 +130,7 @@ class OrderPrepareTest extends PaymentIntegrationTestSupport {
 		List<Long> orderedIds = allCartProductIds();
 		addToCart(productId, optionId, 1);
 
-		Orders order = orderService.prepareOrderFromCart(cartOrderForm(orderedIds));
+		Orders order = orderService.prepareOrder(cartOrderForm(orderedIds));
 		paymentTxService.lockAndDeductStock(order.getOrderNumber(), "paymentKey");
 
 		// when
@@ -150,13 +161,76 @@ class OrderPrepareTest extends PaymentIntegrationTestSupport {
 		addToCart(socksId, socksOptionId, 1);
 
 		// when
-		Orders order = orderService.prepareOrderFromCart(cartOrderForm(allCartProductIds()));
+		Orders order = orderService.prepareOrder(cartOrderForm(allCartProductIds()));
 
 		// then - 주문 상품 행을 넣은 순서(id 순)의 옵션 = FK 확인으로 옵션 S락을 잡는 순서
 		assertThat(orderProductRepository.findOrderProductByOrderIdWithProduct(order.getId()).stream()
 			.sorted(Comparator.comparing(OrderProduct::getId))
 			.map(op -> op.getProductOption().getId()))
 			.containsExactly(socksOptionId, mediumOptionId);
+	}
+
+	@ParameterizedTest
+	@CsvSource({
+		"CART, 36000, 반팔 티셔츠 외 1건",
+		"BUY_NOW, 27000, 반팔 티셔츠"
+	})
+	@DisplayName("주문서 화면의 결제하기(/pay/prepare, 폼)는 주문 방식대로 주문을 만들고 결제창에 쓸 금액·주문 이름을 준다")
+	void payPrepareForm_createsOrderByOrderType(OrderType orderType, int amount, String orderName) throws Exception {
+		// given
+		MockHttpServletRequestBuilder request = MockMvcRequestBuilders.post("/pay/prepare")
+			.with(user("username").roles("USER"))
+			.with(csrf())
+			.param("name", "홍길동")
+			.param("phone", "01012345678")
+			.param("address", "서울")
+			.param("addressDetail", "어딘가")
+			.param("orderType", orderType.name());
+		if (orderType == OrderType.CART) {
+			addToCart(shirtId, largeOptionId, 2);
+			addToCart(socksId, socksOptionId, 3);
+			request.param("cartProductIds", allCartProductIds().stream().map(String::valueOf).toArray(String[]::new));
+		} else {
+			request.param("productId", shirtId.toString())
+				.param("optionId", largeOptionId.toString())
+				.param("quantity", "2");
+		}
+
+		// when & then
+		mockMvc().perform(request)
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.amount").value(amount))
+			.andExpect(jsonPath("$.orderName").value(orderName));
+		assertThat(orderRepository.count()).as("주문").isEqualTo(1);
+	}
+
+	@ParameterizedTest
+	@CsvSource({
+		"CART, 36000, 반팔 티셔츠 외 1건",
+		"BUY_NOW, 27000, 반팔 티셔츠"
+	})
+	@DisplayName("주문 생성 API(POST /api/orders, JSON)는 주문 방식대로 주문을 만들고 결제창에 쓸 금액·주문 이름을 준다")
+	void createOrderApi_createsOrderByOrderType(OrderType orderType, int amount, String orderName) throws Exception {
+		// given
+		OrderCreateRequestDTO dto;
+		if (orderType == OrderType.CART) {
+			addToCart(shirtId, largeOptionId, 2);
+			addToCart(socksId, socksOptionId, 3);
+			dto = cartOrderForm(allCartProductIds());
+		} else {
+			dto = buyNowForm(shirtId, largeOptionId, 2);
+		}
+
+		// when & then
+		mockMvc().perform(MockMvcRequestBuilders.post("/api/orders")
+				.with(user("username").roles("USER"))
+				.with(csrf())
+				.contentType(MediaType.APPLICATION_JSON)
+				.content(objectMapper.writeValueAsString(dto)))
+			.andExpect(status().isCreated())
+			.andExpect(jsonPath("$.data.amount").value(amount))
+			.andExpect(jsonPath("$.data.orderName").value(orderName));
+		assertThat(orderRepository.count()).as("주문").isEqualTo(1);
 	}
 
 	@ParameterizedTest
@@ -208,11 +282,11 @@ class OrderPrepareTest extends PaymentIntegrationTestSupport {
 	// 주문 방식별로 주문할 준비를 하고(장바구니 주문이면 지금 담는다), 실행하면 주문을 만드는 동작을 돌려준다
 	private Runnable orderPlacer(OrderType orderType, Long productId, Long optionId, int quantity) {
 		if (orderType == OrderType.BUY_NOW) {
-			return () -> orderService.prepareOrderFromBuyNow(buyNowForm(productId, optionId, quantity));
+			return () -> orderService.prepareOrder(buyNowForm(productId, optionId, quantity));
 		}
 		addToCart(productId, optionId, quantity);
 		List<Long> cartProductIds = allCartProductIds();
-		return () -> orderService.prepareOrderFromCart(cartOrderForm(cartProductIds));
+		return () -> orderService.prepareOrder(cartOrderForm(cartProductIds));
 	}
 
 	private OrderCreateRequestDTO buyNowForm(Long productId, Long optionId, int quantity) {
@@ -227,6 +301,11 @@ class OrderPrepareTest extends PaymentIntegrationTestSupport {
 	// 장바구니 담기는 실제 요청에서 open-in-view 세션 안에서 돈다. 테스트에서는 트랜잭션으로 같은 조건을 만든다
 	private void addToCart(Long productId, Long optionId, int quantity) {
 		transactionTemplate.executeWithoutResult(status -> cartService.addCart(productId, optionId, quantity));
+	}
+
+	// MockMvc는 직접 만든다. @AutoConfigureMockMvc를 쓰면 컨텍스트가 하나 더 생겨 테스트 MySQL 커넥션 한도를 넘는다
+	private MockMvc mockMvc() {
+		return MockMvcBuilders.webAppContextSetup(context).apply(springSecurity()).build();
 	}
 
 	private List<Long> allCartProductIds() {

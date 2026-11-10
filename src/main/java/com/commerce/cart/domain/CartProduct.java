@@ -44,7 +44,7 @@ public class CartProduct extends BaseSoftDeletableEntity {
 
     // 상품 가격 + 옵션 추가 금액
     public int getUnitPrice() {
-        return product.getPrice() + productOption.getAdditionalPrice();
+        return productOption.getUnitPrice();
     }
 
     public void addQuantity(int quantity) {

@@ -97,7 +97,7 @@ class OrderDetailAmountTest extends PaymentIntegrationTestSupport {
 		dto.setProductId(shirtId);
 		dto.setOptionId(largeOptionId);
 		dto.setQuantity(2);
-		return orderService.prepareOrderFromBuyNow(dto);
+		return orderService.prepareOrder(dto);
 	}
 
 	private OrderDetailResponseDTO detailOf(Orders order) {

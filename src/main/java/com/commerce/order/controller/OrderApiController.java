@@ -90,10 +90,7 @@ public class OrderApiController {
 	public ResponseEntity<GeneralResponse<OrderPrepareResponseDTO>> createOrder(
 		@Valid @RequestBody OrderCreateRequestDTO request) {
 
-		Orders order = switch (request.getOrderType()) {
-			case CART -> orderService.prepareOrderFromCart(request);
-			case BUY_NOW -> orderService.prepareOrderFromBuyNow(request);
-		};
+		Orders order = orderService.prepareOrder(request);
 		return GeneralResponse.toResponseEntity(GeneralResponseCode.CREATED,
 			orderMapper.toOrderPrepareResponseDTO(order));
 	}

@@ -14,6 +14,7 @@ import java.util.stream.Collectors;
 
 import com.commerce.common.util.ProductImageUtil;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.dao.DataAccessException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
@@ -22,13 +23,11 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.commerce.cart.domain.CartProduct;
 import com.commerce.order.domain.OrderAmount;
-import com.commerce.order.domain.OrderProduct;
 import com.commerce.order.domain.Orders;
 import com.commerce.product.domain.Product;
 import com.commerce.product.domain.ProductOption;
 import com.commerce.user.domain.User;
 import com.commerce.common.enums.OrderStatus;
-import com.commerce.common.enums.OrderType;
 import com.commerce.payment.domain.Payment;
 import com.commerce.payment.repository.PaymentRepository;
 import com.commerce.admin.dto.AdminOrderListResponseDTO;
@@ -197,119 +196,121 @@ public class OrderService {
 	}
 
 	/**
-	 * 바로구매 기반 주문 객체를 생성하고 저장한다. (결제 전 준비 단계)
+	 * 결제 전 주문을 만들어 저장한다(READY). 응답으로 토스 결제창을 띄운다.
 	 *
-	 * <p>단일 상품이므로 JDBC 배치가 아닌 JPA cascade로 orderProduct를 함께 저장한다.
+	 * <p>바로구매와 장바구니 주문은 무엇을 몇 개 사는지 알아내는 입구만 다르고, 그 뒤(재고 확인·상품 합계·주문 이름·저장)는 같다.
+	 * 장바구니 주문은 결제 후 장바구니에서 뺄 상품을 알 수 있게 장바구니 연결도 저장한다.
+	 *
+	 * <p>주문 상품·장바구니 연결은 JDBC batch로 넣으므로, 돌려준 주문 객체의 orderProducts·orderCartProducts는 비어 있다. 읽으면 안 된다.
 	 */
 	@Transactional
-	public Orders prepareOrderFromBuyNow(OrderCreateRequestDTO dto) {
-		if (dto.getProductId() == null || dto.getQuantity() < 1) {
-			throw new ApiException(GeneralResponseCode.INVALID_REQUEST);
-		}
-
-		Product product = productService.findById(dto.getProductId());
-
-		ProductOption option = productService.resolveOption(product.getId(), dto.getOptionId());
-
-		// 1. 상품 재고 확인
-		validateStock(option, dto.getQuantity());
-
-		// 2. 가격 계산
-		int unitPrice = product.getPrice() + option.getAdditionalPrice();
-		int productsTotal = unitPrice * dto.getQuantity();
-
-		// 3. 주문 이름 생성
-		String orderName = product.getName();
-
-		// 3. order 객체 생성
-		Orders orders = createOrderEntity(dto, OrderStatus.READY, OrderType.BUY_NOW, orderName, productsTotal);
-
-		// 4. orderProduct 생성
-		OrderProduct orderProduct = OrderProduct.builder()
-			.product(product)
-			.order(orders)
-			.productOption(option)
-			.price(unitPrice)
-			.quantity(dto.getQuantity())
-			.build();
-
-		orders.getOrderProducts().add(orderProduct);
-
-		return orderRepository.save(orders);
+	public Orders prepareOrder(OrderCreateRequestDTO dto) {
+		return switch (dto.getOrderType()) {
+			case CART -> {
+				List<CartProduct> cartProducts = findOrderableCartProducts(dto.getCartProductIds());
+				Orders order = saveOrder(dto, cartProducts.stream().map(OrderProductDraft::of).toList());
+				saveCartLinks(order, cartProducts);
+				yield order;
+			}
+			case BUY_NOW -> saveOrder(dto, List.of(buyNowDraft(dto)));
+		};
 	}
 
-	@Transactional
-	public Orders prepareOrderFromCart(OrderCreateRequestDTO dto) {
-		List<Long> cartProductIds = dto.getCartProductIds();
+	// 장바구니 주문 입구: 본인 장바구니 상품만 조회하고, 요청한 ID 중 하나라도 빠지면 거부한다.
+	// 장바구니에 담은 뒤 판매 중지된 상품·옵션은 주문할 수 없다.
+	private List<CartProduct> findOrderableCartProducts(List<Long> cartProductIds) {
 		if (cartProductIds == null || cartProductIds.isEmpty()) {
 			throw new ApiException(GeneralResponseCode.ORDER_EMPTY);
 		}
 
-		// 본인 장바구니 상품만 조회하고, 요청한 ID 중 하나라도 빠지면 거부한다.
 		Long userId = securityUtil.getCurrentUser().getId();
 		List<CartProduct> cartProducts = cartProductRepository.findAllByIdWithProductAndUserId(cartProductIds, userId);
 		if (cartProducts.size() != cartProductIds.stream().distinct().count()) {
 			throw new ApiException(GeneralResponseCode.CART_ITEM_NOT_FOUND);
 		}
 
-		// 1. 상품 재고 확인
-		validateStock(cartProducts);
-
-		// 2. 가격 계산
-		int productsTotal = getProductsTotal(cartProducts);
-
-		// 주문 이름 생성
-		String orderName = buildOrderName(cartProducts);
-
-		// 3. order 객체 생성
-		Orders orders = createOrderEntity(dto, OrderStatus.READY, OrderType.CART, orderName, productsTotal);
-		orders = orderRepository.saveAndFlush(orders);
-
-		// 4. orderProduct 생성
-		List<OrderProductRow> orderProductRows = new ArrayList<>();
-		List<OrderCartProductRow> orderCartProductRows = new ArrayList<>();
 		for (CartProduct cartProduct : cartProducts) {
-			orderProductRows.add(
-				new OrderProductRow(orders.getId(), cartProduct.getProduct().getId(),
-					cartProduct.getProductOption().getId(), cartProduct.getUnitPrice(), cartProduct.getQuantity())
-			);
+			if (cartProduct.getProduct().isDeleted()) {
+				throw new ApiException(GeneralResponseCode.PRODUCT_NOT_FOUND);
+			}
+			if (cartProduct.getProductOption().isDeleted()) {
+				throw new ApiException(GeneralResponseCode.PRODUCT_OPTION_NOT_FOUND);
+			}
+		}
+		return cartProducts;
+	}
 
-			orderCartProductRows.add(new OrderCartProductRow(orders.getId(), cartProduct.getId()));
+	// 바로구매 입구: 판매 중지된 상품·옵션이면 조회에서 거부된다.
+	private OrderProductDraft buyNowDraft(OrderCreateRequestDTO dto) {
+		if (dto.getProductId() == null || dto.getQuantity() < 1) {
+			throw new ApiException(GeneralResponseCode.INVALID_REQUEST);
 		}
 
-		// insert 시 FK로 잡는 옵션 S락과 결제 시 재고 차감 X락이 엇갈려 생기는 데드락 방지.
-		// 재고 차감과 같은 optionId 오름차순으로 정렬해 모든 트랜잭션이 동일한 순서로 락을 획득하게 한다.
-		orderProductRows.sort(Comparator.comparing(OrderProductRow::optionId));
-		orderCartProductRows.sort(Comparator.comparing(OrderCartProductRow::cartProductId));
+		Product product = productService.findById(dto.getProductId());
+		ProductOption option = productService.resolveOption(product.getId(), dto.getOptionId());
+		return new OrderProductDraft(product, option, dto.getQuantity());
+	}
 
+	// 공통: 재고 확인 → 상품 합계 → 주문 이름 → 주문 저장 → 주문 상품 저장
+	private Orders saveOrder(OrderCreateRequestDTO dto, List<OrderProductDraft> drafts) {
+		for (OrderProductDraft draft : drafts) {
+			validateStock(draft.option(), draft.quantity());
+		}
+
+		int productsTotal = drafts.stream().mapToInt(OrderProductDraft::lineTotal).sum();
+		Orders order = orderRepository.saveAndFlush(createOrderEntity(dto, buildOrderName(drafts), productsTotal));
+
+		List<OrderProductRow> rows = drafts.stream()
+			.map(draft -> new OrderProductRow(order.getId(), draft.product().getId(), draft.option().getId(),
+				draft.unitPrice(), draft.quantity()))
+			.toList();
 		try {
-			orderProductJdbcRepository.batchInsert(orderProductRows);
-			orderCartProductJdbcRepository.batchInsert(orderCartProductRows);
-		} catch (org.springframework.dao.DataAccessException e) {
-			log.error("주문 상품 batch insert 실패: orderId={}, productCount={}",
-				orders.getId(), orderProductRows.size(), e);
+			orderProductJdbcRepository.batchInsert(rows);
+		} catch (DataAccessException e) {
+			log.error("주문 상품 batch insert 실패: orderId={}, productCount={}", order.getId(), rows.size(), e);
 			throw new ApiException(GeneralResponseCode.ORDER_CREATE_FAILED);
 		}
-
-		return orders; // 이 객체에서 orderProduct, orderCartProduct 사용하면 안됨.
+		return order;
 	}
 
-	// 주문 이름 생성
-	private String buildOrderName(List<CartProduct> cartProducts) {
-		if (cartProducts.isEmpty()) {
-			throw new ApiException(GeneralResponseCode.ORDER_EMPTY);
+	// 장바구니 주문만: 결제 후 장바구니에서 뺄 상품을 기록한다.
+	private void saveCartLinks(Orders order, List<CartProduct> cartProducts) {
+		List<OrderCartProductRow> rows = cartProducts.stream()
+			.map(cartProduct -> new OrderCartProductRow(order.getId(), cartProduct.getId()))
+			.sorted(Comparator.comparing(OrderCartProductRow::cartProductId))
+			.toList();
+		try {
+			orderCartProductJdbcRepository.batchInsert(rows);
+		} catch (DataAccessException e) {
+			log.error("장바구니 연결 batch insert 실패: orderId={}, cartProductCount={}", order.getId(), rows.size(), e);
+			throw new ApiException(GeneralResponseCode.ORDER_CREATE_FAILED);
+		}
+	}
+
+	// 주문 이름: 첫 상품명, 상품이 여럿이면 "첫 상품명 외 N건"
+	private static String buildOrderName(List<OrderProductDraft> drafts) {
+		String firstName = drafts.get(0).product().getName();
+		int others = drafts.size() - 1;
+		return others > 0 ? firstName + " 외 " + others + "건" : firstName;
+	}
+
+	// 저장 전 주문 상품: 어떤 상품의 어떤 옵션을 몇 개 사는지. 단가는 옵션에서 정한다.
+	private record OrderProductDraft(Product product, ProductOption option, int quantity) {
+
+		static OrderProductDraft of(CartProduct cartProduct) {
+			return new OrderProductDraft(cartProduct.getProduct(), cartProduct.getProductOption(), cartProduct.getQuantity());
 		}
 
-		CartProduct cartProduct = cartProducts.get(0);
-		String prefix = cartProduct.getProduct().getName();
+		int unitPrice() {
+			return option.getUnitPrice();
+		}
 
-		int size = cartProducts.size() - 1;
-		String suffix = (size > 0) ? " 외 " + size + "건" : "";
-
-		return prefix + suffix;
+		int lineTotal() {
+			return unitPrice() * quantity;
+		}
 	}
 
-	private Orders createOrderEntity(OrderCreateRequestDTO dto, OrderStatus orderStatus, OrderType orderType, String orderName, int productsTotal) {
+	private Orders createOrderEntity(OrderCreateRequestDTO dto, String orderName, int productsTotal) {
 
 		Orders orders = Orders
 			.builder()
@@ -320,34 +321,13 @@ public class OrderService {
 			.receiverName(dto.getName())
 			.receiverPhone(dto.getPhone())
 			.requestNote(dto.getRequestNote())
-			.orderType(orderType)
-			.orderStatus(orderStatus)
+			.orderType(dto.getOrderType())
+			.orderStatus(OrderStatus.READY)
 			.user(securityUtil.getCurrentUser())
 			.amount(OrderAmount.forNewOrder(productsTotal))
 			.build();
 
 		return orders;
-	}
-
-	private static int getProductsTotal(List<CartProduct> cartProducts) {
-		int sum = 0;
-		for (CartProduct cartProduct : cartProducts) {
-			sum += cartProduct.getUnitPrice() * cartProduct.getQuantity();
-		}
-		return sum;
-	}
-
-	private static void validateStock(List<CartProduct> cartProducts) {
-		for (CartProduct cartProduct : cartProducts) {
-			// 장바구니에 담은 뒤 판매 중지된 상품·옵션은 주문할 수 없다.
-			if (cartProduct.getProduct().isDeleted()) {
-				throw new ApiException(GeneralResponseCode.PRODUCT_NOT_FOUND);
-			}
-			if (cartProduct.getProductOption().isDeleted()) {
-				throw new ApiException(GeneralResponseCode.PRODUCT_OPTION_NOT_FOUND);
-			}
-			validateStock(cartProduct.getProductOption(), cartProduct.getQuantity());
-		}
 	}
 
 	private static void validateStock(ProductOption option, int quantity) {
