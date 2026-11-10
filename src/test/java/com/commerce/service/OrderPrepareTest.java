@@ -5,8 +5,13 @@ import static org.springframework.security.test.web.servlet.request.SecurityMock
 import static org.springframework.security.test.web.servlet.setup.SecurityMockMvcConfigurers.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
+import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Map;
+
+import org.assertj.core.groups.Tuple;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -14,14 +19,17 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.EnumSource;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.MvcResult;
 import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.web.context.WebApplicationContext;
+import org.springframework.web.servlet.ModelAndView;
 
 import com.commerce.cart.domain.CartProduct;
 import com.commerce.cart.dto.CartProductDTO;
@@ -39,10 +47,12 @@ import com.commerce.payment.service.PaymentTxService;
 import com.commerce.product.domain.Product;
 import com.commerce.product.domain.ProductOption;
 import com.commerce.user.domain.User;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 /**
  * 주문 만들기: 장바구니 주문과 바로구매가 주문 상품·금액·주문 이름을 같은 규칙으로 만든다.
+ * 주문서 조회: 주문서(API·화면)가 보여 주는 단가·금액이 주문을 만들 때와 같다.
  * 예시 상품: 반팔 티셔츠 10,000원의 L(+2,000원) → 단가 12,000 / 양말 3,000원 단품 → 단가 3,000. 배송비 3,000.
  */
 class OrderPrepareTest extends PaymentIntegrationTestSupport {
@@ -277,6 +287,111 @@ class OrderPrepareTest extends PaymentIntegrationTestSupport {
 			.isInstanceOf(ApiException.class)
 			.extracting("responseCode").isEqualTo(GeneralResponseCode.PRODUCT_OPTION_NOT_FOUND);
 		assertThat(orderRepository.count()).as("주문").isZero();
+	}
+
+	@ParameterizedTest
+	@ValueSource(strings = {"/api/orders/checkout/cart", "/orders/cart"})
+	@DisplayName("장바구니 주문서(API·화면)는 선택한 상품의 단가·상품별 합계와 상품 합계·배송비·결제 금액을 보여준다")
+	void cartCheckout_showsItemsAndAmounts(String url) throws Exception {
+		// given - 티셔츠 L 2개, 양말 3개를 담고 선택
+		addToCart(shirtId, largeOptionId, 2);
+		addToCart(socksId, socksOptionId, 3);
+		selectAllCartProducts();
+
+		// when
+		JsonNode checkout = checkout(MockMvcRequestBuilders.get(url));
+
+		// then
+		assertThat(items(checkout)).containsExactlyInAnyOrder(
+			tuple("반팔 티셔츠", 2, 12_000, 24_000),
+			tuple("양말", 3, 3_000, 9_000));
+		assertThat(checkout.at("/orderPrice/productsTotal").asInt()).as("상품 합계").isEqualTo(33_000);
+		assertThat(checkout.at("/orderPrice/deliveryFee").asInt()).as("배송비").isEqualTo(3_000);
+		assertThat(checkout.at("/orderPrice/finalPrice").asInt()).as("결제 금액").isEqualTo(36_000);
+	}
+
+	@ParameterizedTest
+	@ValueSource(strings = {"/api/orders/checkout/buy-now", "/orders/buy-now"})
+	@DisplayName("바로구매 주문서(API·화면)는 옵션 추가금을 더한 단가로 상품별 합계와 상품 합계·배송비·결제 금액을 보여준다")
+	void buyNowCheckout_showsItemAndAmounts(String url) throws Exception {
+		// when - 티셔츠 L 2개
+		JsonNode checkout = checkout(MockMvcRequestBuilders.get(url)
+			.param("productId", shirtId.toString())
+			.param("optionId", largeOptionId.toString())
+			.param("quantity", "2"));
+
+		// then
+		assertThat(items(checkout)).containsExactly(tuple("반팔 티셔츠", 2, 12_000, 24_000));
+		assertThat(checkout.at("/orderPrice/productsTotal").asInt()).as("상품 합계").isEqualTo(24_000);
+		assertThat(checkout.at("/orderPrice/deliveryFee").asInt()).as("배송비").isEqualTo(3_000);
+		assertThat(checkout.at("/orderPrice/finalPrice").asInt()).as("결제 금액").isEqualTo(27_000);
+	}
+
+	@ParameterizedTest
+	@EnumSource(OrderType.class)
+	@DisplayName("주문서의 결제 금액으로 주문이 만들어진다(다르면 결제 확정 때 금액 불일치로 거절된다)")
+	void checkoutFinalPrice_equalsCreatedOrderAmount(OrderType orderType) throws Exception {
+		// given - 주문서를 조회한 뒤 그 주문서로 결제하기
+		MockHttpServletRequestBuilder checkoutRequest;
+		OrderCreateRequestDTO orderForm;
+		if (orderType == OrderType.CART) {
+			addToCart(shirtId, largeOptionId, 2);
+			addToCart(socksId, socksOptionId, 3);
+			selectAllCartProducts();
+			checkoutRequest = MockMvcRequestBuilders.get("/api/orders/checkout/cart");
+			orderForm = cartOrderForm(allCartProductIds());
+		} else {
+			checkoutRequest = MockMvcRequestBuilders.get("/api/orders/checkout/buy-now")
+				.param("productId", shirtId.toString())
+				.param("optionId", largeOptionId.toString())
+				.param("quantity", "2");
+			orderForm = buyNowForm(shirtId, largeOptionId, 2);
+		}
+		int checkoutFinalPrice = checkout(checkoutRequest).at("/orderPrice/finalPrice").asInt();
+
+		// when
+		String created = mockMvc().perform(MockMvcRequestBuilders.post("/api/orders")
+				.with(user("username").roles("USER"))
+				.with(csrf())
+				.contentType(MediaType.APPLICATION_JSON)
+				.content(objectMapper.writeValueAsString(orderForm)))
+			.andExpect(status().isCreated())
+			.andReturn().getResponse().getContentAsString(StandardCharsets.UTF_8);
+
+		// then - 결제창 금액 = 주문에 저장된 결제 금액
+		assertThat(objectMapper.readTree(created).at("/data/amount").asInt()).isEqualTo(checkoutFinalPrice);
+	}
+
+	// 주문서 조회. API는 응답 JSON의 data를, 화면은 모델의 주문 상품·금액을 같은 모양의 JSON으로 돌려준다
+	private JsonNode checkout(MockHttpServletRequestBuilder request) throws Exception {
+		MvcResult result = mockMvc().perform(request.with(user("username").roles("USER")))
+			.andExpect(status().isOk())
+			.andReturn();
+
+		ModelAndView page = result.getModelAndView();
+		if (page == null) {
+			return objectMapper.readTree(result.getResponse().getContentAsString(StandardCharsets.UTF_8)).get("data");
+		}
+		return objectMapper.valueToTree(Map.of(
+			"items", page.getModel().get("orderItems"),
+			"orderPrice", page.getModel().get("orderPrice")));
+	}
+
+	// 주문서의 주문 상품: (상품명, 수량, 단가, 상품별 합계)
+	private static List<Tuple> items(JsonNode checkout) {
+		List<Tuple> items = new ArrayList<>();
+		for (JsonNode item : checkout.get("items")) {
+			items.add(tuple(item.get("name").asText(), item.get("quantity").asInt(), item.get("unitPrice").asInt(),
+				item.get("lineTotal").asInt()));
+		}
+		return items;
+	}
+
+	// 주문서에는 장바구니에서 선택한 상품만 나온다. 담기만 하면 선택 안 된 상태다
+	private void selectAllCartProducts() {
+		for (Long cartProductId : allCartProductIds()) {
+			transactionTemplate.executeWithoutResult(status -> cartService.updateSelection(cartProductId, true));
+		}
 	}
 
 	// 주문 방식별로 주문할 준비를 하고(장바구니 주문이면 지금 담는다), 실행하면 주문을 만드는 동작을 돌려준다
