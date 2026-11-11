@@ -209,6 +209,53 @@ class PayConsistencyTest extends PaymentIntegrationTestSupport {
 	}
 
 	@Test
+	@DisplayName("승인 응답이 응답 타임아웃보다 늦으면 결과를 모르는 것으로 보고 같은 멱등키로 1번 다시 요청하고, 200이면 PAID를 돌려준다")
+	void responseTimeout_retrySucceeds_paid() {
+		// given - 첫 승인 응답은 응답 타임아웃(테스트 1초)보다 늦게 오고, 재요청은 바로 200
+		Orders order = prepareOrder();
+		stubConfirmFirstThen(aResponse()
+			.withStatus(200)
+			.withFixedDelay(2000)
+			.withHeader("Content-Type", "application/json")
+			.withBody("""
+				{ "method": "카드", "approvedAt": "2026-01-03T01:23:45+09:00" }
+				"""));
+		PayConfirmDTO req = new PayConfirmDTO(UUID.randomUUID().toString(), order.getOrderNumber(), order.getFinalPrice());
+
+		// when
+		OrderStatus result = payService.confirm(req, userId);
+
+		// then
+		assertThat(result).isEqualTo(OrderStatus.PAID);
+		verify(2, postRequestedFor(urlEqualTo("/v1/payments/confirm"))
+			.withHeader("Idempotency-Key", equalTo(order.getOrderNumber())));
+	}
+
+	@Test
+	@DisplayName("승인 응답(200)을 해석할 수 없으면 다시 요청해도 같은 응답이므로 재요청하지 않고, 결제 조회(DONE)로 PAID를 돌려준다")
+	void unreadableApprovalResponse_noRetry_queryPaid() {
+		// given
+		Orders order = prepareOrder();
+		PayConfirmDTO req = new PayConfirmDTO(UUID.randomUUID().toString(), order.getOrderNumber(), order.getFinalPrice());
+		stubFor(post(urlEqualTo("/v1/payments/confirm"))
+			.willReturn(aResponse()
+				.withStatus(200)
+				.withHeader("Content-Type", "application/json")
+				.withBody("{ \"method\": ")));
+		stubGetPayment(req.getPaymentKey(), """
+			{ "status": "DONE", "method": "카드", "approvedAt": "2026-01-03T01:23:45+09:00" }
+			""");
+
+		// when
+		OrderStatus result = payService.confirm(req, userId);
+
+		// then
+		assertThat(result).isEqualTo(OrderStatus.PAID);
+		verify(1, postRequestedFor(urlEqualTo("/v1/payments/confirm")));
+		verify(1, getRequestedFor(urlEqualTo("/v1/payments/" + req.getPaymentKey())));
+	}
+
+	@Test
 	@DisplayName("승인 요청이 5xx면 같은 멱등키로 1번 다시 요청하고, 200이면 PAID를 돌려준다")
 	void serverError_retrySucceeds_paid() {
 		// given - 첫 승인 요청은 500, 재요청은 200

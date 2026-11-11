@@ -11,7 +11,7 @@ import com.commerce.payment.repository.PaymentRepository;
 import com.commerce.payment.dto.PayConfirmDTO;
 import com.commerce.payment.dto.PaySuccessDTO;
 import com.commerce.payment.external.TossPaymentClient;
-import com.fasterxml.jackson.databind.JsonNode;
+import com.commerce.payment.external.TossPaymentResponse;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -48,7 +48,7 @@ public class PayService {
 		}
 
 		// 2. 토스 취소 요청
-		JsonNode response;
+		TossPaymentResponse response;
 		try {
 			Map<String, Object> data = new HashMap<>();
 			data.put("cancelReason", cancelReason);
@@ -64,8 +64,8 @@ public class PayService {
 		paymentTxService.applyCancelSuccess(order.getId(), true);
 
 		// 4. dto 반환
-		String method = response.path("method").asText(); // 결제 수단
-		int cancelAmount = response.path("cancels").path(0).path("cancelAmount").asInt(); // 취소 금액
+		String method = response.method(); // 결제 수단
+		int cancelAmount = response.firstCancelAmount(); // 취소 금액
 		return new CancelResponseDTO(true, orderNumber, LocalDateTime.now(), cancelAmount, method, null);
 	}
 

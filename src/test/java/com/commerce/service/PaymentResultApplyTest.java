@@ -35,6 +35,7 @@ import com.commerce.order.repository.OrderProductRepository;
 import com.commerce.order.repository.OrderRepository;
 import com.commerce.order.service.OrderService;
 import com.commerce.payment.domain.Payment;
+import com.commerce.payment.external.TossPaymentResponse;
 import com.commerce.payment.service.FailureReason;
 import com.commerce.payment.service.PaymentTxService;
 import com.commerce.payment.repository.PaymentRepository;
@@ -44,7 +45,6 @@ import com.commerce.product.repository.ProductOptionRepository;
 import com.commerce.product.repository.ProductRepository;
 import com.commerce.user.domain.User;
 import com.commerce.user.repository.UserRepository;
-import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 /**
@@ -228,12 +228,12 @@ class PaymentResultApplyTest {
 		// 성공 반영이 주문 상태를 확인한 뒤(토스 응답의 결제 수단을 읽는 시점) 멈추게 한다
 		CountDownLatch successPaused = new CountDownLatch(1);
 		CountDownLatch resumeSuccess = new CountDownLatch(1);
-		JsonNode tossResponse = spy(tossDone());
+		TossPaymentResponse tossResponse = spy(tossDone());
 		doAnswer(invocation -> {
 			successPaused.countDown();
 			resumeSuccess.await(5, TimeUnit.SECONDS);
 			return invocation.callRealMethod();
-		}).when(tossResponse).path("method");
+		}).when(tossResponse).method();
 
 		// when
 		ExecutorService pool = Executors.newFixedThreadPool(2);
@@ -277,10 +277,10 @@ class PaymentResultApplyTest {
 		return dto;
 	}
 
-	private JsonNode tossDone() throws Exception {
-		return objectMapper.readTree("""
+	private TossPaymentResponse tossDone() throws Exception {
+		return objectMapper.readValue("""
 			{ "status": "DONE", "method": "카드", "approvedAt": "2026-01-03T01:23:45+09:00" }
-			""");
+			""", TossPaymentResponse.class);
 	}
 
 	private int stock() {

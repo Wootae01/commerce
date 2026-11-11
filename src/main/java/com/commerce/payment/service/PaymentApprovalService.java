@@ -1,13 +1,13 @@
 package com.commerce.payment.service;
 
 import org.springframework.stereotype.Service;
-import org.springframework.web.reactive.function.client.WebClientRequestException;
 
 import com.commerce.common.enums.OrderStatus;
 import com.commerce.payment.dto.PayConfirmDTO;
 import com.commerce.payment.external.TossApiException;
+import com.commerce.payment.external.TossConnectionException;
 import com.commerce.payment.external.TossPaymentClient;
-import com.fasterxml.jackson.databind.JsonNode;
+import com.commerce.payment.external.TossPaymentResponse;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -38,7 +38,7 @@ public class PaymentApprovalService {
 	// 응답을 모르면(끊김·타임아웃·5xx) 같은 키로 최대 maxRetries번 다시 요청한다
 	public ApprovalResult approve(PayConfirmDTO req, int maxRetries) {
 		long startTime = System.currentTimeMillis();
-		JsonNode tossResponse;
+		TossPaymentResponse tossResponse;
 		try {
 			tossResponse = requestWithRetry(req, maxRetries);
 		} catch (TossApiException e) {
@@ -65,13 +65,13 @@ public class PaymentApprovalService {
 
 	// 토스는 같은 멱등키의 승인을 한 번만 처리하고 같은 응답을 돌려주므로, 다시 요청해도 이중 승인이 생기지 않는다
 	// 재요청할 수 없는 실패이거나 재요청을 다 쓰면 예외를 그대로 던져 approve가 분류한다
-	private JsonNode requestWithRetry(PayConfirmDTO req, int maxRetries) {
+	private TossPaymentResponse requestWithRetry(PayConfirmDTO req, int maxRetries) {
 		for (int retry = 0; ; retry++) {
 			try {
 				return tossPaymentClient.confirm(req);
 
 				// 응답을 못받거나 5xx 에러를 받은 경우
-			} catch (WebClientRequestException | TossApiException e) {
+			} catch (TossConnectionException | TossApiException e) {
 				if (!isTossUnreachable(e) || retry >= maxRetries) {
 					throw e;
 				}
@@ -83,14 +83,14 @@ public class PaymentApprovalService {
 
 	// 토스와 통신하지 못함(네트워크 오류·타임아웃·5xx). 결과를 모르므로 같은 멱등키로 다시 요청할 수 있다
 	private boolean isTossUnreachable(Exception e) {
-		return e instanceof WebClientRequestException
+		return e instanceof TossConnectionException
 			|| (e instanceof TossApiException tossError && tossError.isServerError());
 	}
 
 	// 토스 결제 조회로 결과를 확인한다
 	private OrderStatus checkByPaymentQuery(PayConfirmDTO req) {
 		log.warn("승인 결과 모름, Toss 결제 상태 조회: orderId={}", req.getOrderId());
-		JsonNode payment;
+		TossPaymentResponse payment;
 		try {
 			payment = tossPaymentClient.getPayment(req.getPaymentKey());
 		} catch (Exception e) {
@@ -98,7 +98,7 @@ public class PaymentApprovalService {
 			return OrderStatus.PAYMENT_PENDING;
 		}
 
-		String status = payment.path("status").asText();
+		String status = payment.status();
 		switch (status) {
 			case "DONE" -> {
 				log.info("Toss 결제 확인됨, 승인 처리: orderId={}", req.getOrderId());
@@ -106,9 +106,8 @@ public class PaymentApprovalService {
 			}
 			case "ABORTED", "EXPIRED", "CANCELED" -> {
 				log.info("Toss 결제 실패 확인, 재고 복원: orderId={}, status={}", req.getOrderId(), status);
-				JsonNode failure = payment.path("failure");
 				FailureReason reason = FailureReason.ofQueriedPayment(status,
-					failure.path("code").asText(), failure.path("message").asText());
+					payment.failure().code(), payment.failure().message());
 				return paymentTxService.applyPaymentFailure(req.getOrderId(), reason);
 			}
 			case "READY", "IN_PROGRESS" -> {
