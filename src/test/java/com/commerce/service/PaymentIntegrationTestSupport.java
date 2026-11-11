@@ -1,8 +1,11 @@
 package com.commerce.service;
 
+import static com.github.tomakehurst.wiremock.client.WireMock.*;
+import static org.assertj.core.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
 import java.time.LocalDateTime;
+import java.util.UUID;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -25,6 +28,7 @@ import com.commerce.order.dto.OrderCreateRequestDTO;
 import com.commerce.order.repository.OrderProductRepository;
 import com.commerce.order.repository.OrderRepository;
 import com.commerce.order.service.OrderService;
+import com.commerce.payment.dto.PayConfirmDTO;
 import com.commerce.payment.external.TossPaymentClient;
 import com.commerce.payment.scheduler.PaymentRecoveryScheduler;
 import com.commerce.payment.service.PayService;
@@ -121,6 +125,38 @@ abstract class PaymentIntegrationTestSupport {
 		dto.setOptionId(optionId);
 		dto.setQuantity(1);
 		return orderService.prepareOrder(dto);
+	}
+
+	// 결제 확정까지 끝난 주문(취소 테스트의 시작점). 승인 응답을 200으로 바꿔 둔다
+	Orders paidOrder() {
+		stubFor(post(urlEqualTo("/v1/payments/confirm"))
+			.willReturn(aResponse()
+				.withStatus(200)
+				.withHeader("Content-Type", "application/json")
+				.withBody("""
+					{ "status": "DONE", "method": "카드", "approvedAt": "2026-01-03T01:23:45+09:00" }
+					""")));
+		Orders order = prepareOrder();
+		OrderStatus status = payService.confirm(
+			new PayConfirmDTO("pk-" + UUID.randomUUID(), order.getOrderNumber(), order.getFinalPrice()), userId);
+		assertThat(status).as("준비: 결제 확정").isEqualTo(OrderStatus.PAID);
+		return order;
+	}
+
+	String paymentKeyOf(Orders order) {
+		return paymentRepository.findByOrderId(order.getId()).orElseThrow().getPaymentKey();
+	}
+
+	String cancelUrlOf(Orders order) {
+		return "/v1/payments/" + paymentKeyOf(order) + "/cancel";
+	}
+
+	void stubCancel(Orders order, int status, String body) {
+		stubFor(post(urlEqualTo(cancelUrlOf(order)))
+			.willReturn(aResponse()
+				.withStatus(status)
+				.withHeader("Content-Type", "application/json")
+				.withBody(body)));
 	}
 
 	int stock() {

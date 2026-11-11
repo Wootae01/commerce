@@ -38,6 +38,11 @@ public class TossApiException extends ApiException {
 			|| "ALREADY_PROCESSED_PAYMENT".equals(tossCode);
 	}
 
+	// 취소 요청에 대한 응답. 토스에서는 이미 환불됐다(토스 관리자 화면에서 먼저 취소, 멱등키 만료 뒤 재요청 등)
+	public boolean isAlreadyCanceled() {
+		return "ALREADY_CANCELED_PAYMENT".equals(tossCode) || "ALREADY_REFUND_PAYMENT".equals(tossCode);
+	}
+
 	// 같은 멱등키의 이전 요청을 토스가 아직 처리 중
 	public boolean isIdempotentRequestProcessing() {
 		return tossStatus.value() == 409 && "IDEMPOTENT_REQUEST_PROCESSING".equals(tossCode);

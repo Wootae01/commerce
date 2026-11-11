@@ -132,24 +132,26 @@ class OrdersTest {
 	class CompleteCancel {
 
 		@Test
-		@DisplayName("취소요청 주문은 취소완료가 된다")
+		@DisplayName("취소 처리 중 주문은 취소완료가 되고 true를 돌려준다")
 		void cancelRequestedToCanceled() {
 			Orders order = orderWithStatus(OrderStatus.CANCEL_REQUESTED);
 
-			order.completeCancel();
+			boolean applied = order.completeCancel();
 
+			assertThat(applied).isTrue();
 			assertThat(order.getOrderStatus()).isEqualTo(OrderStatus.CANCELED);
 		}
 
+		// 사용자 요청과 보정 스케줄러가 같은 주문을 끝낼 수 있다. 나중에 온 쪽은 실패하지 않고 아무것도 하지 않는다
 		@ParameterizedTest
 		@EnumSource(value = OrderStatus.class, mode = EnumSource.Mode.EXCLUDE, names = "CANCEL_REQUESTED")
-		@DisplayName("취소요청이 아닌 주문은 ORDER_CANCEL_NOT_ALLOWED 예외가 발생하고 상태가 그대로다")
-		void notCancelRequestedRejected(OrderStatus status) {
+		@DisplayName("취소 처리 중이 아닌 주문은 false를 돌려주고 상태가 그대로다")
+		void notCancelRequestedIgnored(OrderStatus status) {
 			Orders order = orderWithStatus(status);
 
-			assertThatThrownBy(order::completeCancel)
-				.isInstanceOf(ApiException.class)
-				.extracting("responseCode").isEqualTo(GeneralResponseCode.ORDER_CANCEL_NOT_ALLOWED);
+			boolean applied = order.completeCancel();
+
+			assertThat(applied).isFalse();
 			assertThat(order.getOrderStatus()).isEqualTo(status);
 		}
 	}

@@ -118,19 +118,17 @@ public class PayController {
 	@PostMapping("/{orderNumber}/cancel")
 	public String cancel(@PathVariable String orderNumber, Model model) {
 
-		String cancelReason = "단순 변심";
-
 		try {
 			Long userId = securityUtil.getCurrentUser().getId();
-			CancelResponseDTO dto = payService.cancel(orderNumber, cancelReason, userId);
+			CancelResponseDTO dto = payService.cancel(orderNumber, userId);
 			model.addAttribute("result", dto);
 		} catch (ApiException e) {
 			model.addAttribute("result",
-				new CancelResponseDTO(false, orderNumber, null, 0, null, e.getMessage()));
+				new CancelResponseDTO(false, orderNumber, null, 0, null, e.getMessage(), null));
 		} catch (Exception e) {
 			model.addAttribute("result",
 				new CancelResponseDTO(false, orderNumber, null, 0, null,
-					"주문 취소 중 오류가 발생했습니다. 잠시 후 다시 시도해 주세요."));
+					"주문 취소 중 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.", null));
 		}
 
 		return "order-cancel";

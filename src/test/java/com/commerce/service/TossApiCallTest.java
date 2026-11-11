@@ -15,7 +15,6 @@ import com.commerce.common.exception.ApiException;
 import com.commerce.order.domain.Orders;
 import com.commerce.payment.dto.CancelResponseDTO;
 import com.commerce.payment.dto.PayConfirmDTO;
-import com.commerce.payment.external.TossConnectionException;
 import com.github.tomakehurst.wiremock.http.Fault;
 
 /**
@@ -79,10 +78,10 @@ class TossApiCallTest extends PaymentIntegrationTestSupport {
 	}
 
 	@Test
-	@DisplayName("결제한 주문을 취소하면 시크릿 키 Basic 인증으로 취소 이유를 보내고, 토스가 돌려준 취소 금액·결제 수단으로 응답하며 재고를 복원한다")
-	void cancel_paidOrder_canceledWithTossAmount() {
+	@DisplayName("결제한 주문을 취소하면 시크릿 키 Basic 인증과 멱등키로 취소 이유를 보내고, 결제 금액·승인 때 결제 수단으로 응답하며 재고를 복원한다")
+	void cancel_paidOrder_canceledWithPaymentInfo() {
 		// given
-		Orders order = paidOrder("pk-" + UUID.randomUUID());
+		Orders order = paidOrder();
 		String paymentKey = paymentKeyOf(order);
 		stubFor(post(urlEqualTo("/v1/payments/" + paymentKey + "/cancel"))
 			.willReturn(aResponse()
@@ -91,12 +90,13 @@ class TossApiCallTest extends PaymentIntegrationTestSupport {
 				.withBody(tossPayment("CANCELED", "간편결제", 3500))));
 
 		// when
-		CancelResponseDTO response = payService.cancel(order.getOrderNumber(), "단순 변심", userId);
+		CancelResponseDTO response = payService.cancel(order.getOrderNumber(), userId);
 
 		// then
 		assertThat(response.isSuccess()).isTrue();
-		assertThat(response.getCancelAmount()).as("취소 금액").isEqualTo(3500);
-		assertThat(response.getRefundMethod()).as("환불 수단").isEqualTo("간편결제");
+		// 토스 응답(3500·간편결제)이 아니라 승인 때 저장한 값이다
+		assertThat(response.getCancelAmount()).as("환불 금액 = 결제 금액").isEqualTo(order.getFinalPrice());
+		assertThat(response.getRefundMethod()).as("승인 때 결제 수단").isEqualTo("카드");
 		assertThat(statusOf(order)).isEqualTo(OrderStatus.CANCELED);
 		assertThat(stock()).as("재고").isEqualTo(INITIAL_STOCK);
 		verify(1, postRequestedFor(urlEqualTo("/v1/payments/" + paymentKey + "/cancel"))
@@ -110,52 +110,40 @@ class TossApiCallTest extends PaymentIntegrationTestSupport {
 	}
 
 	@Test
+	@DisplayName("토스가 이미 취소된 결제라고 하면 취소 완료로 보고 재고를 복원하며, 환불 금액·수단은 결제 정보로 응답한다")
+	void cancel_alreadyCanceled_canceledWithPaymentInfo() {
+		// given - 토스 관리자 화면에서 먼저 취소했거나, 멱등키가 만료된 뒤 다시 요청한 경우
+		Orders order = paidOrder();
+		stubCancel(order, 400, """
+			{ "code": "ALREADY_CANCELED_PAYMENT", "message": "이미 취소된 결제 입니다." }
+			""");
+
+		// when
+		CancelResponseDTO response = payService.cancel(order.getOrderNumber(), userId);
+
+		// then - 응답에 결제 객체가 없으므로 금액·수단은 승인 때 저장한 값이다(전액 취소)
+		assertThat(response.isSuccess()).isTrue();
+		assertThat(response.getCancelAmount()).as("환불 금액 = 결제 금액").isEqualTo(order.getFinalPrice());
+		assertThat(response.getRefundMethod()).as("승인 때 결제 수단").isEqualTo("카드");
+		assertThat(statusOf(order)).isEqualTo(OrderStatus.CANCELED);
+		assertThat(stock()).as("재고").isEqualTo(INITIAL_STOCK);
+	}
+
+	@Test
 	@DisplayName("토스가 취소를 거절하면 취소 실패 예외를 던지고, 주문은 결제 완료로 돌아오며 재고는 그대로다")
 	void cancel_tossRejects_orderRevertedToPaid() {
 		// given
-		Orders order = paidOrder("pk-" + UUID.randomUUID());
-		stubFor(post(urlEqualTo("/v1/payments/" + paymentKeyOf(order) + "/cancel"))
-			.willReturn(aResponse()
-				.withStatus(400)
-				.withHeader("Content-Type", "application/json")
-				.withBody("""
-					{ "code": "ALREADY_CANCELED_PAYMENT", "message": "이미 취소된 결제 입니다." }
-					""")));
+		Orders order = paidOrder();
+		stubCancel(order, 403, """
+			{ "code": "NOT_CANCELABLE_PAYMENT", "message": "취소 할 수 없는 결제 입니다." }
+			""");
 
 		// when & then
-		assertThatThrownBy(() -> payService.cancel(order.getOrderNumber(), "단순 변심", userId))
+		assertThatThrownBy(() -> payService.cancel(order.getOrderNumber(), userId))
 			.isInstanceOfSatisfying(ApiException.class, e ->
 				assertThat(e.getResponseCode()).isEqualTo(ExternalResponseCode.PG_CANCEL_ERROR));
 		assertThat(statusOf(order)).isEqualTo(OrderStatus.PAID);
 		assertThat(stock()).as("재고").isEqualTo(INITIAL_STOCK - 1);
-	}
-
-	@Test
-	@DisplayName("취소 요청 중 토스 연결이 끊기면 연결 실패 예외를 던지고, 주문은 결제 완료로 돌아오며 재고는 그대로다")
-	void cancel_connectionLost_orderRevertedToPaid() {
-		// given
-		Orders order = paidOrder("pk-" + UUID.randomUUID());
-		stubFor(post(urlEqualTo("/v1/payments/" + paymentKeyOf(order) + "/cancel"))
-			.willReturn(aResponse().withFault(Fault.CONNECTION_RESET_BY_PEER)));
-
-		// when & then
-		assertThatThrownBy(() -> payService.cancel(order.getOrderNumber(), "단순 변심", userId))
-			.isInstanceOf(TossConnectionException.class);
-		assertThat(statusOf(order)).isEqualTo(OrderStatus.PAID);
-		assertThat(stock()).as("재고").isEqualTo(INITIAL_STOCK - 1);
-	}
-
-	// 결제 확정까지 끝난 주문
-	private Orders paidOrder(String paymentKey) {
-		Orders order = prepareOrder();
-		OrderStatus status = payService.confirm(
-			new PayConfirmDTO(paymentKey, order.getOrderNumber(), order.getFinalPrice()), userId);
-		assertThat(status).as("준비: 결제 확정").isEqualTo(OrderStatus.PAID);
-		return order;
-	}
-
-	private String paymentKeyOf(Orders order) {
-		return paymentRepository.findByOrderId(order.getId()).orElseThrow().getPaymentKey();
 	}
 
 	// 토스 Payment 객체. 우리가 읽지 않는 필드도 실제 응답처럼 넣는다
