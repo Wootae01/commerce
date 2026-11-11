@@ -6,7 +6,7 @@ public enum OrderStatus {
 	PAID("결제완료"),
 	PREPARING("배송준비"),
 	SHIPPING("배송중"),
-	CANCEL_REQUESTED("취소요청"),
+	CANCEL_REQUESTED("취소 처리 중"),
 	CANCELED("취소완료"),
 	DELIVERED("배송완료");
 

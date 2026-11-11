@@ -105,7 +105,7 @@ class OrdersTest {
 
 		@ParameterizedTest
 		@EnumSource(value = OrderStatus.class, names = {"PAID", "READY"})
-		@DisplayName("결제완료·결제 준비 주문은 취소요청이 된다")
+		@DisplayName("결제완료·결제 준비 주문은 취소 처리 중이 된다")
 		void toCancelRequested(OrderStatus status) {
 			Orders order = orderWithStatus(status);
 
@@ -161,7 +161,7 @@ class OrdersTest {
 	class RevertCancel {
 
 		@Test
-		@DisplayName("취소요청 주문은 결제완료로 돌아간다")
+		@DisplayName("취소 처리 중 주문은 결제완료로 돌아간다")
 		void cancelRequestedToPaid() {
 			Orders order = orderWithStatus(OrderStatus.CANCEL_REQUESTED);
 
@@ -173,7 +173,7 @@ class OrdersTest {
 
 		@ParameterizedTest
 		@EnumSource(value = OrderStatus.class, mode = EnumSource.Mode.EXCLUDE, names = "CANCEL_REQUESTED")
-		@DisplayName("취소요청이 아닌 주문은 그대로 두고 false를 돌려준다")
+		@DisplayName("취소 처리 중이 아닌 주문은 그대로 두고 false를 돌려준다")
 		void notCancelRequestedIgnored(OrderStatus status) {
 			Orders order = orderWithStatus(status);
 

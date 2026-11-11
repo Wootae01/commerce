@@ -88,11 +88,11 @@ public class OrderApiController {
 			orderService.getMyOrderDetail(orderNumber, user));
 	}
 
-	// 결제한 주문이면 토스 결제 취소까지 진행한다.
+	// 결제한 주문이면 토스 결제 취소까지 진행한다. 200 취소 완료, 202 취소 처리 중
 	@PostMapping("/{orderNumber}/cancel")
 	public ResponseEntity<GeneralResponse<CancelResponseDTO>> cancelOrder(@PathVariable String orderNumber) {
 		Long userId = securityUtil.getCurrentUser().getId();
 		CancelResponseDTO result = payService.cancel(orderNumber, userId);
-		return GeneralResponse.toResponseEntity(GeneralResponseCode.OK, result);
+		return GeneralResponse.toResponseEntity(CancelResponseCode.from(result.getOrderStatus()), result);
 	}
 }
