@@ -38,8 +38,6 @@ import lombok.RequiredArgsConstructor;
 @RequestMapping("/api/orders")
 public class OrderApiController {
 
-	private static final String CANCEL_REASON = "단순 변심";
-
 	private final OrderService orderService;
 	private final OrderCheckoutService orderCheckoutService;
 	private final OrderMapper orderMapper;
@@ -90,11 +88,11 @@ public class OrderApiController {
 			orderService.getMyOrderDetail(orderNumber, user));
 	}
 
-	// 결제한 주문이면 토스 결제 취소까지 진행한다.
+	// 결제한 주문이면 토스 결제 취소까지 진행한다. 200 취소 완료, 202 취소 처리 중
 	@PostMapping("/{orderNumber}/cancel")
 	public ResponseEntity<GeneralResponse<CancelResponseDTO>> cancelOrder(@PathVariable String orderNumber) {
 		Long userId = securityUtil.getCurrentUser().getId();
-		CancelResponseDTO result = payService.cancel(orderNumber, CANCEL_REASON, userId);
-		return GeneralResponse.toResponseEntity(GeneralResponseCode.OK, result);
+		CancelResponseDTO result = payService.cancel(orderNumber, userId);
+		return GeneralResponse.toResponseEntity(CancelResponseCode.from(result.getOrderStatus()), result);
 	}
 }

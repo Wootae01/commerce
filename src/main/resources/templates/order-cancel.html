@@ -18,6 +18,7 @@
         }
         .icon-success { background: #eaf7ee; }
         .icon-fail { background: #fdecea; }
+        .icon-processing { background: #eaf2ff; }
         .icon-circle svg { width: 34px; height: 34px; }
         .muted-label { color: #6c757d; font-size: .9rem; }
         .value-text { font-weight: 600; }
@@ -27,10 +28,12 @@
     </style>
 </head>
 <body>
-<div class="container py-5" style="max-width: 760px;">
+<div class="container py-5" style="max-width: 760px;"
+     th:with="succeeded=${result != null and result.success},
+              processing=${result != null and result.orderStatus != null and result.orderStatus.name() == 'CANCEL_REQUESTED'}">
 
     <!-- 성공 -->
-    <div th:if="${result != null and result.success}">
+    <div th:if="${succeeded}">
         <div class="text-center mb-4">
             <div class="icon-circle icon-success mb-3">
                 <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
@@ -73,8 +76,36 @@
         </div>
     </div>
 
+    <!-- 취소 처리 중: 토스 응답을 몰라 결과를 확인하는 중. 보정 스케줄러가 끝낸다 -->
+    <div th:if="${processing}">
+        <div class="text-center mb-4">
+            <div class="icon-circle icon-processing mb-3">
+                <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                    <circle cx="12" cy="12" r="9" stroke="#0d6efd" stroke-width="2"/>
+                    <path d="M12 7v5l3 2" stroke="#0d6efd" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+            </div>
+            <h4 class="fw-bold mb-1">취소 요청을 접수했어요</h4>
+            <p class="text-muted mb-0">환불을 확인하는 중이고, 보통 몇 분 안에 끝나요. 주문 내역에서 상태를 볼 수 있어요.</p>
+        </div>
+
+        <div class="card result-card">
+            <div class="card-body p-4">
+                <div>
+                    <div class="muted-label">주문번호</div>
+                    <div class="value-text fs-5" th:text="${result.orderNumber}"></div>
+                </div>
+                <hr class="my-3">
+                <div class="d-flex gap-2 justify-content-end">
+                    <a class="btn btn-outline-secondary btn-wide" th:href="@{'/orders/' + ${result.orderNumber}}">주문 상세</a>
+                    <a class="btn btn-primary btn-wide" th:href="@{/orders/list}">주문 내역</a>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- 실패 -->
-    <div th:unless="${result != null and result.success}">
+    <div th:unless="${succeeded or processing}">
         <div class="text-center mb-4">
             <div class="icon-circle icon-fail mb-3">
                 <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">

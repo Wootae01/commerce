@@ -68,16 +68,21 @@ public class PaymentTxService {
 			.orElse(null);
 	}
 
-	// 취소 완료: 상태 변경 + 선택적 재고 복원
+	// 취소 완료: 상태 변경 + 선택적 재고 복원. 반영 후 주문 상태를 돌려준다
+	// 이미 처리된 주문(사용자 요청·보정 스케줄러 중 먼저 반영된 쪽이 있음)이면 아무것도 하지 않는다
 	@Transactional
-	public void applyCancelSuccess(Long orderId, boolean restoreStock) {
+	public OrderStatus applyCancelSuccess(Long orderId, boolean restoreStock) {
 		Orders order = orderRepository.findByIdWithLock(orderId)
 			.orElseThrow(() -> new ApiException(GeneralResponseCode.ORDER_NOT_FOUND));
 
-		order.completeCancel();
+		if (!order.completeCancel()) {
+			log.warn("이미 처리된 주문입니다. orderNumber={}, status={}", order.getOrderNumber(), order.getOrderStatus());
+			return order.getOrderStatus();
+		}
 		if (restoreStock) {
 			updateStock(orderId, true);
 		}
+		return order.getOrderStatus();
 	}
 
 	// 토스 취소 실패 시 상태 복원

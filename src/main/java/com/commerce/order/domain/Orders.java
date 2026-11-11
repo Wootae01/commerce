@@ -158,12 +158,13 @@ public class Orders extends BaseUpdatableEntity {
         this.orderStatus = OrderStatus.CANCEL_REQUESTED;
     }
 
-    // 취소 완료: CANCEL_REQUESTED → CANCELED
-    public void completeCancel() {
+    // 취소 완료: CANCEL_REQUESTED → CANCELED. 사용자 요청과 보정 스케줄러 중 먼저 반영한 쪽만 바꾼다
+    public boolean completeCancel() {
         if (orderStatus != OrderStatus.CANCEL_REQUESTED) {
-            throw new ApiException(GeneralResponseCode.ORDER_CANCEL_NOT_ALLOWED, "취소 처리할 수 없는 상태입니다.");
+            return false;
         }
         this.orderStatus = OrderStatus.CANCELED;
+        return true;
     }
 
     // 토스 취소 실패 시 복원: CANCEL_REQUESTED → PAID

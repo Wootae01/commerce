@@ -26,6 +26,11 @@ public class TossApiException extends ApiException {
 		this.tossMessage = tossMessage;
 	}
 
+	// 사용자에게 보여줄 문장. 토스가 준 문장(거절 사유)이 있으면 그것, 없으면 응답 코드의 기본 문장
+	public String userMessage() {
+		return tossMessage == null || tossMessage.isBlank() ? getMessage() : tossMessage;
+	}
+
 	public boolean isServerError() {
 		return tossStatus.is5xxServerError();
 	}
@@ -36,6 +41,11 @@ public class TossApiException extends ApiException {
 		int status = tossStatus.value();
 		return status == 401 || status == 429 || tossStatus.is5xxServerError()
 			|| "ALREADY_PROCESSED_PAYMENT".equals(tossCode);
+	}
+
+	// 취소 요청에 대한 응답. 토스에서는 이미 환불됐다(토스 관리자 화면에서 먼저 취소, 멱등키 만료 뒤 재요청 등)
+	public boolean isAlreadyCanceled() {
+		return "ALREADY_CANCELED_PAYMENT".equals(tossCode) || "ALREADY_REFUND_PAYMENT".equals(tossCode);
 	}
 
 	// 같은 멱등키의 이전 요청을 토스가 아직 처리 중

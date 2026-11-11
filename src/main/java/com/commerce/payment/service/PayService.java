@@ -1,6 +1,7 @@
 package com.commerce.payment.service;
 
 import com.commerce.common.enums.OrderStatus;
+import com.commerce.common.enums.PaymentType;
 import com.commerce.common.code.GeneralResponseCode;
 import com.commerce.common.exception.ApiException;
 import com.commerce.order.domain.Orders;
@@ -10,15 +11,11 @@ import com.commerce.payment.dto.CancelResponseDTO;
 import com.commerce.payment.repository.PaymentRepository;
 import com.commerce.payment.dto.PayConfirmDTO;
 import com.commerce.payment.dto.PaySuccessDTO;
-import com.commerce.payment.external.TossPaymentClient;
-import com.commerce.payment.external.TossPaymentResponse;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
-import java.util.HashMap;
-import java.util.Map;
 import java.util.Objects;
 
 @Service
@@ -28,14 +25,16 @@ public class PayService {
 
 	// 사용자가 기다리는 중이라, 응답을 모르면 그 자리에서 같은 멱등키로 1번만 다시 요청한다. 그래도 모르면 202 확인 중
 	private static final int CONFIRM_MAX_RETRIES = 1;
+	// 취소도 같다. 그래도 모르면 취소 처리 중(CANCEL_REQUESTED)
+	private static final int CANCEL_MAX_RETRIES = 1;
 
 	private final OrderService orderService;
 	private final PaymentTxService paymentTxService;
-	private final TossPaymentClient tossPaymentClient;
 	private final PaymentApprovalService paymentApprovalService;
+	private final PaymentCancelService paymentCancelService;
 	private final PaymentRepository paymentRepository;
 
-	public CancelResponseDTO cancel(String orderNumber, String cancelReason, Long userId) {
+	public CancelResponseDTO cancel(String orderNumber, Long userId) {
 		Orders order = orderService.findMyOrder(orderNumber, userId);
 
 		// 1. 주문 잠금 + 상태 전이 (→ CANCEL_REQUESTED) - 동시 취소 요청 방지
@@ -44,29 +43,21 @@ public class PayService {
 		// paymentKey 없으면 결제를 하지 않은 주문 — 바로 취소
 		if (paymentKey == null || paymentKey.isEmpty()) {
 			paymentTxService.applyCancelSuccess(order.getId(), false);
-			return new CancelResponseDTO(true, orderNumber, LocalDateTime.now(), 0, "결제 안함", null);
+			return new CancelResponseDTO(true, orderNumber, LocalDateTime.now(), 0, "결제 안함", null, OrderStatus.CANCELED);
 		}
 
-		// 2. 토스 취소 요청
-		TossPaymentResponse response;
-		try {
-			Map<String, Object> data = new HashMap<>();
-			data.put("cancelReason", cancelReason);
-			response = tossPaymentClient.cancel(paymentKey, data);
-		} catch (Exception e) {
-			// 토스 취소 실패 — 주문 상태 복원
-			log.error("토스 취소 실패, 주문 상태 복원: orderNumber={}", orderNumber, e);
-			paymentTxService.revertCancelRequest(order.getId());
-			throw e;
+		// 2. 토스 취소 요청 + 결과 반영. 응답을 모르면 같은 멱등키로 1번 다시 요청한다
+		OrderStatus status = paymentCancelService.cancel(order, paymentKey, CANCEL_MAX_RETRIES).status();
+		if (status == OrderStatus.CANCEL_REQUESTED) {
+			// 결과를 모름. 보정 스케줄러가 같은 키로 다시 요청해 끝낸다
+			return new CancelResponseDTO(false, orderNumber, null, 0, null, null, OrderStatus.CANCEL_REQUESTED);
 		}
 
-		// 3. 취소 성공 — 상태 변경 + 재고 복원 (단일 트랜잭션)
-		paymentTxService.applyCancelSuccess(order.getId(), true);
-
-		// 4. dto 반환
-		String method = response.method(); // 결제 수단
-		int cancelAmount = response.firstCancelAmount(); // 취소 금액
-		return new CancelResponseDTO(true, orderNumber, LocalDateTime.now(), cancelAmount, method, null);
+		// 3. 환불 금액·수단은 승인 때 저장한 값이다. 전액 취소라 결제 금액이 곧 환불 금액이고,
+		//    토스가 '이미 취소됨'으로 답하면 응답에 결제 객체가 없다
+		Payment payment = paymentRepository.findByOrderId(order.getId()).orElseThrow();
+		return new CancelResponseDTO(true, orderNumber, LocalDateTime.now(), payment.getAmount(),
+			PaymentType.textOf(payment.getPaymentType()), null, OrderStatus.CANCELED);
 	}
 
 	// 확정 후 주문 상태(PAID / PAYMENT_PENDING / CANCELED)를 돌려준다

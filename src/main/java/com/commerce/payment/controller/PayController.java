@@ -27,6 +27,7 @@ import com.commerce.order.dto.OrderPrepareResponseDTO;
 import com.commerce.order.service.OrderService;
 import com.commerce.payment.dto.CancelResponseDTO;
 import com.commerce.payment.dto.PayConfirmDTO;
+import com.commerce.payment.external.TossApiException;
 import com.commerce.payment.service.PayService;
 
 import jakarta.validation.Valid;
@@ -118,19 +119,21 @@ public class PayController {
 	@PostMapping("/{orderNumber}/cancel")
 	public String cancel(@PathVariable String orderNumber, Model model) {
 
-		String cancelReason = "단순 변심";
-
 		try {
 			Long userId = securityUtil.getCurrentUser().getId();
-			CancelResponseDTO dto = payService.cancel(orderNumber, cancelReason, userId);
+			CancelResponseDTO dto = payService.cancel(orderNumber, userId);
 			model.addAttribute("result", dto);
+		} catch (TossApiException e) {
+			// 토스가 거절함. 주문은 결제완료로 돌아갔고, 토스가 준 거절 사유를 보여준다
+			model.addAttribute("result",
+				new CancelResponseDTO(false, orderNumber, null, 0, null, e.userMessage(), null));
 		} catch (ApiException e) {
 			model.addAttribute("result",
-				new CancelResponseDTO(false, orderNumber, null, 0, null, e.getMessage()));
+				new CancelResponseDTO(false, orderNumber, null, 0, null, e.getMessage(), null));
 		} catch (Exception e) {
 			model.addAttribute("result",
 				new CancelResponseDTO(false, orderNumber, null, 0, null,
-					"주문 취소 중 오류가 발생했습니다. 잠시 후 다시 시도해 주세요."));
+					"주문 취소 중 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.", null));
 		}
 
 		return "order-cancel";

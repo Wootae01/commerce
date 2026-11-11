@@ -95,7 +95,7 @@ class OrderOwnershipTest extends PaymentIntegrationTestSupport {
 		Orders order = prepareOrder();
 
 		// when & then
-		assertThatThrownBy(() -> payService.cancel(order.getOrderNumber(), "단순 변심", otherUserId))
+		assertThatThrownBy(() -> payService.cancel(order.getOrderNumber(), otherUserId))
 			.isInstanceOf(ApiException.class)
 			.extracting("responseCode").isEqualTo(GeneralResponseCode.ORDER_NOT_FOUND);
 		assertThat(statusOf(order)).isEqualTo(OrderStatus.READY);
