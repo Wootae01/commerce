@@ -15,7 +15,6 @@ import com.commerce.common.code.ExternalResponseCode;
 import com.commerce.common.exception.ApiException;
 import com.commerce.payment.dto.PayConfirmDTO;
 import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 import lombok.RequiredArgsConstructor;
@@ -30,13 +29,13 @@ public class TossPaymentClient {
 	private final RestClient tossRestClient;
 	private final ObjectMapper objectMapper;
 
-	public JsonNode cancel(String paymentKey, Map<String, Object> data) {
+	public TossPaymentResponse cancel(String paymentKey, Map<String, Object> data) {
 		try {
 			return tossRestClient.post()
 				.uri("/v1/payments/{paymentKey}/cancel", paymentKey)
 				.body(data)
 				.retrieve()
-				.body(JsonNode.class);
+				.body(TossPaymentResponse.class);
 		} catch (RestClientResponseException e) {
 			log.error("toss cancel failed: status={}, body={}", e.getStatusCode(), e.getResponseBodyAsString(), e);
 			throw new ApiException(ExternalResponseCode.PG_CANCEL_ERROR);
@@ -47,12 +46,12 @@ public class TossPaymentClient {
 	}
 
 	// paymentKey로 조회하면 승인 전 결제도 IN_PROGRESS로 보인다. 주문번호 조회는 테스트 키에서 404만 돌아왔다(#10)
-	public JsonNode getPayment(String paymentKey) {
+	public TossPaymentResponse getPayment(String paymentKey) {
 		try {
 			return tossRestClient.get()
 				.uri("/v1/payments/{paymentKey}", paymentKey)
 				.retrieve()
-				.body(JsonNode.class);
+				.body(TossPaymentResponse.class);
 		} catch (RestClientResponseException e) {
 			log.error("toss getPayment failed: status={}, body={}", e.getStatusCode(), e.getResponseBodyAsString(), e);
 			throw new ApiException(ExternalResponseCode.PG_QUERY_ERROR);
@@ -62,7 +61,7 @@ public class TossPaymentClient {
 		}
 	}
 
-	public JsonNode confirm(PayConfirmDTO req) {
+	public TossPaymentResponse confirm(PayConfirmDTO req) {
 		try {
 			return tossRestClient.post()
 				.uri("/v1/payments/confirm")
@@ -76,7 +75,7 @@ public class TossPaymentClient {
 					throw new TossApiException(ExternalResponseCode.PG_APPROVAL_ERROR, response.getStatusCode(),
 						errorField(body, "code"), errorField(body, "message"));
 				})
-				.body(JsonNode.class);
+				.body(TossPaymentResponse.class);
 		} catch (RestClientException e) {
 			log.error("toss confirm exception", e);
 			throw connectionFailureOrSelf(e, "toss confirm connection failed");

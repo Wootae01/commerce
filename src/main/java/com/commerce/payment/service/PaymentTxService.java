@@ -23,7 +23,7 @@ import com.commerce.order.repository.OrderRepository;
 import com.commerce.payment.domain.Payment;
 import com.commerce.payment.repository.PaymentRepository;
 import com.commerce.product.repository.ProductJdbcRepository;
-import com.fasterxml.jackson.databind.JsonNode;
+import com.commerce.payment.external.TossPaymentResponse;
 
 import com.commerce.user.domain.User;
 import lombok.RequiredArgsConstructor;
@@ -91,15 +91,15 @@ public class PaymentTxService {
 
 	// 결제 성공 시 장바구니 삭제, 결제 일시, 상태 변경. 반영 후 주문 상태를 돌려준다
 	@Transactional
-	public OrderStatus applyPaymentSuccess(String orderNumber, JsonNode tossResponse) {
+	public OrderStatus applyPaymentSuccess(String orderNumber, TossPaymentResponse tossResponse) {
 		Orders order = orderRepository.findByOrderNumberWithLock(orderNumber)
 			.orElseThrow(() -> new ApiException(GeneralResponseCode.ORDER_NOT_FOUND));
 
 		// 결제 수단
-		PaymentType paymentType = PaymentType.fromTossMethod(tossResponse.path("method").asText());
+		PaymentType paymentType = PaymentType.fromTossMethod(tossResponse.method());
 
 		// 결제 일시
-		String approvedAtStr = tossResponse.path("approvedAt").asText();
+		String approvedAtStr = tossResponse.approvedAt();
 
 		LocalDateTime approvedAt = null;
 		if (approvedAtStr != null && !approvedAtStr.isBlank()) {

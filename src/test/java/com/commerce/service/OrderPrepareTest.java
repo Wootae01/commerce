@@ -47,6 +47,7 @@ import com.commerce.payment.service.PaymentTxService;
 import com.commerce.product.domain.Product;
 import com.commerce.product.domain.ProductOption;
 import com.commerce.user.domain.User;
+import com.commerce.payment.external.TossPaymentResponse;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
@@ -144,9 +145,9 @@ class OrderPrepareTest extends PaymentIntegrationTestSupport {
 		paymentTxService.lockAndDeductStock(order.getOrderNumber(), "paymentKey");
 
 		// when
-		paymentTxService.applyPaymentSuccess(order.getOrderNumber(), objectMapper.readTree("""
+		paymentTxService.applyPaymentSuccess(order.getOrderNumber(), objectMapper.readValue("""
 			{ "status": "DONE", "method": "카드", "approvedAt": "2026-01-03T01:23:45+09:00" }
-			"""));
+			""", TossPaymentResponse.class));
 
 		// then
 		User user = userRepository.findById(userId).orElseThrow();
