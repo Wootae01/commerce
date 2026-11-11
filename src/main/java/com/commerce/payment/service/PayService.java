@@ -17,8 +17,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
-import java.util.HashMap;
-import java.util.Map;
 import java.util.Objects;
 
 @Service
@@ -50,9 +48,7 @@ public class PayService {
 		// 2. 토스 취소 요청
 		TossPaymentResponse response;
 		try {
-			Map<String, Object> data = new HashMap<>();
-			data.put("cancelReason", cancelReason);
-			response = tossPaymentClient.cancel(paymentKey, data);
+			response = tossPaymentClient.cancel(paymentKey, orderNumber, cancelReason);
 		} catch (Exception e) {
 			// 토스 취소 실패 — 주문 상태 복원
 			log.error("토스 취소 실패, 주문 상태 복원: orderNumber={}", orderNumber, e);

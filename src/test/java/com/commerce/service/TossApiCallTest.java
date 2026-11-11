@@ -101,6 +101,8 @@ class TossApiCallTest extends PaymentIntegrationTestSupport {
 		assertThat(stock()).as("재고").isEqualTo(INITIAL_STOCK);
 		verify(1, postRequestedFor(urlEqualTo("/v1/payments/" + paymentKey + "/cancel"))
 			.withHeader("Authorization", equalTo(TOSS_BASIC_AUTH))
+			// 응답을 모를 때 같은 키로 다시 요청해도 한 번만 취소된다
+			.withHeader("Idempotency-Key", equalTo(order.getOrderNumber()))
 			.withHeader("Content-Type", containing("application/json"))
 			.withRequestBody(equalToJson("""
 				{ "cancelReason": "단순 변심" }

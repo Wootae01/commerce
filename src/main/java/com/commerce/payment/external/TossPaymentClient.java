@@ -11,6 +11,7 @@ import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestClientResponseException;
 
+import com.commerce.common.code.ApiResponseCode;
 import com.commerce.common.code.ExternalResponseCode;
 import com.commerce.common.exception.ApiException;
 import com.commerce.payment.dto.PayConfirmDTO;
@@ -29,16 +30,17 @@ public class TossPaymentClient {
 	private final RestClient tossRestClient;
 	private final ObjectMapper objectMapper;
 
-	public TossPaymentResponse cancel(String paymentKey, Map<String, Object> data) {
+	public TossPaymentResponse cancel(String paymentKey, String orderNumber, String cancelReason) {
 		try {
 			return tossRestClient.post()
 				.uri("/v1/payments/{paymentKey}/cancel", paymentKey)
-				.body(data)
+				// 같은 키로 다시 요청하면 토스가 한 번만 취소하고 같은 응답을 돌려준다.
+				// 토스는 API 주소별로 키를 구분하므로 승인과 같은 값(주문번호)을 써도 섞이지 않는다
+				.header("Idempotency-Key", orderNumber)
+				.body(Map.of("cancelReason", cancelReason))
 				.retrieve()
+				.onStatus(HttpStatusCode::isError, tossError(ExternalResponseCode.PG_CANCEL_ERROR, "cancel"))
 				.body(TossPaymentResponse.class);
-		} catch (RestClientResponseException e) {
-			log.error("toss cancel failed: status={}, body={}", e.getStatusCode(), e.getResponseBodyAsString(), e);
-			throw new ApiException(ExternalResponseCode.PG_CANCEL_ERROR);
 		} catch (RestClientException e) {
 			log.error("toss cancel exception", e);
 			throw connectionFailureOrSelf(e, "toss cancel connection failed");
@@ -69,12 +71,7 @@ public class TossPaymentClient {
 				.header("Idempotency-Key", req.getOrderId())
 				.body(new PayConfirmDTO(req.getPaymentKey(), req.getOrderId(), req.getAmount()))
 				.retrieve()
-				.onStatus(HttpStatusCode::isError, (request, response) -> {
-					String body = new String(response.getBody().readAllBytes(), StandardCharsets.UTF_8);
-					log.error("toss confirm error: status={}, body={}", response.getStatusCode(), body);
-					throw new TossApiException(ExternalResponseCode.PG_APPROVAL_ERROR, response.getStatusCode(),
-						errorField(body, "code"), errorField(body, "message"));
-				})
+				.onStatus(HttpStatusCode::isError, tossError(ExternalResponseCode.PG_APPROVAL_ERROR, "confirm"))
 				.body(TossPaymentResponse.class);
 		} catch (RestClientException e) {
 			log.error("toss confirm exception", e);
@@ -98,6 +95,16 @@ public class TossPaymentClient {
 			}
 		}
 		return e;
+	}
+
+	// 오류 응답을 상태·토스 code·message를 담은 TossApiException으로 바꾼다. 호출하는 쪽이 code로 결과를 나눈다
+	private RestClient.ResponseSpec.ErrorHandler tossError(ApiResponseCode responseCode, String api) {
+		return (request, response) -> {
+			String body = new String(response.getBody().readAllBytes(), StandardCharsets.UTF_8);
+			log.error("toss {} error: status={}, body={}", api, response.getStatusCode(), body);
+			throw new TossApiException(responseCode, response.getStatusCode(),
+				errorField(body, "code"), errorField(body, "message"));
+		};
 	}
 
 	// 토스 에러 응답 본문 { "code": ..., "message": ... }에서 한 항목을 꺼낸다
