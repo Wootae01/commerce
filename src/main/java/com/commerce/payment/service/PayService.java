@@ -47,7 +47,7 @@ public class PayService {
 		}
 
 		// 2. 토스 취소 요청 + 결과 반영. 응답을 모르면 같은 멱등키로 1번 다시 요청한다
-		OrderStatus status = paymentCancelService.cancel(order, paymentKey, CANCEL_MAX_RETRIES);
+		OrderStatus status = paymentCancelService.cancel(order, paymentKey, CANCEL_MAX_RETRIES).status();
 		if (status == OrderStatus.CANCEL_REQUESTED) {
 			// 결과를 모름. 보정 스케줄러가 같은 키로 다시 요청해 끝낸다
 			return new CancelResponseDTO(false, orderNumber, null, 0, null, null, OrderStatus.CANCEL_REQUESTED);

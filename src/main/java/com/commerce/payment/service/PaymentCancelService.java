@@ -37,8 +37,8 @@ public class PaymentCancelService {
 	private final PaymentTxService paymentTxService;
 
 	// CANCEL_REQUESTED 주문의 취소를 요청하고 반영한 뒤 주문 상태를 돌려준다
-	// 응답을 모르면 같은 키로 최대 maxRetries번 다시 요청한다
-	public OrderStatus cancel(Orders order, String paymentKey, int maxRetries) {
+	// 응답을 모르면 같은 키로 최대 maxRetries번 다시 요청한다. 토스가 거절하면 PAID로 되돌리고 TossApiException을 던진다
+	public CancelResult cancel(Orders order, String paymentKey, int maxRetries) {
 		try {
 			requestWithRetry(order, paymentKey, maxRetries);
 		} catch (TossApiException e) {
@@ -56,12 +56,12 @@ public class PaymentCancelService {
 			return keepCancelRequested(order, e);
 		}
 
-		return paymentTxService.applyCancelSuccess(order.getId(), true);
+		return new CancelResult(paymentTxService.applyCancelSuccess(order.getId(), true), false);
 	}
 
-	private OrderStatus keepCancelRequested(Orders order, Exception e) {
+	private CancelResult keepCancelRequested(Orders order, Exception e) {
 		log.warn("취소 결과 모름, 취소 처리 중 유지: orderNumber={}", order.getOrderNumber(), e);
-		return OrderStatus.CANCEL_REQUESTED;
+		return new CancelResult(OrderStatus.CANCEL_REQUESTED, isTossUnreachable(e));
 	}
 
 	// 취소 여부를 알 수 없는 오류 응답. 401·429·5xx(승인과 같음)와, 같은 키의 이전 요청을 토스가 처리 중(409)
