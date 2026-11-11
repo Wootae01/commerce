@@ -27,6 +27,7 @@ import com.commerce.order.dto.OrderPrepareResponseDTO;
 import com.commerce.order.service.OrderService;
 import com.commerce.payment.dto.CancelResponseDTO;
 import com.commerce.payment.dto.PayConfirmDTO;
+import com.commerce.payment.external.TossApiException;
 import com.commerce.payment.service.PayService;
 
 import jakarta.validation.Valid;
@@ -122,6 +123,10 @@ public class PayController {
 			Long userId = securityUtil.getCurrentUser().getId();
 			CancelResponseDTO dto = payService.cancel(orderNumber, userId);
 			model.addAttribute("result", dto);
+		} catch (TossApiException e) {
+			// 토스가 거절함. 주문은 결제완료로 돌아갔고, 토스가 준 거절 사유를 보여준다
+			model.addAttribute("result",
+				new CancelResponseDTO(false, orderNumber, null, 0, null, e.userMessage(), null));
 		} catch (ApiException e) {
 			model.addAttribute("result",
 				new CancelResponseDTO(false, orderNumber, null, 0, null, e.getMessage(), null));

@@ -34,7 +34,7 @@ class CancelRecoverySchedulerTest extends PaymentIntegrationTestSupport {
 		stubCancel(order, 200, "{ \"status\": \"CANCELED\", \"method\": \"카드\" }");
 
 		// when
-		paymentRecoveryScheduler.recoverCancelRequests();
+		paymentRecoveryScheduler.recoverCancelProcessing();
 
 		// then
 		assertThat(statusOf(order)).isEqualTo(OrderStatus.CANCELED);
@@ -53,7 +53,7 @@ class CancelRecoverySchedulerTest extends PaymentIntegrationTestSupport {
 		stubCancel(order, 400, "{ \"code\": \"ALREADY_CANCELED_PAYMENT\", \"message\": \"이미 취소된 결제 입니다.\" }");
 
 		// when
-		paymentRecoveryScheduler.recoverCancelRequests();
+		paymentRecoveryScheduler.recoverCancelProcessing();
 
 		// then
 		assertThat(statusOf(order)).isEqualTo(OrderStatus.CANCELED);
@@ -69,7 +69,7 @@ class CancelRecoverySchedulerTest extends PaymentIntegrationTestSupport {
 		stubCancel(order, 403, "{ \"code\": \"NOT_CANCELABLE_PAYMENT\", \"message\": \"취소 할 수 없는 결제 입니다.\" }");
 
 		// when
-		paymentRecoveryScheduler.recoverCancelRequests();
+		paymentRecoveryScheduler.recoverCancelProcessing();
 
 		// then - 사용자에게 알릴 곳이 없으므로 로그로 남긴다
 		assertThat(statusOf(order)).isEqualTo(OrderStatus.PAID);
@@ -86,8 +86,8 @@ class CancelRecoverySchedulerTest extends PaymentIntegrationTestSupport {
 		stubCancel(order, 409, "{ \"code\": \"IDEMPOTENT_REQUEST_PROCESSING\", \"message\": \"이전 멱등 요청이 처리중이에요.\" }");
 
 		// when
-		paymentRecoveryScheduler.recoverCancelRequests();
-		paymentRecoveryScheduler.recoverCancelRequests();
+		paymentRecoveryScheduler.recoverCancelProcessing();
+		paymentRecoveryScheduler.recoverCancelProcessing();
 
 		// then
 		assertThat(statusOf(order)).isEqualTo(OrderStatus.CANCEL_REQUESTED);
@@ -105,7 +105,7 @@ class CancelRecoverySchedulerTest extends PaymentIntegrationTestSupport {
 		resetAllRequests();
 
 		// when
-		paymentRecoveryScheduler.recoverCancelRequests();
+		paymentRecoveryScheduler.recoverCancelProcessing();
 
 		// then
 		verify(0, postRequestedFor(urlMatching("/v1/payments/.*/cancel")));
@@ -127,7 +127,7 @@ class CancelRecoverySchedulerTest extends PaymentIntegrationTestSupport {
 		}
 
 		// when
-		paymentRecoveryScheduler.recoverCancelRequests();
+		paymentRecoveryScheduler.recoverCancelProcessing();
 
 		// then - 바로 재요청하지 않으므로 주문마다 1번, o4는 요청하지 않는다
 		for (int i = 0; i < 3; i++) {
@@ -146,8 +146,8 @@ class CancelRecoverySchedulerTest extends PaymentIntegrationTestSupport {
 		stubCancel(expired, 200, "{ \"status\": \"CANCELED\", \"method\": \"카드\" }");
 
 		// when
-		paymentRecoveryScheduler.recoverCancelRequests();
-		paymentRecoveryScheduler.recoverCancelRequests();
+		paymentRecoveryScheduler.recoverCancelProcessing();
+		paymentRecoveryScheduler.recoverCancelProcessing();
 
 		// then - 사람이 확인할 때까지 취소 처리 중으로 두고 재고도 그대로
 		verify(0, postRequestedFor(urlEqualTo(cancelUrlOf(expired))));

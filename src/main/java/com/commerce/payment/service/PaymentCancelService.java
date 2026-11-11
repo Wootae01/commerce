@@ -64,9 +64,11 @@ public class PaymentCancelService {
 		return new CancelResult(OrderStatus.CANCEL_REQUESTED, isTossUnreachable(e));
 	}
 
-	// 취소 여부를 알 수 없는 오류 응답. 401·429·5xx(승인과 같음)와, 같은 키의 이전 요청을 토스가 처리 중(409)
+	// 취소 여부를 알 수 없는 오류 응답. 401·429·5xx와, 같은 키의 이전 요청을 토스가 처리 중(409)
+	// 승인용 TossApiException.isResultUnknown()은 쓰지 않는다. 승인에서만 결과 모름인 ALREADY_PROCESSED_PAYMENT(#34)가 들어 있다
 	private boolean isResultUnknown(TossApiException e) {
-		return e.isResultUnknown() || e.isIdempotentRequestProcessing();
+		int status = e.getTossStatus().value();
+		return status == 401 || status == 429 || e.isServerError() || e.isIdempotentRequestProcessing();
 	}
 
 	// 토스와 통신하지 못함(네트워크 오류·타임아웃·5xx). 같은 키로 다시 요청할 수 있다

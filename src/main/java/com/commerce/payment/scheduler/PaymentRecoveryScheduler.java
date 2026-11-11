@@ -75,7 +75,7 @@ public class PaymentRecoveryScheduler {
 	}
 
 	@Scheduled(fixedDelay = 1, timeUnit = TimeUnit.MINUTES)
-	public void recoverCancelRequests() {
+	public void recoverCancelProcessing() {
 		recoverAll(Target.CANCEL, this::retryCancel);
 	}
 

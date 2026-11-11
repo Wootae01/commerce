@@ -26,6 +26,11 @@ public class TossApiException extends ApiException {
 		this.tossMessage = tossMessage;
 	}
 
+	// 사용자에게 보여줄 문장. 토스가 준 문장(거절 사유)이 있으면 그것, 없으면 응답 코드의 기본 문장
+	public String userMessage() {
+		return tossMessage == null || tossMessage.isBlank() ? getMessage() : tossMessage;
+	}
+
 	public boolean isServerError() {
 		return tossStatus.is5xxServerError();
 	}

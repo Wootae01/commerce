@@ -51,6 +51,22 @@ class CancelResponseTest extends PaymentIntegrationTestSupport {
 	}
 
 	@Test
+	@DisplayName("화면: 토스가 취소를 거절하면 실패 화면에 토스가 준 문장을 보여준다")
+	void page_rejected_tossMessage() throws Exception {
+		// given
+		Orders order = paidOrder();
+		stubCancel(order, 403, "{ \"code\": \"NOT_CANCELABLE_PAYMENT\", \"message\": \"취소 할 수 없는 결제 입니다.\" }");
+
+		// when then
+		mockMvc.perform(post("/pay/{orderNumber}/cancel", order.getOrderNumber())
+				.with(user("username"))
+				.with(csrf()))
+			.andExpect(status().isOk())
+			.andExpect(content().string(containsString("주문 취소에 실패했습니다")))
+			.andExpect(content().string(containsString("취소 할 수 없는 결제 입니다.")));
+	}
+
+	@Test
 	@DisplayName("API: 취소 결과를 모르면 202와 취소 처리 중 상태를 돌려준다")
 	void api_unknown_accepted() throws Exception {
 		// given

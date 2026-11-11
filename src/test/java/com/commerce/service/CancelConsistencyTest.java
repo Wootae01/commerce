@@ -22,6 +22,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import com.commerce.common.enums.OrderStatus;
 import com.commerce.order.domain.Orders;
 import com.commerce.payment.dto.CancelResponseDTO;
+import com.commerce.payment.external.TossApiException;
 import com.commerce.payment.service.PaymentTxService;
 import com.github.tomakehurst.wiremock.http.Fault;
 import com.github.tomakehurst.wiremock.stubbing.Scenario;
@@ -105,6 +106,23 @@ class CancelConsistencyTest extends PaymentIntegrationTestSupport {
 		assertThat(statusOf(order)).isEqualTo(OrderStatus.CANCEL_REQUESTED);
 		assertThat(stock()).as("재고").isEqualTo(INITIAL_STOCK - 1);
 		verify(expectedRequests, postRequestedFor(urlEqualTo(cancelUrlOf(order))));
+	}
+
+	@Test
+	@DisplayName("취소에 400 ALREADY_PROCESSED_PAYMENT가 오면 결과 모름(승인)이 아니라 거절로 보고 결제완료로 되돌린다")
+	void alreadyProcessed_revertedToPaid() {
+		// given - 승인에서는 결과 모름(#34)이지만, 취소 표에서는 그 외 4xx다
+		Orders order = paidOrder();
+		stubCancel(order, 400, "{ \"code\": \"ALREADY_PROCESSED_PAYMENT\", \"message\": \"이미 처리된 결제 입니다.\" }");
+
+		// when
+		assertThatThrownBy(() -> payService.cancel(order.getOrderNumber(), userId))
+			.isInstanceOf(TossApiException.class);
+
+		// then
+		assertThat(statusOf(order)).isEqualTo(OrderStatus.PAID);
+		assertThat(stock()).as("재고").isEqualTo(INITIAL_STOCK - 1);
+		verify(1, postRequestedFor(urlEqualTo(cancelUrlOf(order))));
 	}
 
 	@Test
