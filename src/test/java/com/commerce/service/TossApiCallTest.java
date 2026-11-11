@@ -15,10 +15,11 @@ import com.commerce.common.exception.ApiException;
 import com.commerce.order.domain.Orders;
 import com.commerce.payment.dto.CancelResponseDTO;
 import com.commerce.payment.dto.PayConfirmDTO;
+import com.commerce.payment.external.TossConnectionException;
 import com.github.tomakehurst.wiremock.http.Fault;
 
 /**
- * 토스로 보내는 요청의 모양(경로·인증 헤더·본문)과 결제 취소.
+ * 토스로 보내는 요청의 모양(경로·인증 헤더·본문)과 주문 취소.
  * HTTP 클라이언트를 바꿔도 토스가 받는 요청과 취소 결과가 같아야 한다.
  */
 class TossApiCallTest extends PaymentIntegrationTestSupport {
@@ -128,7 +129,7 @@ class TossApiCallTest extends PaymentIntegrationTestSupport {
 	}
 
 	@Test
-	@DisplayName("취소 요청 중 토스 연결이 끊기면 예외를 던지고, 주문은 결제 완료로 돌아오며 재고는 그대로다")
+	@DisplayName("취소 요청 중 토스 연결이 끊기면 연결 실패 예외를 던지고, 주문은 결제 완료로 돌아오며 재고는 그대로다")
 	void cancel_connectionLost_orderRevertedToPaid() {
 		// given
 		Orders order = paidOrder("pk-" + UUID.randomUUID());
@@ -137,7 +138,7 @@ class TossApiCallTest extends PaymentIntegrationTestSupport {
 
 		// when & then
 		assertThatThrownBy(() -> payService.cancel(order.getOrderNumber(), "단순 변심", userId))
-			.isInstanceOf(RuntimeException.class);
+			.isInstanceOf(TossConnectionException.class);
 		assertThat(statusOf(order)).isEqualTo(OrderStatus.PAID);
 		assertThat(stock()).as("재고").isEqualTo(INITIAL_STOCK - 1);
 	}

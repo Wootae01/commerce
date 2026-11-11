@@ -35,6 +35,7 @@ import com.commerce.order.repository.OrderProductRepository;
 import com.commerce.order.repository.OrderRepository;
 import com.commerce.order.service.OrderService;
 import com.commerce.payment.domain.Payment;
+import com.commerce.payment.external.TossPaymentResponse;
 import com.commerce.payment.service.FailureReason;
 import com.commerce.payment.service.PaymentTxService;
 import com.commerce.payment.repository.PaymentRepository;
@@ -43,7 +44,6 @@ import com.commerce.product.domain.ProductOption;
 import com.commerce.product.repository.ProductOptionRepository;
 import com.commerce.product.repository.ProductRepository;
 import com.commerce.user.domain.User;
-import com.commerce.payment.external.TossPaymentResponse;
 import com.commerce.user.repository.UserRepository;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
