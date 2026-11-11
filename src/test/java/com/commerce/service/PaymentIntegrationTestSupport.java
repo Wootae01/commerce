@@ -45,11 +45,15 @@ import com.commerce.user.repository.UserRepository;
 @IntegrationTest
 @EnableWireMock
 @TestPropertySource(properties = {
-	"toss.base-url=${wiremock.server.baseUrl}"
+	"toss.base-url=${wiremock.server.baseUrl}",
+	"toss.payments.secret-key=" + PaymentIntegrationTestSupport.TOSS_SECRET_KEY,
+	// 응답 타임아웃 테스트가 10초씩 기다리지 않게 줄인다
+	"toss.read-timeout=1s"
 })
 abstract class PaymentIntegrationTestSupport {
 
 	static final int INITIAL_STOCK = 10;
+	static final String TOSS_SECRET_KEY = "test_sk_commerce";
 
 	@Autowired PayService payService;
 	@Autowired PaymentRecoveryScheduler paymentRecoveryScheduler;

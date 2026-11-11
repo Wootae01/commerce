@@ -1,11 +1,11 @@
 package com.commerce.payment.service;
 
 import org.springframework.stereotype.Service;
-import org.springframework.web.reactive.function.client.WebClientRequestException;
 
 import com.commerce.common.enums.OrderStatus;
 import com.commerce.payment.dto.PayConfirmDTO;
 import com.commerce.payment.external.TossApiException;
+import com.commerce.payment.external.TossConnectionException;
 import com.commerce.payment.external.TossPaymentClient;
 import com.fasterxml.jackson.databind.JsonNode;
 
@@ -71,7 +71,7 @@ public class PaymentApprovalService {
 				return tossPaymentClient.confirm(req);
 
 				// 응답을 못받거나 5xx 에러를 받은 경우
-			} catch (WebClientRequestException | TossApiException e) {
+			} catch (TossConnectionException | TossApiException e) {
 				if (!isTossUnreachable(e) || retry >= maxRetries) {
 					throw e;
 				}
@@ -83,7 +83,7 @@ public class PaymentApprovalService {
 
 	// 토스와 통신하지 못함(네트워크 오류·타임아웃·5xx). 결과를 모르므로 같은 멱등키로 다시 요청할 수 있다
 	private boolean isTossUnreachable(Exception e) {
-		return e instanceof WebClientRequestException
+		return e instanceof TossConnectionException
 			|| (e instanceof TossApiException tossError && tossError.isServerError());
 	}
 
