@@ -105,15 +105,19 @@ public interface OrderRepository extends JpaRepository<Orders, Long> {
 		Pageable pageable
 	);
 
+	// 사용자 주문 목록. 결제창을 닫아 남은 결제 준비(READY) 주문은 사용자에게 주문이 아니므로 뺀다
 	@Query(value = """
     select new com.commerce.order.dto.OrderHeaderRow(
         o.id, o.orderNumber, o.createdAt, o.orderStatus, o.amount.finalPrice
     )
     from Orders o
     where o.user = :user
+      and o.orderStatus <> com.commerce.common.enums.OrderStatus.READY
     order by o.createdAt desc
 """, countQuery = """
-    select count(o) from Orders o where o.user = :user
+    select count(o) from Orders o
+    where o.user = :user
+      and o.orderStatus <> com.commerce.common.enums.OrderStatus.READY
 """)
 	Page<OrderHeaderRow> findOrderHeaders(@Param("user") User user, Pageable pageable);
 
