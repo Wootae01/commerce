@@ -14,6 +14,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.access.AccessDeniedHandler;
 import org.springframework.security.web.access.AccessDeniedHandlerImpl;
+import org.springframework.security.web.csrf.CookieCsrfTokenRepository;
 import org.springframework.security.web.csrf.CsrfException;
 
 import com.commerce.auth.CustomClientRegistrationRepo;
@@ -75,6 +76,8 @@ public class SecurityConfig {
 	// (2) REST API용 보안 설정
 	// 로그인은 기존 화면에서 하고, 세션으로 인증한다.
 	// 사용자용 체인과 분리해서, 인증 실패 시 로그인 페이지 리다이렉트 대신 401 JSON으로 응답한다.
+	// CSRF 토큰은 React가 읽을 수 있게 XSRF-TOKEN 쿠키로 내려주고 X-XSRF-TOKEN 헤더로 받는다.
+	// 화면(Thymeleaf) 체인은 지금처럼 세션에 저장한다. 화면의 POST는 /api로 보내지 않는다
 	@Bean
 	@Order(1)
 	public SecurityFilterChain apiSecurity(HttpSecurity http) throws Exception {
@@ -82,6 +85,9 @@ public class SecurityConfig {
 			.securityMatcher("/api/**")
 			.httpBasic(basic -> basic.disable())
 			.formLogin(form -> form.disable())
+			.csrf(csrf -> csrf
+				.csrfTokenRepository(apiCsrfTokenRepository())
+				.csrfTokenRequestHandler(new SpaCsrfTokenRequestHandler()))
 			.authorizeHttpRequests(auth -> auth
 				.requestMatchers(HttpMethod.GET, "/api/products", "/api/products/**").permitAll()
 				.anyRequest().authenticated())
@@ -89,6 +95,11 @@ public class SecurityConfig {
 				.authenticationEntryPoint(apiAuthenticationEntryPoint));
 
 		return http.build();
+	}
+
+	// JS가 읽어야 해서 HttpOnly를 끈다. Domain은 넣지 않아 지금 호스트에서만 쓰인다
+	public static CookieCsrfTokenRepository apiCsrfTokenRepository() {
+		return CookieCsrfTokenRepository.withHttpOnlyFalse();
 	}
 
 	// (3) 일반 사용자용 보안 설정
