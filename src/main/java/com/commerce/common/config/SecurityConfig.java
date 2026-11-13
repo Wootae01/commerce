@@ -11,6 +11,7 @@ import org.springframework.security.config.annotation.web.configuration.EnableWe
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.security.oauth2.client.web.OAuth2AuthorizationRequestRedirectFilter;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.access.AccessDeniedHandler;
 import org.springframework.security.web.access.AccessDeniedHandlerImpl;
@@ -18,6 +19,8 @@ import org.springframework.security.web.csrf.CookieCsrfTokenRepository;
 import org.springframework.security.web.csrf.CsrfException;
 
 import com.commerce.auth.CustomClientRegistrationRepo;
+import com.commerce.auth.LoginReturnToFilter;
+import com.commerce.auth.LoginSuccessHandler;
 import com.commerce.auth.service.CustomOauth2UserService;
 import com.commerce.auth.service.CustomUserDetailService;
 import com.commerce.common.exception.ApiAuthenticationEntryPoint;
@@ -112,7 +115,10 @@ public class SecurityConfig {
 			.oauth2Login(oauth2 -> oauth2
 				.loginPage("/login")
 				.clientRegistrationRepository(clientRegistrationRepo.clientRegistrationRepository())
-				.userInfoEndpoint(userInfo -> userInfo.userService(customOauth2UserService)))
+				.userInfoEndpoint(userInfo -> userInfo.userService(customOauth2UserService))
+				.successHandler(LoginSuccessHandler.forOAuth()))
+			// 로그인을 시작할 때 받은 returnTo를 기억해, 성공하면 그 경로로 보낸다
+			.addFilterBefore(new LoginReturnToFilter(), OAuth2AuthorizationRequestRedirectFilter.class)
 
 			.authorizeHttpRequests(auth -> auth
 				.requestMatchers("/", "/home", "/login/**", "/oauth2/**", "/uploads/**",
@@ -140,7 +146,7 @@ public class SecurityConfig {
 			.formLogin(form -> form
 				.loginPage("/login")
 				.loginProcessingUrl("/login")   // POST /login 처리
-				.defaultSuccessUrl("/", true)
+				.successHandler(LoginSuccessHandler.forFormLogin())
 				.permitAll()
 			)
 			.userDetailsService(devUserDetailService)
@@ -149,7 +155,9 @@ public class SecurityConfig {
 				.loginPage("/login")
 				.clientRegistrationRepository(clientRegistrationRepo.clientRegistrationRepository())
 				.userInfoEndpoint(userInfo -> userInfo.userService(customOauth2UserService))
+				.successHandler(LoginSuccessHandler.forOAuth())
 			)
+			.addFilterBefore(new LoginReturnToFilter(), OAuth2AuthorizationRequestRedirectFilter.class)
 
 			.authorizeHttpRequests(auth -> auth
 				.requestMatchers("/", "/home", "/login/**", "/oauth2/**", "/uploads/**",
