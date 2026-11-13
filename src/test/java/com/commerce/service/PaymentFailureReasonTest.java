@@ -53,7 +53,7 @@ class PaymentFailureReasonTest extends PaymentIntegrationTestSupport {
 		OrderStatus status = payService.confirm(confirmRequestOf(order), userId);
 
 		// then
-		assertThat(status).isEqualTo(OrderStatus.CANCELED);
+		assertThat(status).isEqualTo(OrderStatus.PAYMENT_FAILED);
 		PaySuccessDTO result = payService.getPaymentResult(order.getOrderNumber(), userId);
 		assertThat(result.getFailureMessage()).isEqualTo("카드사에서 승인을 거절했습니다.");
 		assertThat(paymentOf(order).getFailureCode()).isEqualTo("REJECT_CARD_COMPANY");
@@ -74,7 +74,7 @@ class PaymentFailureReasonTest extends PaymentIntegrationTestSupport {
 		OrderStatus status = payService.confirm(confirmRequestOf(order), userId);
 
 		// then
-		assertThat(status).isEqualTo(OrderStatus.CANCELED);
+		assertThat(status).isEqualTo(OrderStatus.PAYMENT_FAILED);
 		PaySuccessDTO result = payService.getPaymentResult(order.getOrderNumber(), userId);
 		assertThat(result.getFailureMessage()).isEqualTo("결제 승인에 실패했습니다.");
 		assertThat(paymentOf(order).getFailureCode()).isNull();
@@ -98,7 +98,7 @@ class PaymentFailureReasonTest extends PaymentIntegrationTestSupport {
 		OrderStatus status = payService.confirm(req, userId);
 
 		// then
-		assertThat(status).isEqualTo(OrderStatus.CANCELED);
+		assertThat(status).isEqualTo(OrderStatus.PAYMENT_FAILED);
 		PaySuccessDTO result = payService.getPaymentResult(order.getOrderNumber(), userId);
 		assertThat(result.getFailureMessage()).isEqualTo("한도초과 혹은 잔액부족으로 결제에 실패했습니다.");
 		assertThat(paymentOf(order).getFailureCode()).isEqualTo("REJECT_CARD_PAYMENT");
@@ -122,7 +122,7 @@ class PaymentFailureReasonTest extends PaymentIntegrationTestSupport {
 		OrderStatus status = payService.confirm(req, userId);
 
 		// then
-		assertThat(status).isEqualTo(OrderStatus.CANCELED);
+		assertThat(status).isEqualTo(OrderStatus.PAYMENT_FAILED);
 		PaySuccessDTO result = payService.getPaymentResult(order.getOrderNumber(), userId);
 		assertThat(result.getFailureMessage()).isEqualTo("결제가 승인되지 않았습니다.");
 		assertThat(paymentOf(order).getFailureCode()).isEqualTo("REJECT_CARD_PAYMENT");
@@ -150,7 +150,7 @@ class PaymentFailureReasonTest extends PaymentIntegrationTestSupport {
 		OrderStatus status = payService.confirm(req, userId);
 
 		// then
-		assertThat(status).isEqualTo(OrderStatus.CANCELED);
+		assertThat(status).isEqualTo(OrderStatus.PAYMENT_FAILED);
 		PaySuccessDTO result = payService.getPaymentResult(order.getOrderNumber(), userId);
 		assertThat(result.getFailureMessage()).isEqualTo(expectedMessage);
 		assertThat(paymentOf(order).getFailureCode()).isEqualTo(tossStatus);

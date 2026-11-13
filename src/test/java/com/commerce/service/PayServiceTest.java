@@ -324,7 +324,7 @@ class PayServiceTest {
 	}
 
 	@Test
-	@DisplayName("토스가 승인을 거절(4xx)하면 재고 복원 및 주문 CANCELED")
+	@DisplayName("토스가 승인을 거절(4xx)하면 재고 복원 및 주문 결제 실패")
 	void stockRestoredWhenTossConfirmFails() {
 		// given
 		User user = User.builder()
@@ -371,12 +371,12 @@ class PayServiceTest {
 
 		OrderStatus result = payService.confirm(req, userId);
 
-		// then - 재고 복원, 주문 CANCELED
+		// then - 재고 복원, 주문 결제 실패
 		ProductOption afterOption = productOptionRepository.findById(option.getId()).orElseThrow();
 		Orders afterOrder = orderRepository.findByOrderNumber(order.getOrderNumber()).orElseThrow();
-		assertThat(result).isEqualTo(OrderStatus.CANCELED);
+		assertThat(result).isEqualTo(OrderStatus.PAYMENT_FAILED);
 		assertThat(afterOption.getStock()).isEqualTo(initialStock);
-		assertThat(afterOrder.getOrderStatus()).isEqualTo(OrderStatus.CANCELED);
+		assertThat(afterOrder.getOrderStatus()).isEqualTo(OrderStatus.PAYMENT_FAILED);
 	}
 
 	@Test

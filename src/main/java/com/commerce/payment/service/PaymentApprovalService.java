@@ -20,7 +20,7 @@ import lombok.extern.slf4j.Slf4j;
  * 승인 요청 결과                      처리
  * 200                                 PAID
  * 409 IDEMPOTENT_REQUEST_PROCESSING   PENDING 유지
- * 401·429·5xx·네트워크 오류           결제 조회 → DONE: PAID / ABORTED·EXPIRED·CANCELED: 취소
+ * 401·429·5xx·네트워크 오류           결제 조회 → DONE: PAID / ABORTED·EXPIRED·CANCELED: 결제 실패
  *                                     / READY·IN_PROGRESS: PENDING / 그 외: PENDING + 에러 로그 / 조회 실패: PENDING
  * 그 외 4xx(거절·만료 등)             재고 복원 + CANCELED
  * </pre>

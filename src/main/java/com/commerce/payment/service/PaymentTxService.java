@@ -154,7 +154,7 @@ public class PaymentTxService {
 		Orders order = orderRepository.findByOrderNumberWithLock(orderNumber)
 			.orElseThrow(() -> new ApiException(GeneralResponseCode.ORDER_NOT_FOUND));
 
-		if (!order.cancelPending()) {
+		if (!order.failPayment()) {
 			log.warn("이미 처리된 주문입니다. orderNumber={}, status={}", orderNumber, order.getOrderStatus());
 			return order.getOrderStatus();
 		}

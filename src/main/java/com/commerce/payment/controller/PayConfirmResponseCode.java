@@ -14,7 +14,7 @@ final class PayConfirmResponseCode {
 	private PayConfirmResponseCode() {
 	}
 
-	// PAID → 200, 결과를 모르면(PAYMENT_PENDING) 202 확인 중, CANCELED → 400 결제 실패
+	// PAID → 200, 결과를 모르면(PAYMENT_PENDING) 202 확인 중, PAYMENT_FAILED → 400 결제 실패
 	// 결제 실패는 토스 장애가 아니라 정상적인 결과(카드 거절 등)라 502가 아니라 400이다
 	static ApiResponseCode from(OrderStatus status) {
 		return switch (status) {

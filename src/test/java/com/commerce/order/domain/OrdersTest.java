@@ -72,18 +72,18 @@ class OrdersTest {
 	}
 
 	@Nested
-	@DisplayName("cancelPending - 결제 실패 반영")
-	class CancelPending {
+	@DisplayName("failPayment - 결제 실패 반영")
+	class FailPayment {
 
 		@Test
-		@DisplayName("결제 진행 중 주문은 취소완료가 된다")
-		void paymentPendingToCanceled() {
+		@DisplayName("결제 진행 중 주문은 결제 실패가 된다")
+		void paymentPendingToPaymentFailed() {
 			Orders order = orderWithStatus(OrderStatus.PAYMENT_PENDING);
 
-			boolean applied = order.cancelPending();
+			boolean applied = order.failPayment();
 
 			assertThat(applied).isTrue();
-			assertThat(order.getOrderStatus()).isEqualTo(OrderStatus.CANCELED);
+			assertThat(order.getOrderStatus()).isEqualTo(OrderStatus.PAYMENT_FAILED);
 		}
 
 		@ParameterizedTest
@@ -92,7 +92,7 @@ class OrdersTest {
 		void notPendingIgnored(OrderStatus status) {
 			Orders order = orderWithStatus(status);
 
-			boolean applied = order.cancelPending();
+			boolean applied = order.failPayment();
 
 			assertThat(applied).isFalse();
 			assertThat(order.getOrderStatus()).isEqualTo(status);

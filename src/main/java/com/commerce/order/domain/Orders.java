@@ -141,12 +141,12 @@ public class Orders extends BaseUpdatableEntity {
         return true;
     }
 
-    // 결제 실패 반영: PAYMENT_PENDING → CANCELED
-    public boolean cancelPending() {
+    // 결제 실패 반영: PAYMENT_PENDING → PAYMENT_FAILED. 주문 취소(CANCELED)와 구분한다
+    public boolean failPayment() {
         if (orderStatus != OrderStatus.PAYMENT_PENDING) {
             return false;
         }
-        this.orderStatus = OrderStatus.CANCELED;
+        this.orderStatus = OrderStatus.PAYMENT_FAILED;
         return true;
     }
 

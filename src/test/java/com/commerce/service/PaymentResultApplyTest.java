@@ -110,9 +110,9 @@ class PaymentResultApplyTest {
 	}
 
 	@Test
-	@DisplayName("이미 취소된 주문에 결제 성공이 반영되면, 예외 없이 취소 상태를 유지한다")
+	@DisplayName("결제 실패한 주문에 결제 성공이 반영되면, 예외 없이 결제 실패를 유지한다")
 	void applySuccess_canceledOrder_ignored() throws Exception {
-		// given - 결제 진행 중 → 토스 실패로 취소(재고 복원)
+		// given - 결제 진행 중 → 토스 실패로 결제 실패(재고 복원)
 		Orders order = pendingOrder();
 		paymentTxService.applyPaymentFailure(order.getOrderNumber(), REJECTED);
 
@@ -121,7 +121,7 @@ class PaymentResultApplyTest {
 
 		// then
 		Orders after = orderRepository.findByOrderNumber(order.getOrderNumber()).orElseThrow();
-		assertThat(after.getOrderStatus()).isEqualTo(OrderStatus.CANCELED);
+		assertThat(after.getOrderStatus()).isEqualTo(OrderStatus.PAYMENT_FAILED);
 		assertThat(paymentRepository.findByOrderId(after.getId()).orElseThrow().getApprovedAt())
 			.as("결제 성공 정보가 기록되지 않음").isNull();
 		assertThat(stock()).isEqualTo(INITIAL_STOCK);
@@ -162,7 +162,7 @@ class PaymentResultApplyTest {
 	}
 
 	@Test
-	@DisplayName("실패 이유 문장이 255자보다 길면 255자까지만 남기고 취소는 그대로 반영한다")
+	@DisplayName("실패 이유 문장이 255자보다 길면 255자까지만 남기고 결제 실패는 그대로 반영한다")
 	void applyFailure_longMessage_truncatedTo255() throws Exception {
 		// given
 		Orders order = pendingOrder();
@@ -175,7 +175,7 @@ class PaymentResultApplyTest {
 		Payment payment = paymentRepository.findByOrderId(order.getId()).orElseThrow();
 		assertThat(payment.getFailureMessage()).isEqualTo("가".repeat(255));
 		Orders after = orderRepository.findByOrderNumber(order.getOrderNumber()).orElseThrow();
-		assertThat(after.getOrderStatus()).isEqualTo(OrderStatus.CANCELED);
+		assertThat(after.getOrderStatus()).isEqualTo(OrderStatus.PAYMENT_FAILED);
 	}
 
 	@Test
