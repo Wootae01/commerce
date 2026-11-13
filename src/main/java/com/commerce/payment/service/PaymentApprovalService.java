@@ -22,7 +22,7 @@ import lombok.extern.slf4j.Slf4j;
  * 409 IDEMPOTENT_REQUEST_PROCESSING   PENDING 유지
  * 401·429·5xx·네트워크 오류           결제 조회 → DONE: PAID / ABORTED·EXPIRED·CANCELED: 결제 실패
  *                                     / READY·IN_PROGRESS: PENDING / 그 외: PENDING + 에러 로그 / 조회 실패: PENDING
- * 그 외 4xx(거절·만료 등)             재고 복원 + CANCELED
+ * 그 외 4xx(거절·만료 등)             재고 복원 + PAYMENT_FAILED
  * </pre>
  * 주문은 토스가 승인·실패를 확실히 알려 줄 때만 바꾸고, 결과를 모르면 재고를 차감한 채 PAYMENT_PENDING으로 둔다.
  */
@@ -53,7 +53,7 @@ public class PaymentApprovalService {
 			FailureReason reason = FailureReason.ofTossError(e.getTossCode(), e.getTossMessage());
 			return new ApprovalResult(paymentTxService.applyPaymentFailure(req.getOrderId(), reason), false);
 		} catch (Exception e) {
-			// 네트워크 오류, 응답 해석 실패 등. 토스에서는 승인됐을 수 있으므로 취소하지 않는다
+			// 네트워크 오류, 응답 해석 실패 등. 토스에서는 승인됐을 수 있으므로 결제 실패로 두지 않는다
 			log.warn("승인 결과 모름: orderId={}", req.getOrderId(), e);
 			return new ApprovalResult(checkByPaymentQuery(req), isTossUnreachable(e));
 		}

@@ -80,7 +80,7 @@ public class Payment extends BaseUpdatableEntity {
 		this.approvedAt = approvedAt;
 	}
 
-	// 문장이 컬럼 길이보다 길면 잘라서 남긴다. 길다고 취소 반영이 실패하면 안 된다
+	// 문장이 컬럼 길이보다 길면 잘라서 남긴다. 길다고 결제 실패 반영이 실패하면 안 된다
 	public void fail(String failureCode, String failureMessage) {
 		this.failureCode = failureCode;
 		this.failureMessage = failureMessage != null && failureMessage.length() > FAILURE_MESSAGE_MAX_LENGTH

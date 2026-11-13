@@ -533,7 +533,7 @@ class PayConsistencyTest extends PaymentIntegrationTestSupport {
 	}
 
 	@Test
-	@DisplayName("확정 요청과 보정 스케줄러가 같은 주문에 동시에 거절을 받아도, 취소와 재고 복원은 1번만 일어난다")
+	@DisplayName("확정 요청과 보정 스케줄러가 같은 주문에 동시에 거절을 받아도, 결제 실패 반영과 재고 복원은 1번만 일어난다")
 	void confirmAndSchedulerConcurrently_appliedOnce() throws Exception {
 		// given - 확정 요청이 PENDING으로 바꾸고 토스 응답을 기다리는 동안 1분이 지나, 스케줄러가 같은 주문을 꺼낸 상황.
 		// 거절로 확인하는 이유: 성공 반영은 재고를 건드리지 않아 두 번 반영돼도 드러나지 않지만, 재고 복원은 두 번이면 재고가 늘어난다

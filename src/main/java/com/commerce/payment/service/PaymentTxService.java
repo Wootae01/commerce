@@ -147,7 +147,7 @@ public class PaymentTxService {
 		updateStock(order.getId(), false);
 	}
 
-	// 토스가 실패를 알려 주면 재고 복원 + 취소 + 실패 이유 기록. 반영 후 주문 상태를 돌려준다
+	// 토스가 실패를 알려 주면 재고 복원 + 결제 실패(PAYMENT_FAILED) + 실패 이유 기록. 반영 후 주문 상태를 돌려준다
 	// 이미 처리된 주문이면 먼저 반영한 쪽의 실패 이유를 그대로 둔다
 	@Transactional
 	public OrderStatus applyPaymentFailure(String orderNumber, FailureReason reason) {

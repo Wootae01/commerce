@@ -31,7 +31,7 @@ import com.commerce.user.domain.User;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 /**
- * 결제 실패 이유(#37). 결제 실패로 주문이 취소되면 실패 이유(코드·문장)가 Payment에 남고,
+ * 결제 실패 이유(#37). 주문이 결제 실패가 되면 실패 이유(코드·문장)가 Payment에 남고,
  * 사용자에게는 문장만 보인다. 바로 거절, 결제 조회로 확정, 보정 스케줄러 모두 같은 규칙을 따른다.
  */
 class PaymentFailureReasonTest extends PaymentIntegrationTestSupport {

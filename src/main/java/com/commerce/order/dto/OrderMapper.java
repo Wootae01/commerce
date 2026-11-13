@@ -104,7 +104,7 @@ public class OrderMapper {
 		return list;
 	}
 
-	// payment는 결제를 시도하지 않은 주문이면 null. 결제 수단은 승인돼야, 실패 이유는 결제 실패로 취소돼야 채워진다
+	// payment는 결제를 시도하지 않은 주문이면 null. 결제 수단은 승인돼야, 실패 이유는 결제 실패해야 채워진다
 	public OrderDetailResponseDTO toOrderDetailResponseDTO(Orders order, Payment payment, User user) {
 		return OrderDetailResponseDTO.builder()
 			.orderNumber(order.getOrderNumber())
