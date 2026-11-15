@@ -55,7 +55,7 @@ public class Payment extends BaseUpdatableEntity {
 	// 토스 결제 승인 시각. 승인되면 채운다
 	private LocalDateTime approvedAt;
 
-	// 결제 실패 이유. 결제 실패로 주문이 취소될 때만 채운다
+	// 결제 실패 이유. 주문이 결제 실패(PAYMENT_FAILED)가 될 때만 채운다
 	// 코드: 토스 에러 코드 또는 조회 상태(ABORTED 등). 사용자에게는 보여주지 않는다
 	private String failureCode;
 
@@ -80,7 +80,7 @@ public class Payment extends BaseUpdatableEntity {
 		this.approvedAt = approvedAt;
 	}
 
-	// 문장이 컬럼 길이보다 길면 잘라서 남긴다. 길다고 취소 반영이 실패하면 안 된다
+	// 문장이 컬럼 길이보다 길면 잘라서 남긴다. 길다고 결제 실패 반영이 실패하면 안 된다
 	public void fail(String failureCode, String failureMessage) {
 		this.failureCode = failureCode;
 		this.failureMessage = failureMessage != null && failureMessage.length() > FAILURE_MESSAGE_MAX_LENGTH

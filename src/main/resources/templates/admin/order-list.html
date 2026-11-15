@@ -71,6 +71,7 @@
                             <option value="DELIVERED">배송완료</option>
                             <option value="CANCEL_REQUESTED">취소 처리 중</option>
                             <option value="CANCELED">취소완료</option>
+                            <option value="PAYMENT_FAILED">결제 실패</option>
                         </select>
                     </div>
                     <div class="col-md-2">
@@ -164,7 +165,7 @@
                                       th:text="${order.orderStatus.text}"
                                       th:classappend="${order.orderStatus.name()} == 'PAID' ? ' bg-success' :
                                                       (${order.orderStatus.name()} == 'CANCEL_REQUESTED' ? ' bg-danger' :
-                                                      (${order.orderStatus.name()} == 'CANCELED' ? ' bg-secondary' :
+                                                      (${order.orderStatus.name()} == 'CANCELED' or ${order.orderStatus.name()} == 'PAYMENT_FAILED' ? ' bg-secondary' :
                                                       ' bg-warning text-dark'))">
                                 </span>
                             </td>

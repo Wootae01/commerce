@@ -152,7 +152,7 @@ class PayConsistencyTest extends PaymentIntegrationTestSupport {
 
 	@ParameterizedTest(name = "{0}")
 	@ValueSource(strings = {"ABORTED", "EXPIRED", "CANCELED"})
-	@DisplayName("재요청까지 응답이 끊겼고 토스가 실패·만료·취소라고 하면, 재고를 복원하고 CANCELED를 돌려준다")
+	@DisplayName("재요청까지 응답이 끊겼고 토스가 실패·만료·취소라고 하면, 재고를 복원하고 PAYMENT_FAILED를 돌려준다")
 	void responseLost_tossFailed_canceled(String tossStatus) {
 		// given
 		Orders order = prepareOrder();
@@ -164,9 +164,9 @@ class PayConsistencyTest extends PaymentIntegrationTestSupport {
 		OrderStatus result = payService.confirm(req, userId);
 
 		// then
-		assertThat(result).isEqualTo(OrderStatus.CANCELED);
+		assertThat(result).isEqualTo(OrderStatus.PAYMENT_FAILED);
 		Orders after = orderRepository.findByOrderNumber(order.getOrderNumber()).orElseThrow();
-		assertThat(after.getOrderStatus()).isEqualTo(OrderStatus.CANCELED);
+		assertThat(after.getOrderStatus()).isEqualTo(OrderStatus.PAYMENT_FAILED);
 		assertThat(stock()).isEqualTo(INITIAL_STOCK);
 		verify(2, postRequestedFor(urlEqualTo("/v1/payments/confirm")));
 	}
@@ -285,7 +285,7 @@ class PayConsistencyTest extends PaymentIntegrationTestSupport {
 		"400, REJECT_CARD_PAYMENT",
 		"403, FORBIDDEN_REQUEST" // 금액 불일치. 토스 테스트 키로 확인한 응답(#10)
 	})
-	@DisplayName("승인 요청이 4xx(거절)면 다시 요청하지 않고, 재고를 복원하고 CANCELED를 돌려준다")
+	@DisplayName("승인 요청이 4xx(거절)면 다시 요청하지 않고, 재고를 복원하고 PAYMENT_FAILED를 돌려준다")
 	void clientError_noRetry_canceled(int status, String code) {
 		// given
 		Orders order = prepareOrder();
@@ -300,9 +300,9 @@ class PayConsistencyTest extends PaymentIntegrationTestSupport {
 		OrderStatus result = payService.confirm(req, userId);
 
 		// then
-		assertThat(result).isEqualTo(OrderStatus.CANCELED);
+		assertThat(result).isEqualTo(OrderStatus.PAYMENT_FAILED);
 		Orders after = orderRepository.findByOrderNumber(order.getOrderNumber()).orElseThrow();
-		assertThat(after.getOrderStatus()).isEqualTo(OrderStatus.CANCELED);
+		assertThat(after.getOrderStatus()).isEqualTo(OrderStatus.PAYMENT_FAILED);
 		assertThat(stock()).isEqualTo(INITIAL_STOCK);
 		verify(1, postRequestedFor(urlEqualTo("/v1/payments/confirm")));
 		verify(0, getRequestedFor(urlEqualTo("/v1/payments/" + req.getPaymentKey())));
@@ -340,10 +340,10 @@ class PayConsistencyTest extends PaymentIntegrationTestSupport {
 	@ParameterizedTest(name = "조회 {0} → {1}, 재고 {2}")
 	@CsvSource({
 		"DONE, PAID, 9",
-		"ABORTED, CANCELED, 10",
+		"ABORTED, PAYMENT_FAILED, 10",
 		"IN_PROGRESS, PAYMENT_PENDING, 9"
 	})
-	@DisplayName("재요청까지 5xx면 paymentKey로 결제를 조회해, 승인이면 PAID, 실패면 재고 복원 후 CANCELED, 처리 중이면 PENDING을 돌려준다")
+	@DisplayName("재요청까지 5xx면 paymentKey로 결제를 조회해, 승인이면 PAID, 실패면 재고 복원 후 PAYMENT_FAILED, 처리 중이면 PENDING을 돌려준다")
 	void serverErrorTwice_queryDecides(String tossStatus, OrderStatus expected, int expectedStock) {
 		// given
 		Orders order = prepareOrder();
@@ -533,7 +533,7 @@ class PayConsistencyTest extends PaymentIntegrationTestSupport {
 	}
 
 	@Test
-	@DisplayName("확정 요청과 보정 스케줄러가 같은 주문에 동시에 거절을 받아도, 취소와 재고 복원은 1번만 일어난다")
+	@DisplayName("확정 요청과 보정 스케줄러가 같은 주문에 동시에 거절을 받아도, 결제 실패 반영과 재고 복원은 1번만 일어난다")
 	void confirmAndSchedulerConcurrently_appliedOnce() throws Exception {
 		// given - 확정 요청이 PENDING으로 바꾸고 토스 응답을 기다리는 동안 1분이 지나, 스케줄러가 같은 주문을 꺼낸 상황.
 		// 거절로 확인하는 이유: 성공 반영은 재고를 건드리지 않아 두 번 반영돼도 드러나지 않지만, 재고 복원은 두 번이면 재고가 늘어난다
@@ -573,13 +573,13 @@ class PayConsistencyTest extends PaymentIntegrationTestSupport {
 		});
 
 		// then
-		assertThat(confirmResult.get(30, TimeUnit.SECONDS)).isEqualTo(OrderStatus.CANCELED);
+		assertThat(confirmResult.get(30, TimeUnit.SECONDS)).isEqualTo(OrderStatus.PAYMENT_FAILED);
 		schedulerRun.get(30, TimeUnit.SECONDS);
 		pool.shutdown();
 
 		assertThat(overlapped.get()).as("두 승인 요청이 겹쳤는지").isEqualTo(2);
 		Orders after = orderRepository.findByOrderNumber(order.getOrderNumber()).orElseThrow();
-		assertThat(after.getOrderStatus()).isEqualTo(OrderStatus.CANCELED);
+		assertThat(after.getOrderStatus()).isEqualTo(OrderStatus.PAYMENT_FAILED);
 		assertThat(stock()).isEqualTo(INITIAL_STOCK);
 		Mockito.verify(tossPaymentClient, times(2)).confirm(any()); // 확정 요청 1번 + 스케줄러 1번
 		Mockito.verify(productJdbcRepository, times(1)).updateOptionStock(anyMap(), eq(false));

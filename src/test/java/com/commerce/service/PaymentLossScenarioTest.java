@@ -40,7 +40,7 @@ class PaymentLossScenarioTest extends PaymentIntegrationTestSupport {
 	private static final String TOSS = "toss";
 	private static final String RECOVERED = "recovered";
 
-	// 기대값은 세 버전 모두 같다: 토스 결과와 주문 상태가 맞아야 하고(승인이면 PAID, 아니면 CANCELED), 결과를 모른 채 남으면 안 된다
+	// 기대값은 세 버전 모두 같다: 토스 결과와 주문 상태가 맞아야 하고(승인이면 PAID, 아니면 PAYMENT_FAILED), 결과를 모른 채 남으면 안 된다
 	@ParameterizedTest(name = "{0}")
 	@ValueSource(strings = {"승인됨", "거절", "처리 중", "미도착"})
 	void lossScenario(String scenario) {

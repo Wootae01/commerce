@@ -139,7 +139,7 @@
             }
         }
 
-        // 결제 결과를 한 번 조회해 PAID면 성공, CANCELED면 실패 화면으로 이동하고 true.
+        // 결제 결과를 한 번 조회해 PAID면 성공, PAYMENT_FAILED면 실패 화면으로 이동하고 true.
         // 그 외(PAYMENT_PENDING 등)나 조회 실패는 false (화면을 바꾸지 않는다)
         async function checkResult() {
             const result = await fetchPaymentResult();
@@ -147,7 +147,7 @@
                 goSuccess();
                 return true;
             }
-            if (result?.orderStatus === "CANCELED") {
+            if (result?.orderStatus === "PAYMENT_FAILED") {
                 // 실패 이유가 없으면(실패 이유를 남기기 전의 주문) 기본 문장
                 goFail(result.failureMessage ?? "결제가 승인되지 않았습니다.", "");
                 return true;

@@ -3,7 +3,7 @@ package com.commerce.payment.service;
 import com.commerce.common.code.GeneralResponseCode;
 
 /**
- * 결제 실패 이유. 결제 실패로 주문이 취소될 때 Payment에 남긴다.
+ * 결제 실패 이유. 주문이 결제 실패가 될 때 Payment에 남긴다.
  * @param code 토스 에러 코드 또는 결제 조회 상태(ABORTED 등). 모르면 null. 사용자에게는 보여주지 않는다
  * @param message 사용자에게 보여줄 문장
  */

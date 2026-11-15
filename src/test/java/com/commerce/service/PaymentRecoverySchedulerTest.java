@@ -55,7 +55,7 @@ class PaymentRecoverySchedulerTest extends PaymentIntegrationTestSupport {
 	}
 
 	@Test
-	@DisplayName("다시 요청한 승인이 4xx(거절)면 재고를 복원하고 CANCELED로 확정한다")
+	@DisplayName("다시 요청한 승인이 4xx(거절)면 재고를 복원하고 결제 실패(PAYMENT_FAILED)로 확정한다")
 	void pendingOverOneMinute_rejected_canceled() {
 		// given
 		Orders order = pendingOrder();
@@ -69,7 +69,7 @@ class PaymentRecoverySchedulerTest extends PaymentIntegrationTestSupport {
 
 		// then
 		Orders after = orderRepository.findByOrderNumber(order.getOrderNumber()).orElseThrow();
-		assertThat(after.getOrderStatus()).isEqualTo(OrderStatus.CANCELED);
+		assertThat(after.getOrderStatus()).isEqualTo(OrderStatus.PAYMENT_FAILED);
 		assertThat(stock()).isEqualTo(INITIAL_STOCK);
 	}
 
@@ -139,17 +139,17 @@ class PaymentRecoverySchedulerTest extends PaymentIntegrationTestSupport {
 			{ "method": "카드", "approvedAt": "2026-01-03T01:23:45+09:00" }
 			""");
 		payService.confirm(confirmRequestOf(paid), userId);
-		Orders canceled = prepareOrder();
+		Orders failed = prepareOrder();
 		stubConfirm(400, """
 			{ "code": "REJECT_CARD_PAYMENT", "message": "에러" }
 			""");
-		payService.confirm(confirmRequestOf(canceled), userId);
+		payService.confirm(confirmRequestOf(failed), userId);
 
 		// PENDING이 아닌 주문은 오래됐어도 대상이 아니다
 		LocalDateTime twoMinutesAgo = LocalDateTime.now().minusMinutes(2);
 		markUpdatedAt(ready, twoMinutesAgo);
 		markUpdatedAt(paid, twoMinutesAgo);
-		markUpdatedAt(canceled, twoMinutesAgo);
+		markUpdatedAt(failed, twoMinutesAgo);
 		resetAllRequests();
 
 		// when
@@ -160,7 +160,7 @@ class PaymentRecoverySchedulerTest extends PaymentIntegrationTestSupport {
 		assertThat(statusOf(recentPending)).isEqualTo(OrderStatus.PAYMENT_PENDING);
 		assertThat(statusOf(ready)).isEqualTo(OrderStatus.READY);
 		assertThat(statusOf(paid)).isEqualTo(OrderStatus.PAID);
-		assertThat(statusOf(canceled)).isEqualTo(OrderStatus.CANCELED);
+		assertThat(statusOf(failed)).isEqualTo(OrderStatus.PAYMENT_FAILED);
 	}
 
 	@Test

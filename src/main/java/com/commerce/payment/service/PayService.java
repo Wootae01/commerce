@@ -60,7 +60,7 @@ public class PayService {
 			PaymentType.textOf(payment.getPaymentType()), null, OrderStatus.CANCELED);
 	}
 
-	// 확정 후 주문 상태(PAID / PAYMENT_PENDING / CANCELED)를 돌려준다
+	// 확정 후 주문 상태(PAID / PAYMENT_PENDING / PAYMENT_FAILED)를 돌려준다
 	public OrderStatus confirm(PayConfirmDTO req, Long userId) {
 		log.info("confirm start: orderId={}, paymentKey={}, amount={}",
 			req.getOrderId(), req.getPaymentKey(), req.getAmount());

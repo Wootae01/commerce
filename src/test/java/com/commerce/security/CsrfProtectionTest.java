@@ -89,6 +89,9 @@ class CsrfProtectionTest {
 			.andExpect(status().isNotFound());
 	}
 
+	// XSRF-TOKEN 쿠키로 주고받는 /api 방식은 ApiCsrfCookieTest가 실제 설정으로 확인한다.
+	// 여기서 쓰는 csrf()는 같은 컨텍스트의 CsrfFilter 저장소를 세션 저장소로 바꿔 두기 때문이다
+
 	@Test
 	@DisplayName("화면: 관리자 상품 목록의 홈 노출 폼에 토큰이 들어 있다")
 	void adminProducts_featureForm_hasToken() throws Exception {
