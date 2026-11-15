@@ -15,20 +15,21 @@ ALTER TABLE orders MODIFY order_status ENUM(
 );
 
 -- Step 2: 기존 결제 실패 주문을 옮긴다. 새 코드를 배포한 뒤 실행한다.
---         결제 실패 = 결제를 시도했지만(payment 행이 있음) 승인되지 않은 채(approved_at 없음) CANCELED인 주문.
---         사용자가 취소한 주문은 결제 완료였으므로 approved_at이 있다.
+--         결제 실패 = 결제를 시도했지만(payment 행이 있음) 승인되지 않은 채(payment_type 없음) CANCELED인 주문.
+--         사용자가 취소한 주문은 결제 완료였으므로 payment_type이 있다. 승인되면 결제 수단을 모를 때도 UNKNOWN으로 채운다.
+--         approved_at으로 가리지 않는다. 토스 응답에 승인 시각이 없으면 결제 완료여도 approved_at이 비어 있다.
 --         결제를 시도하지 않고 취소한 결제 준비 주문은 payment 행이 없어 CANCELED로 남는다.
 UPDATE orders o
 JOIN payment p ON p.order_id = o.order_id
 SET o.order_status = 'PAYMENT_FAILED'
 WHERE o.order_status = 'CANCELED'
-  AND p.approved_at IS NULL;
+  AND p.payment_type IS NULL;
 
 -- Step 3: 확인. 아래 숫자가 모두 0이어야 한다.
---         failed_with_approval: 승인 시각이 있는데 결제 실패인 주문
+--         failed_with_approval: 승인된(결제 수단이 있는) 결제인데 결제 실패인 주문
 --         canceled_with_failure: 실패 이유가 있는데 아직 CANCELED인 주문
 SELECT
     (SELECT COUNT(*) FROM orders o JOIN payment p ON p.order_id = o.order_id
-        WHERE o.order_status = 'PAYMENT_FAILED' AND p.approved_at IS NOT NULL) AS failed_with_approval,
+        WHERE o.order_status = 'PAYMENT_FAILED' AND p.payment_type IS NOT NULL) AS failed_with_approval,
     (SELECT COUNT(*) FROM orders o JOIN payment p ON p.order_id = o.order_id
         WHERE o.order_status = 'CANCELED' AND p.failure_code IS NOT NULL) AS canceled_with_failure;
