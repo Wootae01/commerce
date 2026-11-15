@@ -101,7 +101,7 @@ public class SecurityConfig {
 	}
 
 	// JS가 읽어야 해서 HttpOnly를 끈다. Domain은 넣지 않아 지금 호스트에서만 쓰인다
-	public static CookieCsrfTokenRepository apiCsrfTokenRepository() {
+	private static CookieCsrfTokenRepository apiCsrfTokenRepository() {
 		return CookieCsrfTokenRepository.withHttpOnlyFalse();
 	}
 

@@ -10,16 +10,11 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.security.test.web.support.WebTestUtils;
 import org.springframework.test.web.servlet.MockMvc;
-import org.springframework.test.web.servlet.request.RequestPostProcessor;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import org.springframework.web.context.WebApplicationContext;
 
-import com.commerce.common.config.SecurityConfig;
 import com.commerce.config.IntegrationTest;
-
-import jakarta.servlet.http.Cookie;
 
 /**
  * 세션 쿠키로 로그인한 사용자·관리자의 상태 변경 요청은 CSRF 토큰이 없으면 거절된다.
@@ -94,57 +89,8 @@ class CsrfProtectionTest {
 			.andExpect(status().isNotFound());
 	}
 
-	// 아래 세 테스트는 csrf()를 쓰지 않고 실제 쿠키 저장소로 확인한다.
-	// csrf()는 한 번 쓰이면 같은 컨텍스트의 CsrfFilter 저장소를 세션 저장소로 바꿔 둔다. 그래서 요청마다 되돌린다
-
-	@Test
-	@DisplayName("API: 요청하면 React가 읽을 수 있는 XSRF-TOKEN 쿠키를 내려준다")
-	void api_issuesReadableCsrfCookie() throws Exception {
-		mockMvc.perform(get("/api/users/me").with(user("user")).with(apiCookieCsrfRepository()))
-			.andExpect(cookie().exists(API_CSRF_COOKIE))
-			.andExpect(cookie().httpOnly(API_CSRF_COOKIE, false));
-	}
-
-	@Test
-	@DisplayName("API: 쿠키의 토큰을 X-XSRF-TOKEN 헤더에 담으면 컨트롤러까지 간다")
-	void api_cookieTokenInHeader_passes() throws Exception {
-		Cookie token = issueApiCsrfCookie();
-
-		mockMvc.perform(post("/api/orders/{orderNumber}/cancel", ORDER_NUMBER)
-				.with(user("user"))
-				.with(apiCookieCsrfRepository())
-				.cookie(token)
-				.header("X-XSRF-TOKEN", token.getValue()))
-			.andExpect(status().isNotFound());
-	}
-
-	@Test
-	@DisplayName("API: 쿠키만 있고 헤더가 없으면 403 (다른 사이트의 요청에도 쿠키는 붙는다)")
-	void api_cookieWithoutHeader_forbidden() throws Exception {
-		Cookie token = issueApiCsrfCookie();
-
-		mockMvc.perform(post("/api/orders/{orderNumber}/cancel", ORDER_NUMBER)
-				.with(user("user"))
-				.with(apiCookieCsrfRepository())
-				.cookie(token))
-			.andExpect(status().isForbidden());
-	}
-
-	private static final String API_CSRF_COOKIE = "XSRF-TOKEN";
-
-	private static RequestPostProcessor apiCookieCsrfRepository() {
-		return request -> {
-			WebTestUtils.setCsrfTokenRepository(request, SecurityConfig.apiCsrfTokenRepository());
-			return request;
-		};
-	}
-
-	private Cookie issueApiCsrfCookie() throws Exception {
-		Cookie token = mockMvc.perform(get("/api/users/me").with(user("user")).with(apiCookieCsrfRepository()))
-			.andReturn().getResponse().getCookie(API_CSRF_COOKIE);
-		assertThat(token).isNotNull();
-		return token;
-	}
+	// XSRF-TOKEN 쿠키로 주고받는 /api 방식은 ApiCsrfCookieTest가 실제 설정으로 확인한다.
+	// 여기서 쓰는 csrf()는 같은 컨텍스트의 CsrfFilter 저장소를 세션 저장소로 바꿔 두기 때문이다
 
 	@Test
 	@DisplayName("화면: 관리자 상품 목록의 홈 노출 폼에 토큰이 들어 있다")

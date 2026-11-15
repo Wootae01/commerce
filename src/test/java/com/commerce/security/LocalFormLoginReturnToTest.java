@@ -9,45 +9,22 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.context.annotation.Configuration;
 import org.springframework.test.context.ActiveProfiles;
-import org.springframework.test.context.TestPropertySource;
-import org.springframework.test.context.bean.override.mockito.MockitoBean;
-import org.springframework.test.context.junit.jupiter.web.SpringJUnitWebConfig;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import org.springframework.web.context.WebApplicationContext;
-import org.springframework.web.servlet.config.annotation.EnableWebMvc;
 
-import com.commerce.auth.CustomClientRegistrationRepo;
-import com.commerce.auth.DevAuthUsers;
 import com.commerce.auth.LoginReturnTo;
-import com.commerce.auth.SocialClientRegistration;
-import com.commerce.auth.service.CustomOauth2UserService;
-import com.commerce.auth.service.CustomUserDetailService;
-import com.commerce.common.config.SecurityConfig;
-import com.commerce.common.exception.ApiAuthenticationEntryPoint;
+import com.commerce.config.SecurityOnlyTest;
 
 /**
  * local 폼 로그인(POST /login)도 returnTo로 넘긴 경로로 돌려보낸다.
  * 폼 로그인은 local 체인에만 있어서 test 프로필의 @IntegrationTest로는 확인할 수 없다.
- * DB 없이 보안 설정만 올린다(공용 MySQL 커넥션을 쓰지 않는다).
  */
-@SpringJUnitWebConfig(classes = {LocalFormLoginReturnToTest.MvcConfig.class, SecurityConfig.class, DevAuthUsers.class,
-	CustomClientRegistrationRepo.class, SocialClientRegistration.class})
+@SecurityOnlyTest
 @ActiveProfiles("local")
-@TestPropertySource(properties = {"naver.client-id=test-client", "naver.client-secret=test-secret"})
 class LocalFormLoginReturnToTest {
-
-	// 보안 설정의 경로 매칭(requestMatchers)이 Spring MVC를 쓴다
-	@Configuration
-	@EnableWebMvc
-	static class MvcConfig {
-	}
-
-	@MockitoBean CustomOauth2UserService customOauth2UserService;
-	@MockitoBean CustomUserDetailService customUserDetailService;
-	@MockitoBean ApiAuthenticationEntryPoint apiAuthenticationEntryPoint;
 
 	@Autowired WebApplicationContext context;
 	MockMvc mockMvc;
@@ -78,7 +55,7 @@ class LocalFormLoginReturnToTest {
 			.andExpect(redirectedUrl("/"));
 	}
 
-	private static org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder login() {
+	private static MockHttpServletRequestBuilder login() {
 		return post("/login").with(csrf()).param("username", "user1").param("password", "password!");
 	}
 }
