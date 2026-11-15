@@ -12,4 +12,5 @@
 ## Consequences
 
 - 로그인 성공 후 이동은 React에서 시작한 로그인과 서버 렌더링 화면에서 시작한 로그인을 구분해야 한다. React는 돌아갈 경로를 넘기고, 백엔드는 `/`로 시작하는 사이트 안의 경로만 받는다.
+- React는 로그인 화면(`/login`)을 거치지 않고 `/oauth2/authorization/naver?returnTo=<경로>`로 바로 보낸다. 로그인 화면은 받은 `returnTo`를 네이버 로그인 링크에 이어 붙이지 않으므로, `/login?returnTo=`로 보내면 로그인 뒤 홈으로 간다.
 - nginx를 거치지 않고 접속하기 때문에, 로컬의 서버 렌더링 화면은 blue/green 전환의 영향을 받지 않는다.
