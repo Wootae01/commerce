@@ -109,6 +109,29 @@ public class SecurityConfig {
 	@Bean
 	@Profile({"prod", "dev", "test"})
 	public SecurityFilterChain userSecurity(HttpSecurity http) throws Exception {
+		configureUserScreen(http);
+		return http.build();
+	}
+
+	// local에서는 네이버 로그인에 더해 로컬 폼 로그인을 쓴다
+	@Bean
+	@Profile("local")
+	public SecurityFilterChain userSecurityDev(HttpSecurity http, @Qualifier("devUserDetailService")
+		UserDetailsService devUserDetailService) throws Exception {
+		configureUserScreen(http);
+		http
+			.formLogin(form -> form
+				.loginPage("/login")
+				.loginProcessingUrl("/login")   // POST /login 처리
+				.successHandler(LoginSuccessHandler.forFormLogin())
+				.permitAll())
+			.userDetailsService(devUserDetailService);
+
+		return http.build();
+	}
+
+	// 일반 사용자 체인 공통: 네이버 로그인, 로그인 뒤 돌아갈 경로, 허용 경로, 로그아웃
+	private void configureUserScreen(HttpSecurity http) throws Exception {
 		http
 			.httpBasic(basic -> basic.disable())
 
@@ -131,48 +154,5 @@ public class SecurityConfig {
 				.logoutSuccessUrl("/")
 				.invalidateHttpSession(true)
 				.deleteCookies("JSESSIONID"));
-
-		return http.build();
-	}
-
-	@Bean
-	@Profile("local")
-	public SecurityFilterChain userSecurityDev(HttpSecurity http, @Qualifier("devUserDetailService")
-		UserDetailsService devUserDetailService) throws Exception {
-		http
-			.httpBasic(basic -> basic.disable())
-
-			// local에서는 로컬 폼 로그인 추가
-			.formLogin(form -> form
-				.loginPage("/login")
-				.loginProcessingUrl("/login")   // POST /login 처리
-				.successHandler(LoginSuccessHandler.forFormLogin())
-				.permitAll()
-			)
-			.userDetailsService(devUserDetailService)
-
-			.oauth2Login(oauth2 -> oauth2
-				.loginPage("/login")
-				.clientRegistrationRepository(clientRegistrationRepo.clientRegistrationRepository())
-				.userInfoEndpoint(userInfo -> userInfo.userService(customOauth2UserService))
-				.successHandler(LoginSuccessHandler.forOAuth())
-			)
-			.addFilterBefore(new LoginReturnToFilter(), OAuth2AuthorizationRequestRedirectFilter.class)
-
-			.authorizeHttpRequests(auth -> auth
-				.requestMatchers("/", "/home", "/login/**", "/oauth2/**", "/uploads/**",
-					"/products/*", "/error/**", "/actuator/health", "/actuator/prometheus", "/images/**",
-						"/favicon.ico"
-				).permitAll()
-				.anyRequest().authenticated()
-			)
-			.logout(logout -> logout
-				.logoutUrl("/logout")
-				.logoutSuccessUrl("/")
-				.invalidateHttpSession(true)
-				.deleteCookies("JSESSIONID")
-			);
-
-		return http.build();
 	}
 }
