@@ -6,6 +6,7 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Profile;
 import org.springframework.core.annotation.Order;
 import org.springframework.http.HttpMethod;
+import org.springframework.http.HttpStatus;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.core.userdetails.UserDetailsService;
@@ -15,6 +16,7 @@ import org.springframework.security.oauth2.client.web.OAuth2AuthorizationRequest
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.access.AccessDeniedHandler;
 import org.springframework.security.web.access.AccessDeniedHandlerImpl;
+import org.springframework.security.web.authentication.logout.HttpStatusReturningLogoutSuccessHandler;
 import org.springframework.security.web.csrf.CookieCsrfTokenRepository;
 import org.springframework.security.web.csrf.CsrfException;
 
@@ -95,7 +97,15 @@ public class SecurityConfig {
 				.requestMatchers(HttpMethod.GET, "/api/products", "/api/products/**").permitAll()
 				.anyRequest().authenticated())
 			.exceptionHandling(exception -> exception
-				.authenticationEntryPoint(apiAuthenticationEntryPoint));
+				.authenticationEntryPoint(apiAuthenticationEntryPoint))
+			// React용 로그아웃. 화면의 /logout은 세션의 CSRF 토큰을 요구해 React에서 쓸 수 없다.
+			// CSRF를 켜 두었으므로 POST만 받고, 화면을 옮기지 않고 204로 응답한다.
+			// 세션이 이미 끝났어도 204다(인가 전에 처리된다)
+			.logout(logout -> logout
+				.logoutUrl("/api/logout")
+				.logoutSuccessHandler(new HttpStatusReturningLogoutSuccessHandler(HttpStatus.NO_CONTENT))
+				.invalidateHttpSession(true)
+				.deleteCookies("JSESSIONID"));
 
 		return http.build();
 	}
