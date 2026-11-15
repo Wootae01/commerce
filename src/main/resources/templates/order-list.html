@@ -70,7 +70,7 @@
                         <span class="text-danger ms-1" th:text="${#numbers.formatInteger(order.finalPrice, 3, 'COMMA')} + '원'"></span>
                     </div>
                     <div class="d-flex gap-2">
-                        <form th:if="${order.orderStatus.name() == 'PAID' or order.orderStatus.name() == 'READY'}"
+                        <form th:if="${order.orderStatus.name() == 'PAID'}"
                               th:action="@{'/pay/' + ${order.orderNumber} + '/cancel'}"
                               method="post"
                               onsubmit="return confirm('주문을 취소할까요?');">
